@@ -16,12 +16,18 @@ type CreateUserFiles = {
 
 const userSearchAbleFields = [
   'fullName',
+  'firstName',
+  'lastName',
   'email',
+  'username',
   'role',
   'gender',
   'phoneNumber',
+  'businessName',
+  'category',
   'country',
   'city',
+  'state',
   'address',
   'postcode',
   'status',
@@ -32,6 +38,46 @@ export class UserService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
+
+  private buildFullName(payload: Partial<CreateUserDto | UpdateUserDto>) {
+    if (payload.fullName) {
+      return payload.fullName;
+    }
+
+    const fullName = [payload.firstName, payload.lastName]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(' ');
+
+    return fullName || payload.businessName || undefined;
+  }
+
+  private async ensureUniqueUserFields(
+    payload: Partial<CreateUserDto | UpdateUserDto>,
+    currentUserId?: string,
+  ) {
+    if (payload.email) {
+      const existingUser = await this.userModel.findOne({
+        email: payload.email.toLowerCase(),
+        ...(currentUserId ? { _id: { $ne: currentUserId } } : {}),
+      });
+
+      if (existingUser) {
+        throw new HttpException('User already exists with this email', 400);
+      }
+    }
+
+    if (payload.username) {
+      const existingUser = await this.userModel.findOne({
+        username: payload.username.toLowerCase(),
+        ...(currentUserId ? { _id: { $ne: currentUserId } } : {}),
+      });
+
+      if (existingUser) {
+        throw new HttpException('Username is already taken', 400);
+      }
+    }
+  }
 
   private getEmailsFromCsv(file: Express.Multer.File): string[] {
     if (!file?.buffer?.length) {
@@ -80,7 +126,7 @@ export class UserService {
       Object.entries(createUserDto).filter(
         ([, value]) => value !== undefined && value !== '',
       ),
-    ) as CreateUserDto;
+    ) as CreateUserDto & { fullName?: string };
 
     const profilePicture =
       files && 'buffer' in files ? files : files?.profilePicture;
@@ -114,13 +160,22 @@ export class UserService {
     }
 
     if (!payload.fullName) {
+      payload.fullName = this.buildFullName(payload);
+    }
+
+    if (!payload.fullName) {
       throw new HttpException('Full name is required', 400);
     }
 
-    const user = await this.userModel.findOne({ email: payload.email });
-    if (user) {
-      throw new HttpException('User already exists', 400);
+    if (payload.email) {
+      payload.email = payload.email.toLowerCase();
     }
+    if (payload.username) {
+      payload.username = payload.username.toLowerCase();
+    }
+
+    await this.ensureUniqueUserFields(payload);
+
     if (profilePicture) {
       const uploadedFile = await fileUpload.uploadToCloudinary(profilePicture);
       payload.profilePicture = uploadedFile.url;
@@ -172,6 +227,19 @@ export class UserService {
       const uploadedFile = await fileUpload.uploadToCloudinary(file);
       updateUserDto.profilePicture = uploadedFile.url;
     }
+    if (updateUserDto.email) {
+      updateUserDto.email = updateUserDto.email.toLowerCase();
+    }
+    if (updateUserDto.username) {
+      updateUserDto.username = updateUserDto.username.toLowerCase();
+    }
+
+    await this.ensureUniqueUserFields(updateUserDto, id);
+
+    const fullName = this.buildFullName(updateUserDto);
+    if (fullName) {
+      updateUserDto.fullName = fullName;
+    }
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,
       updateUserDto,
@@ -209,6 +277,19 @@ export class UserService {
     if (file) {
       const uploadedFile = await fileUpload.uploadToCloudinary(file);
       updateUserDto.profilePicture = uploadedFile.url;
+    }
+    if (updateUserDto.email) {
+      updateUserDto.email = updateUserDto.email.toLowerCase();
+    }
+    if (updateUserDto.username) {
+      updateUserDto.username = updateUserDto.username.toLowerCase();
+    }
+
+    await this.ensureUniqueUserFields(updateUserDto, id);
+
+    const fullName = this.buildFullName(updateUserDto);
+    if (fullName) {
+      updateUserDto.fullName = fullName;
     }
     const result = await this.userModel.findByIdAndUpdate(id, updateUserDto, {
       new: true,

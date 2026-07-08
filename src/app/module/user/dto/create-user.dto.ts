@@ -4,11 +4,16 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  MinLength,
   IsDateString,
   IsBoolean,
+  IsUrl,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import {
+  USER_GENDERS,
+  USER_ROLES,
+  USER_STATUSES,
+} from 'src/app/constants/auth.constants';
 
 const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : value;
@@ -23,6 +28,18 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: '' })
   @IsOptional()
   @Transform(emptyStringToUndefined)
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
   @IsEmail()
   email?: string;
 
@@ -30,18 +47,24 @@ export class CreateUserDto {
   @IsOptional()
   @Transform(emptyStringToUndefined)
   @IsString()
+  username?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
   password?: string;
 
-  @ApiPropertyOptional({ enum: ['user', 'admin'] })
+  @ApiPropertyOptional({ enum: USER_ROLES })
   @IsOptional()
   @Transform(emptyStringToUndefined)
-  @IsEnum(['user', 'admin'])
+  @IsEnum(USER_ROLES)
   role?: string;
 
-  @ApiPropertyOptional({ enum: ['male', 'female'] })
+  @ApiPropertyOptional({ enum: USER_GENDERS })
   @IsOptional()
   @Transform(emptyStringToUndefined)
-  @IsEnum(['male', 'female'])
+  @IsEnum(USER_GENDERS)
   gender?: string;
 
   @ApiPropertyOptional({ example: '' })
@@ -60,6 +83,36 @@ export class CreateUserDto {
   @IsOptional()
   @Transform(emptyStringToUndefined)
   @IsString()
+  businessName?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsEmail()
+  businessEmail?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsUrl()
+  businessWebsiteUrl?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  serviceArea?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
   country?: string;
 
   @ApiPropertyOptional({ example: '' })
@@ -67,6 +120,12 @@ export class CreateUserDto {
   @Transform(emptyStringToUndefined)
   @IsString()
   city?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  state?: string;
 
   @ApiPropertyOptional({ example: '' })
   @IsOptional()
@@ -107,7 +166,18 @@ export class CreateUserDto {
   })
   verifiedForget?: boolean;
 
-  @ApiPropertyOptional({ enum: ['active', 'suspended'] })
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true';
+    }
+    return value;
+  })
+  agreementAccepted?: boolean;
+
+  @ApiPropertyOptional({ enum: USER_STATUSES })
   @IsString()
   @IsOptional()
   @Transform(emptyStringToUndefined)
