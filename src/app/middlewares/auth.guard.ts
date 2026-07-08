@@ -10,11 +10,12 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import config from '../config';
+import { type UserRole } from '../constants/auth.constants';
 
 export interface JwtPayload {
   id: string;
   email: string;
-  role: string;
+  role: UserRole;
   iat?: number;
   exp?: number;
 }
@@ -27,7 +28,7 @@ declare global {
   }
 }
 
-export default function AuthGuard(...roles: string[]): Type<CanActivate> {
+export default function AuthGuard(...roles: UserRole[]): Type<CanActivate> {
   @Injectable()
   class AuthGuardImpl implements CanActivate {
     constructor(readonly jwtService: JwtService) {}

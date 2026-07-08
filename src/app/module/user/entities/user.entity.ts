@@ -3,6 +3,14 @@ import { HydratedDocument } from 'mongoose';
 export type UserDocument = HydratedDocument<User>;
 import * as bcrypt from 'bcrypt';
 import config from '../../../config';
+import {
+  USER_GENDERS,
+  USER_ROLES,
+  USER_STATUSES,
+  type UserGender,
+  type UserRole,
+  type UserStatus,
+} from 'src/app/constants/auth.constants';
 
 @Schema({ timestamps: true })
 export class User {
@@ -11,6 +19,12 @@ export class User {
     trim: true,
   })
   fullName: string;
+
+  @Prop({ trim: true })
+  firstName?: string;
+
+  @Prop({ trim: true })
+  lastName?: string;
 
   @Prop({
     required: [true, 'Email is required'],
@@ -21,29 +35,53 @@ export class User {
   email: string;
 
   @Prop({
-    // required: [true, 'Password is required'],
-    // minlength: 6,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+  })
+  username?: string;
+
+  @Prop({
     select: false,
   })
   password: string;
 
   @Prop({
-    enum: ['user', 'admin'],
+    enum: USER_ROLES,
     default: 'user',
   })
-  role: string;
+  role: UserRole;
 
-  @Prop({ enum: ['male', 'female'], default: 'male' })
-  gender: string;
+  @Prop({ enum: USER_GENDERS, default: 'male' })
+  gender: UserGender;
 
   @Prop()
   phoneNumber: string;
+
+  @Prop({ trim: true })
+  businessName?: string;
+
+  @Prop({ lowercase: true, trim: true })
+  businessEmail?: string;
+
+  @Prop({ trim: true })
+  businessWebsiteUrl?: string;
+
+  @Prop({ trim: true })
+  serviceArea?: string;
+
+  @Prop({ trim: true })
+  category?: string;
 
   @Prop()
   country: string;
 
   @Prop()
   city: string;
+
+  @Prop()
+  state?: string;
 
   @Prop()
   address: string;
@@ -63,11 +101,14 @@ export class User {
   @Prop()
   otpExpiry?: Date;
 
-  @Prop({ enum: ['active', 'suspended'], default: 'active' })
-  status: string;
+  @Prop({ enum: USER_STATUSES, default: 'active' })
+  status: UserStatus;
 
-  @Prop()
+  @Prop({ default: false })
   verifiedForget: boolean;
+
+  @Prop({ default: false })
+  agreementAccepted: boolean;
 
   @Prop()
   stripeAccountId: string;
@@ -82,7 +123,7 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.pre('save', async function () {
-  if (!this.isModified('password')) return;
+  if (!this.isModified('password') || !this.password) return;
 
   this.password = await bcrypt.hash(
     this.password,

@@ -1,32 +1,177 @@
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { USER_ROLES } from 'src/app/constants/auth.constants';
 
-export class CreateAuthDto {
-  @ApiProperty({ example: 'Saurav Sarkar' })
+const normalizeString = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
+const emptyStringToUndefined = ({ value }: { value: unknown }) =>
+  value === '' ? undefined : normalizeString({ value });
+
+export class RegisterUserDto {
+  @ApiProperty({ example: 'John' })
+  @Transform(normalizeString)
   @IsString()
-  fullName: string;
+  @IsNotEmpty()
+  firstName: string;
 
-  @ApiProperty({ example: 'saurav@example.com' })
+  @ApiProperty({ example: 'Doe' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
+
+  @ApiProperty({ example: 'john_doe' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ example: 'john@example.com' })
+  @Transform(normalizeString)
   @IsEmail({}, { message: 'Valid email is required' })
   @IsNotEmpty()
   email: string;
+
+  @ApiProperty({ example: '+12345678901' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8, { message: 'Phone number must be at least 8 characters' })
+  phoneNumber: string;
 
   @ApiProperty({ example: 'secret123' })
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password: string;
 
-  @ApiPropertyOptional({ example: '01234567890' })
+  @ApiProperty({ example: 'secret123' })
   @IsString()
-  @MinLength(11, { message: 'Phone number must be at least 11 characters' })
-  phone: string;
+  @MinLength(6, { message: 'Confirm password must be at least 6 characters' })
+  confirmPassword: string;
+
+  @ApiProperty({ example: true })
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  agreementAccepted: boolean;
 }
 
-export class LoginAuthDto {
-  @ApiProperty({ example: 'saurav@example.com' })
-  @IsEmail({}, { message: 'Valid email is required' })
+export class RegisterBusinessOwnerDto {
+  @ApiProperty({ example: 'Acme Plumbing' })
+  @Transform(normalizeString)
+  @IsString()
   @IsNotEmpty()
-  email: string;
+  businessName: string;
+
+  @ApiProperty({ example: 'Jane Owner' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  ownerName: string;
+
+  @ApiProperty({ example: 'acme_owner' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ example: 'owner@example.com' })
+  @Transform(normalizeString)
+  @IsEmail({}, { message: 'Valid personal email is required' })
+  @IsNotEmpty()
+  personalEmail: string;
+
+  @ApiPropertyOptional({ example: 'contact@acme.com' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsEmail({}, { message: 'Valid business email is required' })
+  businessEmail?: string;
+
+  @ApiPropertyOptional({ example: 'https://acme.com' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsUrl({}, { message: 'Valid website URL is required' })
+  businessWebsiteUrl?: string;
+
+  @ApiProperty({ example: '221B Baker Street' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiPropertyOptional({ example: '15 miles around New York' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  serviceArea?: string;
+
+  @ApiProperty({ example: 'Plumbing' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  category: string;
+
+  @ApiProperty({ example: 'New York' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  state: string;
+
+  @ApiProperty({ example: 'New York' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @ApiProperty({ example: 'secret123' })
+  @IsString()
+  @MinLength(6, { message: 'Password must be at least 6 characters' })
+  password: string;
+
+  @ApiProperty({ example: 'secret123' })
+  @IsString()
+  @MinLength(6, { message: 'Confirm password must be at least 6 characters' })
+  confirmPassword: string;
+
+  @ApiProperty({ example: true })
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  agreementAccepted: boolean;
+}
+
+export class CreateAuthDto extends RegisterUserDto {}
+
+export class LoginAuthDto {
+  @ApiPropertyOptional({
+    example: 'john@example.com',
+    description: 'Backward-compatible login using email',
+  })
+  @ValidateIf((object) => !object.identifier)
+  @Transform(emptyStringToUndefined)
+  @IsEmail({}, { message: 'Valid email is required' })
+  email?: string;
+
+  @ApiPropertyOptional({
+    example: 'john_doe',
+    description: 'Preferred login using email or username',
+  })
+  @ValidateIf((object) => !object.email)
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsNotEmpty()
+  identifier?: string;
 
   @ApiProperty({ example: 'secret123' })
   @IsString()
@@ -35,26 +180,30 @@ export class LoginAuthDto {
 }
 
 export class ForgotPasswordDto {
-  @ApiProperty({ example: 'saurav@example.com' })
+  @ApiProperty({ example: 'john@example.com' })
+  @Transform(normalizeString)
   @IsEmail({}, { message: 'Valid email is required' })
   @IsNotEmpty()
   email: string;
 }
 
 export class VerifyEmailDto {
-  @ApiProperty({ example: 'saurav@example.com' })
+  @ApiProperty({ example: 'john@example.com' })
+  @Transform(normalizeString)
   @IsEmail({}, { message: 'Valid email is required' })
   @IsNotEmpty()
   email: string;
 
   @ApiProperty({ example: '123456' })
+  @Transform(normalizeString)
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{6}$/, { message: 'OTP must be a 6 digit number' })
   otp: string;
 }
 
 export class ResetPasswordDto {
-  @ApiProperty({ example: 'saurav@example.com' })
+  @ApiProperty({ example: 'john@example.com' })
+  @Transform(normalizeString)
   @IsEmail({}, { message: 'Valid email is required' })
   @IsNotEmpty()
   email: string;
@@ -75,4 +224,10 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   newPassword: string;
+}
+
+export class UpdateUserRoleDto {
+  @ApiProperty({ enum: USER_ROLES })
+  @IsEnum(USER_ROLES)
+  role: (typeof USER_ROLES)[number];
 }

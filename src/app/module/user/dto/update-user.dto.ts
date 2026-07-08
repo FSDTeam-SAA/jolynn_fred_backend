@@ -7,6 +7,9 @@ const emptyStringToUndefined = ({ value }: { value: unknown }) =>
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @Transform(emptyStringToUndefined)
+  fullName?: string;
+
+  @Transform(emptyStringToUndefined)
   firstName?: string;
 
   @Transform(emptyStringToUndefined)
@@ -26,6 +29,39 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
 
   @Transform(emptyStringToUndefined)
   phoneNumber?: string;
+
+  @Transform(emptyStringToUndefined)
+  username?: string;
+
+  @Transform(emptyStringToUndefined)
+  businessName?: string;
+
+  @Transform(emptyStringToUndefined)
+  businessEmail?: string;
+
+  @Transform(emptyStringToUndefined)
+  businessWebsiteUrl?: string;
+
+  @Transform(emptyStringToUndefined)
+  serviceArea?: string;
+
+  @Transform(emptyStringToUndefined)
+  category?: string;
+
+  @Transform(emptyStringToUndefined)
+  country?: string;
+
+  @Transform(emptyStringToUndefined)
+  city?: string;
+
+  @Transform(emptyStringToUndefined)
+  state?: string;
+
+  @Transform(emptyStringToUndefined)
+  address?: string;
+
+  @Transform(emptyStringToUndefined)
+  postcode?: string;
 
   @Transform(emptyStringToUndefined)
   bio?: string;
@@ -65,6 +101,19 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
     return value;
   })
   verifiedForget?: boolean;
+
+  @Transform(({ value }) => {
+    if (value === '') {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true';
+    }
+
+    return value;
+  })
+  agreementAccepted?: boolean;
 
   @Transform(emptyStringToUndefined)
   stripeAccountId?: string;
