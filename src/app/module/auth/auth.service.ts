@@ -91,9 +91,9 @@ export class AuthService {
     return this.sanitizeUser(newUser);
   }
 
-  async register(registerUserDto: CreateAuthDto) {
-    return this.registerUser(registerUserDto);
-  }
+  // async register(registerUserDto: CreateAuthDto) {
+  //   return this.registerUser(registerUserDto);
+  // }
 
   async registerUser(registerUserDto: RegisterUserDto) {
     this.validatePasswordConfirmation(
