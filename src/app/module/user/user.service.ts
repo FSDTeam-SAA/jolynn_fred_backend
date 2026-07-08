@@ -39,19 +39,6 @@ export class UserService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
-  private buildFullName(payload: Partial<CreateUserDto | UpdateUserDto>) {
-    if (payload.fullName) {
-      return payload.fullName;
-    }
-
-    const fullName = [payload.firstName, payload.lastName]
-      .map((part) => part?.trim())
-      .filter(Boolean)
-      .join(' ');
-
-    return fullName || payload.businessName || undefined;
-  }
-
   private async ensureUniqueUserFields(
     payload: Partial<CreateUserDto | UpdateUserDto>,
     currentUserId?: string,
@@ -160,10 +147,6 @@ export class UserService {
     }
 
     if (!payload.fullName) {
-      payload.fullName = this.buildFullName(payload);
-    }
-
-    if (!payload.fullName) {
       throw new HttpException('Full name is required', 400);
     }
 
@@ -235,11 +218,6 @@ export class UserService {
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
-
-    const fullName = this.buildFullName(updateUserDto);
-    if (fullName) {
-      updateUserDto.fullName = fullName;
-    }
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,
       updateUserDto,
@@ -287,10 +265,6 @@ export class UserService {
 
     await this.ensureUniqueUserFields(updateUserDto, id);
 
-    const fullName = this.buildFullName(updateUserDto);
-    if (fullName) {
-      updateUserDto.fullName = fullName;
-    }
     const result = await this.userModel.findByIdAndUpdate(id, updateUserDto, {
       new: true,
     });
