@@ -23,12 +23,7 @@ export class AuthService {
     private readonly jwtService: jwt.JwtService,
   ) {}
 
-  private buildFullName(parts: Array<string | undefined>) {
-    return parts
-      .map((part) => part?.trim())
-      .filter(Boolean)
-      .join(' ');
-  }
+ 
 
   private sanitizeUser(user: UserDocument) {
     const rawUser = user.toObject() as unknown as {
@@ -107,22 +102,18 @@ export class AuthService {
     );
     this.validateTermsAcceptance(registerUserDto.agreementAccepted);
 
-    return this.createAccount(
-      {
-        firstName: registerUserDto.firstName,
-        lastName: registerUserDto.lastName,
-        fullName: this.buildFullName([
-          registerUserDto.firstName,
-          registerUserDto.lastName,
-        ]),
-        username: registerUserDto.username.toLowerCase(),
-        email: registerUserDto.email.toLowerCase(),
-        phoneNumber: registerUserDto.phoneNumber,
-        password: registerUserDto.password,
-        agreementAccepted: registerUserDto.agreementAccepted,
-      },
-      'user',
-    );
+return this.createAccount(
+  {
+    firstName: registerUserDto.firstName,
+    lastName: registerUserDto.lastName,
+    username: registerUserDto.username.toLowerCase(),
+    email: registerUserDto.email.toLowerCase(),
+    phoneNumber: registerUserDto.phoneNumber,
+    password: registerUserDto.password,
+    agreementAccepted: registerUserDto.agreementAccepted,
+  },
+  'user',
+);
   }
 
   async registerBusinessOwner(
@@ -136,7 +127,8 @@ export class AuthService {
 
     return this.createAccount(
       {
-        fullName: registerBusinessOwnerDto.ownerName,
+        firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
+        lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
         username: registerBusinessOwnerDto.username.toLowerCase(),
         email: registerBusinessOwnerDto.personalEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,

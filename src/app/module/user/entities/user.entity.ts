@@ -14,11 +14,7 @@ import {
 
 @Schema({ timestamps: true })
 export class User {
-  @Prop({
-    required: [true, 'Full name is required'],
-    trim: true,
-  })
-  fullName: string;
+
 
   @Prop({ trim: true })
   firstName?: string;
