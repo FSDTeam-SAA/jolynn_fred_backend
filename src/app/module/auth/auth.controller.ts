@@ -27,16 +27,16 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(@Body() CreateAuthDto: CreateAuthDto) {
-    const result = await this.authService.register(CreateAuthDto);
+  // @Post('register')
+  // @HttpCode(HttpStatus.CREATED)
+  // async register(@Body() CreateAuthDto: CreateAuthDto) {
+  //   const result = await this.authService.register(CreateAuthDto);
 
-    return {
-      message: 'User registered successfully',
-      data: result,
-    };
-  }
+  //   return {
+  //     message: 'User registered successfully',
+  //     data: result,
+  //   };
+  // }
 
   @Post('register/user')
   @ApiOperation({ summary: 'Register a standard user account' })
