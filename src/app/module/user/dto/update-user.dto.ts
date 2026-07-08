@@ -6,8 +6,6 @@ const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : value;
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
-  @Transform(emptyStringToUndefined)
-  fullName?: string;
 
   @Transform(emptyStringToUndefined)
   firstName?: string;

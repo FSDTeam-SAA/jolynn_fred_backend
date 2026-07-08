@@ -60,7 +60,6 @@ export class UserController {
     schema: {
       type: 'object',
       properties: {
-        fullName: { type: 'string', example: '' },
         firstName: { type: 'string', example: '' },
         lastName: { type: 'string', example: '' },
         email: { type: 'string', example: '' },
@@ -162,13 +161,7 @@ export class UserController {
     example: '',
     description: 'Search by ',
   })
-  @ApiQuery({
-    name: 'fullName',
-    required: false,
-    type: String,
-    example: '',
-    description: 'Filter by exact fullName',
-  })
+
   @ApiQuery({
     name: 'email',
     required: false,
@@ -272,7 +265,6 @@ export class UserController {
   async getAllUser(@Req() req: Request) {
     const params = pick(req.query, [
       'searchTerm',
-      'fullName',
       'email',
       'username',
       'businessName',

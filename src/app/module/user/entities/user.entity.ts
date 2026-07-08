@@ -15,6 +15,7 @@ import {
 @Schema({ timestamps: true })
 export class User {
 
+
   @Prop({ trim: true })
   firstName?: string;
 
