@@ -14,6 +14,8 @@ import {
   CreateAuthDto,
   ForgotPasswordDto,
   LoginAuthDto,
+  RegisterBusinessOwnerDto,
+  RegisterUserDto,
   ResetPasswordDto,
   VerifyEmailDto,
 } from './dto/create-auth.dto';
@@ -32,6 +34,36 @@ export class AuthController {
 
     return {
       message: 'User registered successfully',
+      data: result,
+    };
+  }
+
+  @Post('register/user')
+  @ApiOperation({ summary: 'Register a standard user account' })
+  @ApiBody({ type: RegisterUserDto })
+  @HttpCode(HttpStatus.CREATED)
+  async registerUser(@Body() registerUserDto: RegisterUserDto) {
+    const result = await this.authService.registerUser(registerUserDto);
+
+    return {
+      message: 'User registered successfully',
+      data: result,
+    };
+  }
+
+  @Post('register/business-owner')
+  @ApiOperation({ summary: 'Register a business owner account' })
+  @ApiBody({ type: RegisterBusinessOwnerDto })
+  @HttpCode(HttpStatus.CREATED)
+  async registerBusinessOwner(
+    @Body() registerBusinessOwnerDto: RegisterBusinessOwnerDto,
+  ) {
+    const result = await this.authService.registerBusinessOwner(
+      registerBusinessOwnerDto,
+    );
+
+    return {
+      message: 'Business owner registered successfully',
       data: result,
     };
   }
@@ -94,7 +126,7 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @UseGuards(AuthGuard('user', 'admin'))
+  @UseGuards(AuthGuard('user', 'admin', 'businessOwner'))
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Change password for logged in user' })
   @ApiBody({ type: ChangePasswordDto })
@@ -103,7 +135,6 @@ export class AuthController {
     @Body() CreateAuthDto: ChangePasswordDto,
     @Req() req: Request,
   ) {
-    console.log(req.user!.id);
     const result = await this.authService.changePassword(
       req.user!.id,
       CreateAuthDto.oldPassword,

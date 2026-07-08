@@ -61,17 +61,25 @@ export class UserController {
       type: 'object',
       properties: {
         fullName: { type: 'string', example: '' },
+        firstName: { type: 'string', example: '' },
+        lastName: { type: 'string', example: '' },
         email: { type: 'string', example: '' },
+        username: { type: 'string', example: '' },
         password: { type: 'string', example: '' },
         role: {
           type: 'string',
-          enum: ['user', 'admin'],
+          enum: ['user', 'admin', 'businessOwner'],
         },
         gender: {
           type: 'string',
           enum: ['male', 'female'],
         },
         phoneNumber: { type: 'string', example: '' },
+        businessName: { type: 'string', example: '' },
+        businessEmail: { type: 'string', example: '' },
+        businessWebsiteUrl: { type: 'string', example: '' },
+        serviceArea: { type: 'string', example: '' },
+        category: { type: 'string', example: '' },
         profilePicture: {
           type: 'string',
           format: 'binary',
@@ -96,9 +104,16 @@ export class UserController {
           type: 'string',
           example: '',
         },
+        state: {
+          type: 'string',
+          example: '',
+        },
         address: {
           type: 'string',
           example: '',
+        },
+        agreementAccepted: {
+          type: 'boolean',
         },
         verifiedForget: {
           type: 'boolean',
@@ -183,6 +198,20 @@ export class UserController {
     description: 'Filter by phoneNumber value',
   })
   @ApiQuery({
+    name: 'username',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by username value',
+  })
+  @ApiQuery({
+    name: 'businessName',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by businessName value',
+  })
+  @ApiQuery({
     name: 'country',
     required: false,
     type: String,
@@ -245,6 +274,9 @@ export class UserController {
       'searchTerm',
       'fullName',
       'email',
+      'username',
+      'businessName',
+      'role',
       'status',
     ]);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
@@ -262,7 +294,7 @@ export class UserController {
     summary: 'Get the profile of the currently authenticated user',
   })
   @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('admin', 'user'))
+  @UseGuards(AuthGuard('admin', 'user', 'businessOwner'))
   @HttpCode(HttpStatus.OK)
   async getProfile(@Req() req: Request) {
     const user = await this.userService.getProfile(req.user!.id);
@@ -278,7 +310,7 @@ export class UserController {
   })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @UseGuards(AuthGuard('admin', 'user'))
+  @UseGuards(AuthGuard('admin', 'user', 'businessOwner'))
   @UseInterceptors(FileInterceptor('profilePicture', fileUpload.uploadConfig))
   @ApiBody({ type: UpdateUserDto })
   @HttpCode(HttpStatus.OK)
