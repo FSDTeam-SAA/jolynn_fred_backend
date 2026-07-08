@@ -19,11 +19,6 @@ const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : value;
 
 export class CreateUserDto {
-  @ApiPropertyOptional({ example: '' })
-  @IsOptional()
-  @Transform(emptyStringToUndefined)
-  @IsString()
-  fullName?: string;
 
   @ApiPropertyOptional({ example: '' })
   @IsOptional()
