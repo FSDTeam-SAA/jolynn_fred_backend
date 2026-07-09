@@ -186,6 +186,102 @@ export class ServiceController {
     };
   }
 
+  @Get(':id/business-owners')
+  @ApiOperation({
+    summary:
+      'Get business owners who provide the selected service, for all users with or without login',
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    description: 'Selected service id',
+  })
+  @ApiQuery({
+    name: 'searchTerm',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Search by business name, category, or location',
+  })
+  @ApiQuery({
+    name: 'businessName',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by exact business name',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by exact category',
+  })
+  @ApiQuery({
+    name: 'city',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by exact city',
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by exact state',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getBusinessOwnersByService(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const params = pick(req.query, [
+      'searchTerm',
+      'businessName',
+      'category',
+      'city',
+      'state',
+    ]);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.serviceService.getBusinessOwnersByService(
+      id,
+      params,
+      options,
+    );
+
+    return {
+      message: 'Business owners fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Update an owned service' })
   @ApiBearerAuth('access-token')
