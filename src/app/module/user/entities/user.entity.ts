@@ -97,7 +97,7 @@ export class User {
   @Prop()
   otpExpiry?: Date;
 
-  @Prop({ enum: USER_STATUSES, default: 'pending' })
+@Prop({ enum: USER_STATUSES, default: 'active' })
 status: UserStatus;
 
   @Prop({ default: false })
