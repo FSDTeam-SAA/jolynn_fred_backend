@@ -5,6 +5,8 @@ import { fileUpload } from 'src/app/helpers/fileUploder';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import type { IFilterParams } from 'src/app/helpers/pick';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+import { Review, ReviewDocument } from '../reviews/entities/review.entity';
+import { User, UserDocument } from '../user/entities/user.entity';
 import {
   BusinessService,
   BusinessServiceDocument,
@@ -13,12 +15,23 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
 const serviceSearchAbleFields = ['title', 'description'];
+const businessOwnerSearchAbleFields = [
+  'businessName',
+  'category',
+  'city',
+  'state',
+  'country',
+];
 
 @Injectable()
 export class ServiceService {
   constructor(
     @InjectModel(BusinessService.name)
     private readonly serviceModel: Model<BusinessServiceDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
+    @InjectModel(Review.name)
+    private readonly reviewModel: Model<ReviewDocument>,
   ) {}
 
   private normalizePayload<T extends CreateServiceDto | UpdateServiceDto>(
@@ -68,6 +81,47 @@ export class ServiceService {
     }
 
     return service;
+  }
+
+  private async getServiceOrThrow(serviceId: string) {
+    const service = await this.serviceModel.findById(this.toObjectId(serviceId));
+
+    if (!service) {
+      throw new HttpException('Service not found', 404);
+    }
+
+    return service;
+  }
+
+  private async getBusinessReviewSummaries(businessIds: Types.ObjectId[]) {
+    if (!businessIds.length) {
+      return new Map<string, { averageRating: number; totalReviews: number }>();
+    }
+
+    const summaries = await this.reviewModel.aggregate([
+      {
+        $match: {
+          businessId: { $in: businessIds },
+        },
+      },
+      {
+        $group: {
+          _id: '$businessId',
+          averageRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    return new Map(
+      summaries.map((item) => [
+        item._id.toString(),
+        {
+          averageRating: Number(item.averageRating.toFixed(1)),
+          totalReviews: item.totalReviews,
+        },
+      ]),
+    );
   }
 
   async createService(
@@ -143,6 +197,101 @@ export class ServiceService {
         total,
       },
       data: services,
+    };
+  }
+
+  async getBusinessOwnersByService(
+    serviceId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    const selectedService = await this.getServiceOrThrow(serviceId);
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+
+    const matchingServices = await this.serviceModel
+      .find({
+        title: selectedService.title,
+      })
+      .select('ownerId title description logo createdAt');
+
+    const ownerIds = [
+      ...new Set(matchingServices.map((service) => service.ownerId.toString())),
+    ];
+
+    if (!ownerIds.length) {
+      return {
+        meta: {
+          page,
+          limit,
+          total: 0,
+        },
+        data: [],
+      };
+    }
+
+    const whereConditions = buildWhereConditions(
+      params,
+      businessOwnerSearchAbleFields,
+      {
+        _id: { $in: ownerIds.map((id) => this.toObjectId(id)) },
+        role: 'businessOwner',
+        status: 'active',
+      },
+    );
+
+    const total = await this.userModel.countDocuments(whereConditions);
+    const businessOwners = await this.userModel
+      .find(whereConditions)
+      .skip(skip)
+      .limit(limit)
+      .sort({ [sortBy]: sortOrder } as any);
+
+    const servicesByOwnerId = new Map(
+      matchingServices.map((service) => [service.ownerId.toString(), service]),
+    );
+    const reviewSummaryMap = await this.getBusinessReviewSummaries(
+      businessOwners.map((owner) => this.toObjectId(owner.id)),
+    );
+
+    const cards = businessOwners.map((owner) => {
+      const service = servicesByOwnerId.get(owner.id);
+      const reviewSummary = reviewSummaryMap.get(owner.id) ?? {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      return {
+        businessOwnerId: owner.id,
+        businessName: owner.businessName || owner.username || owner.email,
+        category: owner.category,
+        city: owner.city,
+        state: owner.state,
+        country: owner.country,
+        address: owner.address,
+        profilePicture: owner.profilePicture,
+        bio: owner.bio,
+        businessWebsiteUrl: owner.businessWebsiteUrl,
+        phoneNumber: owner.phoneNumber,
+        rating: reviewSummary.averageRating,
+        totalReviews: reviewSummary.totalReviews,
+        service: service
+          ? {
+              id: service.id,
+              title: service.title,
+              description: service.description,
+              logo: service.logo,
+            }
+          : null,
+      };
+    });
+
+    return {
+      meta: {
+        page,
+        limit,
+        total,
+      },
+      data: cards,
     };
   }
 
