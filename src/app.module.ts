@@ -25,6 +25,7 @@ import { ServiceModule } from './app/module/service/service.module';
     ContactModule,
     AdvertiseModule,
     HelpWantedModule,
+    ServiceModule,
   ],
 
   controllers: [AppController],
