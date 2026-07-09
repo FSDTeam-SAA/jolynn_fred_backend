@@ -172,6 +172,25 @@ return this.createAccount(
       throw new HttpException('Incorrect password', 401);
     }
 
+    if (user.status === 'pending') {
+      throw new HttpException(
+        'Your registration is pending admin approval',
+        403,
+      );
+    }
+
+    if (user.status === 'rejected') {
+      throw new HttpException(
+        'Your registration request was rejected by admin',
+        403,
+      );
+    }
+
+    if (user.status === 'suspended') {
+      throw new HttpException('Your account has been suspended', 403);
+    }
+
+
     const accessToken = this.jwtService.sign(
       this.createTokenPayload(user),
       {
