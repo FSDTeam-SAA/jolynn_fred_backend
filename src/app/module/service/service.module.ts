@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { Review, ReviewSchema } from '../reviews/entities/review.entity';
+import { User, UserSchema } from '../user/entities/user.entity';
 import { ServiceController } from './service.controller';
 import { ServiceService } from './service.service';
 import {
@@ -11,6 +13,8 @@ import {
   imports: [
     MongooseModule.forFeature([
       { name: BusinessService.name, schema: BusinessServiceSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Review.name, schema: ReviewSchema },
     ]),
   ],
   controllers: [ServiceController],
