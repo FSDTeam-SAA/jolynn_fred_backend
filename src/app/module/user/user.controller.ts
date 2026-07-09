@@ -117,11 +117,11 @@ export class UserController {
         verifiedForget: {
           type: 'boolean',
         },
-        status: {
-          type: 'string',
-          enum: ['active', 'suspended'],
-          example: '',
-        },
+      status: {
+  type: 'string',
+  enum: ['pending', 'active', 'rejected', 'suspended'],
+  example: '',
+},
         stripeAccountId: {
           type: 'string',
           example: '',
