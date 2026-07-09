@@ -13,6 +13,7 @@ import { ContactModule } from './app/module/contact/contact.module';
 import { AdvertiseModule } from './app/module/advertise/advertise.module';  
 import { HelpWantedModule } from './app/module/help-wanted/help-wanted.module';
 import { ServiceModule } from './app/module/service/service.module';
+import { ReportModule } from './app/module/report/report.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -26,6 +27,7 @@ import { ServiceModule } from './app/module/service/service.module';
     AdvertiseModule,
     HelpWantedModule,
     ServiceModule,
+    ReportModule,
   ],
 
   controllers: [AppController],
