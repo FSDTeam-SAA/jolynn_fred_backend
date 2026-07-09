@@ -122,8 +122,6 @@ export class GallaryController {
 
   @Get('my-gallaries/:id')
   @ApiOperation({ summary: 'Get a single owned gallary item by id' })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
   @ApiParam({
     name: 'id',
     required: true,
