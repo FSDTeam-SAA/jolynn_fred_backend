@@ -141,6 +141,7 @@ return this.createAccount(
         city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
         password: registerBusinessOwnerDto.password,
+        status: 'pending',
       },
       'businessOwner',
     );
