@@ -16,6 +16,7 @@ import { HelpWantedModule } from './app/module/help-wanted/help-wanted.module';
 import { QouteModule } from './app/module/qoute/qoute.module';
 import { ServiceModule } from './app/module/service/service.module';
 import { ReportModule } from './app/module/report/report.module';
+import { LocationModule } from './app/module/location/location.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -32,6 +33,7 @@ import { ReportModule } from './app/module/report/report.module';
     QouteModule,
     ServiceModule,
     ReportModule,
+    LocationModule,
   ],
 
   controllers: [AppController],
