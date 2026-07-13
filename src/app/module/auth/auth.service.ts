@@ -148,7 +148,7 @@ return this.createAccount(
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
-    const identifier = loginDto.identifier ?? loginDto.email;
+    const identifier =  loginDto.email;
     if (!identifier) {
       throw new HttpException('Email or username is required', 400);
     }
