@@ -1,8 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from 'src/app/module/user/entities/user.entity';
 import { Report, ReportDocument } from 'src/app/module/report/entities/report.entity';
+import {
+  BusinessService,
+  BusinessServiceDocument,
+} from 'src/app/module/service/entities/service.entity';
+import {
+  Gallary,
+  GallaryDocument,
+} from 'src/app/module/gallary/entities/gallary.entity';
+import { Review, ReviewDocument } from 'src/app/module/reviews/entities/review.entity';
+import { Qoute, QouteDocument } from 'src/app/module/qoute/entities/qoute.entity';
 
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -21,7 +31,23 @@ export class DashboardService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Report.name)
     private readonly reportModel: Model<ReportDocument>,
+    @InjectModel(BusinessService.name)
+    private readonly serviceModel: Model<BusinessServiceDocument>,
+    @InjectModel(Gallary.name)
+    private readonly gallaryModel: Model<GallaryDocument>,
+    @InjectModel(Review.name)
+    private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel(Qoute.name)
+    private readonly qouteModel: Model<QouteDocument>,
   ) {}
+
+  private toObjectId(id: string, label = 'user id') {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new HttpException(`Invalid ${label}`, 400);
+    }
+
+    return new Types.ObjectId(id);
+  }
 
   async getCards() {
     const [totalBusinesses, pendingApprovals, activeUsers, totalReports] =
@@ -40,6 +66,39 @@ export class DashboardService {
       pendingApprovals,
       activeUsers,
       totalReports,
+    };
+  }
+
+  async businessDashboardOverview(businessOwnerId: string) {
+    const ownerObjectId = this.toObjectId(businessOwnerId, 'business owner id');
+
+    const [galleryImageAggregate, totalServices, totalReviews, totalQuotes] =
+      await Promise.all([
+        this.gallaryModel.aggregate([
+          {
+            $match: {
+              userId: ownerObjectId,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalImages: {
+                $sum: { $size: { $ifNull: ['$images', []] } },
+              },
+            },
+          },
+        ]),
+        this.serviceModel.countDocuments({ ownerId: ownerObjectId }),
+        this.reviewModel.countDocuments({ businessId: ownerObjectId }),
+        this.qouteModel.countDocuments({ businessOwnerId: ownerObjectId }),
+      ]);
+
+    return {
+      galleryImages: galleryImageAggregate[0]?.totalImages ?? 0,
+      totalServices,
+      totalReviews,
+      totalQuotes,
     };
   }
 

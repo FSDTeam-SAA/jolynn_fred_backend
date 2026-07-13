@@ -163,15 +163,15 @@ export class LoginAuthDto {
   @IsEmail({}, { message: 'Valid email is required' })
   email?: string;
 
-  @ApiPropertyOptional({
-    example: 'john_doe',
-    description: 'Preferred login using email or username',
-  })
-  @ValidateIf((object) => !object.email)
-  @Transform(emptyStringToUndefined)
-  @IsString()
-  @IsNotEmpty()
-  identifier?: string;
+  // @ApiPropertyOptional({
+  //   example: 'john_doe',
+  //   description: 'Preferred login using email or username',
+  // })
+  // @ValidateIf((object) => !object.email)
+  // @Transform(emptyStringToUndefined)
+  // @IsString()
+  // @IsNotEmpty()
+  // identifier?: string;
 
   @ApiProperty({ example: 'secret123' })
   @IsString()
