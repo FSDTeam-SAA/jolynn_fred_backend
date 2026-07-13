@@ -173,12 +173,12 @@ return this.createAccount(
       throw new HttpException('Incorrect password', 401);
     }
 
-    // if (user.status === 'pending') {
-    //   throw new HttpException(
-    //     'Your registration is pending admin approval',
-    //     403,
-    //   );
-    // }
+    if (user.status === 'pending') {
+      throw new HttpException(
+        'Your registration is pending admin approval',
+        403,
+      );
+    }
 
     if (user.status === 'rejected') {
       throw new HttpException(
