@@ -186,6 +186,94 @@ export class ServiceController {
     };
   }
 
+  @Get('search/business-owners')
+  @ApiOperation({
+    summary:
+      'Globally search business owners by service keyword for public homepage results',
+  })
+  @ApiQuery({
+    name: 'service',
+    required: false,
+    type: String,
+    example: 'plumbing',
+    description: 'Service keyword typed by the user on the homepage',
+  })
+  @ApiQuery({
+    name: 'searchTerm',
+    required: false,
+    type: String,
+    example: '',
+    description:
+      'Optional extra search inside business name, category, and location fields',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    type: String,
+    example: 'Plumbers',
+    description: 'Filter by exact category',
+  })
+  @ApiQuery({
+    name: 'location',
+    required: false,
+    type: String,
+    example: 'Denver',
+    description:
+      'Flexible location filter across city, state, country, address, or service area',
+  })
+  @ApiQuery({
+    name: 'minimumRating',
+    required: false,
+    type: Number,
+    example: 4,
+    description: 'Filter businesses with rating greater than or equal to this value',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'rating',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @HttpCode(HttpStatus.OK)
+  async searchBusinessOwnersByService(@Req() req: Request) {
+    const params = pick(req.query, [
+      'service',
+      'searchTerm',
+      'category',
+      'location',
+      'minimumRating',
+    ]);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.serviceService.searchBusinessOwnersByService(
+      params,
+      options,
+    );
+
+    return {
+      message: 'Business owners fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
   @Get(':id/business-owners')
   @ApiOperation({
     summary:
@@ -233,6 +321,21 @@ export class ServiceController {
     description: 'Filter by exact state',
   })
   @ApiQuery({
+    name: 'location',
+    required: false,
+    type: String,
+    example: 'Austin',
+    description:
+      'Flexible location filter across city, state, country, address, or service area',
+  })
+  @ApiQuery({
+    name: 'minimumRating',
+    required: false,
+    type: Number,
+    example: 4,
+    description: 'Filter businesses with rating greater than or equal to this value',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -267,6 +370,8 @@ export class ServiceController {
       'category',
       'city',
       'state',
+      'location',
+      'minimumRating',
     ]);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
     const result = await this.serviceService.getBusinessOwnersByService(
