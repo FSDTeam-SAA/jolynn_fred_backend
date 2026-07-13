@@ -1,5 +1,14 @@
-import { Controller, Get, HttpCode, HttpStatus, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { DashboardService } from './dashboard.service';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 
@@ -9,6 +18,24 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
+
+  @Get('business-overview')
+  @ApiOperation({
+    summary: 'Get the 4 summary cards for the logged in business dashboard',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('businessOwner'))
+  @HttpCode(HttpStatus.OK)
+  async businessDashboardOverview(@Req() req: Request) {
+    const result = await this.dashboardService.businessDashboardOverview(
+      req.user!.id,
+    );
+
+    return {
+      message: 'Business dashboard overview fetched successfully',
+      data: result,
+    };
+  }
 
   @Get('cards')
   @ApiOperation({ summary: 'Get dashboard stat cards (admin only)' })
