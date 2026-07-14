@@ -13,9 +13,13 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { USER_ROLES } from 'src/app/constants/auth.constants';
+import { USERNAME_REGEX } from 'src/app/helpers/username';
 
 const normalizeString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
+
+const normalizeUsernameInput = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toLowerCase() : value;
 
 const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : normalizeString({ value });
@@ -34,9 +38,13 @@ export class RegisterUserDto {
   lastName: string;
 
   @ApiProperty({ example: 'john_doe' })
-  @Transform(normalizeString)
+  @Transform(normalizeUsernameInput)
   @IsString()
   @IsNotEmpty()
+  @Matches(USERNAME_REGEX, {
+    message:
+      'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
+  })
   username: string;
 
   @ApiProperty({ example: 'john@example.com' })
@@ -82,9 +90,13 @@ export class RegisterBusinessOwnerDto {
   ownerName: string;
 
   @ApiProperty({ example: 'acme_owner' })
-  @Transform(normalizeString)
+  @Transform(normalizeUsernameInput)
   @IsString()
   @IsNotEmpty()
+  @Matches(USERNAME_REGEX, {
+    message:
+      'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
+  })
   username: string;
 
   @ApiProperty({ example: 'owner@example.com' })
