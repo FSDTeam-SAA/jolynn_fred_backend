@@ -3,11 +3,21 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './entities/user.entity';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+import {
+  BusinessService,
+  BusinessServiceDocument,
+} from '../service/entities/service.entity';
+import { Review, ReviewDocument } from '../reviews/entities/review.entity';
+import { Gallary, GallaryDocument } from '../gallary/entities/gallary.entity';
+import {
+  isReservedUsername,
+  normalizeUsername,
+} from 'src/app/helpers/username';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -37,8 +47,35 @@ const userSearchAbleFields = [
 export class UserService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(BusinessService.name)
+    private readonly serviceModel: Model<BusinessServiceDocument>,
+    @InjectModel(Review.name)
+    private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel(Gallary.name)
+    private readonly gallaryModel: Model<GallaryDocument>,
   ) {}
 
+  private toObjectId(id: string, label = 'user id') {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new HttpException(`Invalid ${label}`, 400);
+    }
+
+    return new Types.ObjectId(id);
+  }
+
+  private normalizeAndValidateUsername(username?: string) {
+    const normalizedUsername = normalizeUsername(username);
+
+    if (!normalizedUsername) {
+      return normalizedUsername;
+    }
+
+    if (isReservedUsername(normalizedUsername)) {
+      throw new HttpException('This username is not available', 400);
+    }
+
+    return normalizedUsername;
+  }
 
   private async ensureUniqueUserFields(
     payload: Partial<CreateUserDto | UpdateUserDto>,
@@ -57,7 +94,7 @@ export class UserService {
 
     if (payload.username) {
       const existingUser = await this.userModel.findOne({
-        username: payload.username.toLowerCase(),
+        username: this.normalizeAndValidateUsername(payload.username),
         ...(currentUserId ? { _id: { $ne: currentUserId } } : {}),
       });
 
@@ -152,7 +189,7 @@ export class UserService {
       payload.email = payload.email.toLowerCase();
     }
     if (payload.username) {
-      payload.username = payload.username.toLowerCase();
+      payload.username = this.normalizeAndValidateUsername(payload.username);
     }
 
     await this.ensureUniqueUserFields(payload);
@@ -212,7 +249,9 @@ export class UserService {
       updateUserDto.email = updateUserDto.email.toLowerCase();
     }
     if (updateUserDto.username) {
-      updateUserDto.username = updateUserDto.username.toLowerCase();
+      updateUserDto.username = this.normalizeAndValidateUsername(
+        updateUserDto.username,
+      );
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
@@ -260,7 +299,9 @@ export class UserService {
       updateUserDto.email = updateUserDto.email.toLowerCase();
     }
     if (updateUserDto.username) {
-      updateUserDto.username = updateUserDto.username.toLowerCase();
+      updateUserDto.username = this.normalizeAndValidateUsername(
+        updateUserDto.username,
+      );
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
@@ -269,5 +310,84 @@ export class UserService {
       new: true,
     });
     return result;
+  }
+
+  async getPublicBusinessProfileByUsername(username: string) {
+    const normalizedUsername = this.normalizeAndValidateUsername(username);
+
+    const businessOwner = await this.userModel.findOne({
+      username: normalizedUsername,
+      role: 'businessOwner',
+      status: 'active',
+    });
+
+    if (!businessOwner) {
+      throw new HttpException('Business profile not found', 404);
+    }
+
+    const businessOwnerId = this.toObjectId(businessOwner.id, 'business owner id');
+
+    const [services, galleryItems, reviewSummary] = await Promise.all([
+      this.serviceModel
+        .find({ ownerId: businessOwnerId })
+        .select('title description logo createdAt')
+        .sort({ createdAt: -1 }),
+      this.gallaryModel
+        .find({ userId: businessOwnerId })
+        .select('title images createdAt')
+        .sort({ createdAt: -1 }),
+      this.reviewModel.aggregate([
+        {
+          $match: {
+            businessId: businessOwnerId,
+          },
+        },
+        {
+          $group: {
+            _id: '$businessId',
+            totalReviews: { $sum: 1 },
+            averageRating: { $avg: '$rating' },
+          },
+        },
+      ]),
+    ]);
+
+    const reviewMetrics = reviewSummary[0];
+    const totalGalleryImages = galleryItems.reduce(
+      (count, item) => count + item.images.length,
+      0,
+    );
+
+    return {
+      profile: {
+        id: businessOwner.id,
+        username: businessOwner.username,
+        businessName: businessOwner.businessName,
+        ownerName: [businessOwner.firstName, businessOwner.lastName]
+          .filter(Boolean)
+          .join(' '),
+        profilePicture: businessOwner.profilePicture,
+        bio: businessOwner.bio,
+        category: businessOwner.category,
+        serviceArea: businessOwner.serviceArea,
+        businessWebsiteUrl: businessOwner.businessWebsiteUrl,
+        businessEmail: businessOwner.businessEmail,
+        phoneNumber: businessOwner.phoneNumber,
+        country: businessOwner.country,
+        city: businessOwner.city,
+        state: businessOwner.state,
+        address: businessOwner.address,
+      },
+      summary: {
+        totalServices: services.length,
+        totalGalleryImages,
+        totalReviews: reviewMetrics?.totalReviews ?? 0,
+        averageRating: reviewMetrics?.averageRating
+          ? Number(reviewMetrics.averageRating.toFixed(1))
+          : 0,
+      },
+      services,
+      gallery: galleryItems,
+    };
   }
 }
