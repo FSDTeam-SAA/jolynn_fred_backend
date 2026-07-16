@@ -24,8 +24,14 @@ export class HelpWantedService {
     private readonly helpWantedModel: Model<HelpWantedDocument>,
   ) {}
 
-  async createHelpWanted(createHelpWantedDto: CreateHelpWantedDto) {
-    const helpWanted = await this.helpWantedModel.create(createHelpWantedDto);
+ async createHelpWanted(
+    createHelpWantedDto: CreateHelpWantedDto,
+    userId?: string,
+  ) {
+    const helpWanted = await this.helpWantedModel.create({
+      ...createHelpWantedDto,
+      ...(userId ? { userId } : {}),
+    });
     return helpWanted;
   }
 
@@ -53,6 +59,30 @@ export class HelpWantedService {
     };
   }
 
+async getMyHelpWanted(userId: string, params: IFilterParams, options: IOptions) {
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const whereConditions = {
+      ...buildWhereConditions(params, helpWantedSearchAbleFields),
+      userId,
+    };
+
+    const total = await this.helpWantedModel.countDocuments(whereConditions);
+    const helpWanteds = await this.helpWantedModel
+      .find(whereConditions)
+      .skip(skip)
+      .limit(limit)
+      .sort({ [sortBy]: sortOrder } as any);
+
+    return {
+      meta: {
+        page,
+        limit,
+        total,
+      },
+      data: helpWanteds,
+    };
+  }
+
   async getSingleHelpWanted(id: string) {
     const helpWanted = await this.helpWantedModel.findById(id);
     if (!helpWanted) {
@@ -61,7 +91,7 @@ export class HelpWantedService {
     return helpWanted;
   }
 
-  async updateHelpWanted(
+async updateHelpWanted(
     id: string,
     updateHelpWantedDto: UpdateHelpWantedDto,
   ) {
@@ -78,11 +108,23 @@ export class HelpWantedService {
     return updatedHelpWanted;
   }
 
-  async deleteHelpWanted(id: string) {
+async deleteHelpWanted(id: string, requesterId: string, requesterRole: string) {
     const helpWanted = await this.helpWantedModel.findById(id);
     if (!helpWanted) {
       throw new HttpException('Help wanted request not found', 404);
     }
+
+    const isOwner =
+      helpWanted.userId && helpWanted.userId.toString() === requesterId;
+    const isAdmin = requesterRole === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      throw new HttpException(
+        'You are not allowed to delete this post',
+        403,
+      );
+    }
+
     const result = await this.helpWantedModel.findByIdAndDelete(id);
     return result;
   }
