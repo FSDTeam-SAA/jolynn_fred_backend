@@ -18,6 +18,7 @@ import { ServiceModule } from './app/module/service/service.module';
 import { ReportModule } from './app/module/report/report.module';
 import { LocationModule } from './app/module/location/location.module';
 import { DashboardModule } from './app/module/dashboard/dashboard.module';
+import { SaveQuoteModule } from './app/module/save-quote/save-quote.module';
 import { JobReportModule } from './app/module/job-report/job-report.module';
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { JobReportModule } from './app/module/job-report/job-report.module';
     ReportModule,
     LocationModule,
     DashboardModule,
+    SaveQuoteModule,
     JobReportModule,
   ],
 
