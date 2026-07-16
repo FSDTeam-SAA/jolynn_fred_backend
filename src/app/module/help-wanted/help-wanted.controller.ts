@@ -25,19 +25,45 @@ import { CreateHelpWantedDto } from './dto/create-help-wanted.dto';
 import { UpdateHelpWantedDto } from './dto/update-help-wanted.dto';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 import pick from 'src/app/helpers/pick';
-
+import { JwtService } from '@nestjs/jwt';
+import config from 'src/app/config';
 @ApiTags('Help Wanted')
 @Controller('help-wanted')
 export class HelpWantedController {
-  constructor(private readonly helpWantedService: HelpWantedService) {}
+  constructor(
+    private readonly helpWantedService: HelpWantedService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Submit a help wanted request (public)' })
+  private tryGetUserId(req: Request): string | undefined {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return undefined;
+
+    try {
+      const decoded = this.jwtService.verify<{ id: string }>(token, {
+        secret: config.jwt.accessTokenSecret!,
+      });
+      return decoded?.id;
+    } catch {
+      return undefined;
+    }
+  }
+
+@Post()
+  @ApiOperation({
+    summary: 'Submit a help wanted request (public, login optional to link post to your account)',
+  })
+  @ApiBearerAuth('access-token')
   @ApiBody({ type: CreateHelpWantedDto })
   @HttpCode(HttpStatus.CREATED)
-  async createHelpWanted(@Body() createHelpWantedDto: CreateHelpWantedDto) {
+  async createHelpWanted(
+    @Req() req: Request,
+    @Body() createHelpWantedDto: CreateHelpWantedDto,
+  ) {
+    const userId = this.tryGetUserId(req);
     const result = await this.helpWantedService.createHelpWanted(
       createHelpWantedDto,
+      userId,
     );
     return {
       message: 'Help wanted request submitted successfully',
@@ -45,10 +71,8 @@ export class HelpWantedController {
     };
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all help wanted requests (admin only)' })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('admin'))
+ @Get()
+  @ApiOperation({ summary: 'Get all help wanted requests (public)' })
   @ApiQuery({
     name: 'searchTerm',
     required: false,
@@ -95,6 +119,31 @@ export class HelpWantedController {
 
     return {
       message: 'Help wanted fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
+  @Get('my')
+  @ApiOperation({ summary: 'Get my own help wanted posts (logged-in user)' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
+  @ApiQuery({ name: 'searchTerm', required: false, type: String, example: '' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'sortBy', required: false, type: String, example: 'createdAt' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc' })
+  @HttpCode(HttpStatus.OK)
+  async getMyHelpWanted(@Req() req: Request) {
+    const params = pick(req.query, ['searchTerm']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.helpWantedService.getMyHelpWanted(
+      req.user!.id,
+      params,
+      options,
+    );
+    return {
+      message: 'Your help wanted posts fetched successfully',
       meta: result.meta,
       data: result.data,
     };
@@ -151,12 +200,12 @@ export class HelpWantedController {
     };
   }
 
-  @Delete(':id')
+@Delete(':id')
   @ApiOperation({
-    summary: 'Delete help wanted request by id (admin only)',
+    summary: 'Delete help wanted request by id (owner or admin only)',
   })
   @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('admin'))
+  @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiParam({
     name: 'id',
     required: true,
@@ -165,8 +214,12 @@ export class HelpWantedController {
     description: 'Help wanted id',
   })
   @HttpCode(HttpStatus.OK)
-  async deleteHelpWanted(@Param('id') id: string) {
-    const result = await this.helpWantedService.deleteHelpWanted(id);
+  async deleteHelpWanted(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.helpWantedService.deleteHelpWanted(
+      id,
+      req.user!.id,
+      req.user!.role,
+    );
     return {
       message: 'Help wanted deleted successfully',
       data: result,
