@@ -17,6 +17,7 @@ import { Gallary, GallaryDocument } from '../gallary/entities/gallary.entity';
 import {
   isReservedUsername,
   normalizeUsername,
+  USERNAME_REGEX,
 } from 'src/app/helpers/username';
 
 type CreateUserFiles = {
@@ -25,7 +26,6 @@ type CreateUserFiles = {
 };
 
 const userSearchAbleFields = [
-
   'firstName',
   'lastName',
   'email',
@@ -70,11 +70,110 @@ export class UserService {
       return normalizedUsername;
     }
 
+    if (!USERNAME_REGEX.test(normalizedUsername)) {
+      throw new HttpException(
+        'Username must be 3-30 characters and can contain lowercase letters, numbers, underscores, or hyphens',
+        400,
+      );
+    }
+
     if (isReservedUsername(normalizedUsername)) {
       throw new HttpException('This username is not available', 400);
     }
 
     return normalizedUsername;
+  }
+
+  private buildDisplayName(user: UserDocument) {
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    return user.businessName || fullName || user.username || user.email;
+  }
+
+  private async getBusinessReviewSummary(businessOwnerId: Types.ObjectId) {
+    const summary = await this.reviewModel.aggregate([
+      {
+        $match: {
+          businessId: businessOwnerId,
+        },
+      },
+      {
+        $group: {
+          _id: '$businessId',
+          totalReviews: { $sum: 1 },
+          averageRating: { $avg: '$rating' },
+          fiveStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 5] }, 1, 0] },
+          },
+          fourStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 4] }, 1, 0] },
+          },
+          threeStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 3] }, 1, 0] },
+          },
+          twoStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] },
+          },
+          oneStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const item = summary[0];
+
+    return {
+      averageRating: item ? Number(item.averageRating.toFixed(1)) : 0,
+      totalReviews: item?.totalReviews ?? 0,
+      ratingBreakdown: {
+        5: item?.fiveStar ?? 0,
+        4: item?.fourStar ?? 0,
+        3: item?.threeStar ?? 0,
+        2: item?.twoStar ?? 0,
+        1: item?.oneStar ?? 0,
+      },
+    };
+  }
+
+  private async getPublicBusinessOwnerOrThrow(ownerId: string) {
+    const businessOwner = await this.userModel
+      .findOne({
+        _id: this.toObjectId(ownerId, 'business owner id'),
+        role: 'businessOwner',
+        status: 'active',
+      })
+      .select(
+        [
+          'firstName',
+          'lastName',
+          'email',
+          'username',
+          'phoneNumber',
+          'businessName',
+          'businessEmail',
+          'businessWebsiteUrl',
+          'serviceArea',
+          'category',
+          'country',
+          'city',
+          'state',
+          'address',
+          'postcode',
+          'profilePicture',
+          'bio',
+          'role',
+          'status',
+          'tag',
+          'createdAt',
+          'updatedAt',
+        ].join(' '),
+      );
+
+    if (!businessOwner) {
+      throw new HttpException('Business owner not found', 404);
+    }
+
+    return businessOwner;
   }
 
   private async ensureUniqueUserFields(
@@ -170,7 +269,6 @@ export class UserService {
         .map((email) => ({
           ...payload,
           email,
-          
         }));
 
       if (!users.length) {
@@ -183,7 +281,6 @@ export class UserService {
     if (!payload.email) {
       throw new HttpException('Email is required', 400);
     }
-
 
     if (payload.email) {
       payload.email = payload.email.toLowerCase();
@@ -232,6 +329,42 @@ export class UserService {
     return user;
   }
 
+  async getPublicBusinessOverview(ownerId: string) {
+    const businessOwner = await this.getPublicBusinessOwnerOrThrow(ownerId);
+    const businessOwnerId = this.toObjectId(ownerId, 'business owner id');
+    const reviewSummary = await this.getBusinessReviewSummary(businessOwnerId);
+
+    return {
+      ownerId: businessOwner.id,
+      displayName: this.buildDisplayName(businessOwner),
+      businessName: businessOwner.businessName,
+      category: businessOwner.category,
+      bio: businessOwner.bio,
+      serviceArea: businessOwner.serviceArea,
+      phoneNumber: businessOwner.phoneNumber,
+      businessEmail: businessOwner.businessEmail,
+      email: businessOwner.email,
+      businessWebsiteUrl: businessOwner.businessWebsiteUrl,
+      country: businessOwner.country,
+      city: businessOwner.city,
+      state: businessOwner.state,
+      address: businessOwner.address,
+      postcode: businessOwner.postcode,
+      profilePicture: businessOwner.profilePicture,
+      firstName: businessOwner.firstName,
+      lastName: businessOwner.lastName,
+      username: businessOwner.username,
+      role: businessOwner.role,
+      status: businessOwner.status,
+      tag: businessOwner.tag,
+      rating: reviewSummary.averageRating,
+      totalReviews: reviewSummary.totalReviews,
+      reviewSummary,
+      createdAt: businessOwner.get('createdAt'),
+      updatedAt: businessOwner.get('updatedAt'),
+    };
+  }
+
   async updateUser(
     id: string,
     updateUserDto: UpdateUserDto,
@@ -255,7 +388,6 @@ export class UserService {
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
-
 
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,
@@ -325,7 +457,10 @@ export class UserService {
       throw new HttpException('Business profile not found', 404);
     }
 
-    const businessOwnerId = this.toObjectId(businessOwner.id, 'business owner id');
+    const businessOwnerId = this.toObjectId(
+      businessOwner.id,
+      'business owner id',
+    );
 
     const [services, galleryItems, reviewSummary] = await Promise.all([
       this.serviceModel
