@@ -3,11 +3,12 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './entities/user.entity';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+import { ReviewsService } from '../reviews/reviews.service';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -15,7 +16,6 @@ type CreateUserFiles = {
 };
 
 const userSearchAbleFields = [
-
   'firstName',
   'lastName',
   'email',
@@ -37,8 +37,62 @@ const userSearchAbleFields = [
 export class UserService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly reviewsService: ReviewsService,
   ) {}
 
+  private toObjectId(id: string, label = 'user id') {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new HttpException(`Invalid ${label}`, 400);
+    }
+
+    return new Types.ObjectId(id);
+  }
+
+  private buildDisplayName(user: UserDocument) {
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    return user.businessName || fullName || user.username || user.email;
+  }
+
+  private async getPublicBusinessOwnerOrThrow(ownerId: string) {
+    const businessOwner = await this.userModel
+      .findOne({
+        _id: this.toObjectId(ownerId, 'business owner id'),
+        role: 'businessOwner',
+        status: 'active',
+      })
+      .select(
+        [
+          'firstName',
+          'lastName',
+          'email',
+          'username',
+          'phoneNumber',
+          'businessName',
+          'businessEmail',
+          'businessWebsiteUrl',
+          'serviceArea',
+          'category',
+          'country',
+          'city',
+          'state',
+          'address',
+          'postcode',
+          'profilePicture',
+          'bio',
+          'role',
+          'status',
+          'tag',
+          'createdAt',
+          'updatedAt',
+        ].join(' '),
+      );
+
+    if (!businessOwner) {
+      throw new HttpException('Business owner not found', 404);
+    }
+
+    return businessOwner;
+  }
 
   private async ensureUniqueUserFields(
     payload: Partial<CreateUserDto | UpdateUserDto>,
@@ -133,7 +187,6 @@ export class UserService {
         .map((email) => ({
           ...payload,
           email,
-          
         }));
 
       if (!users.length) {
@@ -146,7 +199,6 @@ export class UserService {
     if (!payload.email) {
       throw new HttpException('Email is required', 400);
     }
-
 
     if (payload.email) {
       payload.email = payload.email.toLowerCase();
@@ -195,6 +247,42 @@ export class UserService {
     return user;
   }
 
+  async getPublicBusinessOverview(ownerId: string) {
+    const businessOwner = await this.getPublicBusinessOwnerOrThrow(ownerId);
+    const reviewSummary =
+      await this.reviewsService.getBusinessReviewSummary(ownerId);
+
+    return {
+      ownerId: businessOwner.id,
+      displayName: this.buildDisplayName(businessOwner),
+      businessName: businessOwner.businessName,
+      category: businessOwner.category,
+      bio: businessOwner.bio,
+      serviceArea: businessOwner.serviceArea,
+      phoneNumber: businessOwner.phoneNumber,
+      businessEmail: businessOwner.businessEmail,
+      email: businessOwner.email,
+      businessWebsiteUrl: businessOwner.businessWebsiteUrl,
+      country: businessOwner.country,
+      city: businessOwner.city,
+      state: businessOwner.state,
+      address: businessOwner.address,
+      postcode: businessOwner.postcode,
+      profilePicture: businessOwner.profilePicture,
+      firstName: businessOwner.firstName,
+      lastName: businessOwner.lastName,
+      username: businessOwner.username,
+      role: businessOwner.role,
+      status: businessOwner.status,
+      tag: businessOwner.tag,
+      rating: reviewSummary.averageRating,
+      totalReviews: reviewSummary.totalReviews,
+      reviewSummary,
+      createdAt: businessOwner.get('createdAt'),
+      updatedAt: businessOwner.get('updatedAt'),
+    };
+  }
+
   async updateUser(
     id: string,
     updateUserDto: UpdateUserDto,
@@ -216,7 +304,6 @@ export class UserService {
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
-
 
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,

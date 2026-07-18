@@ -37,7 +37,9 @@ export class GallaryController {
   constructor(private readonly gallaryService: GallaryService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new gallary item for the logged in business' })
+  @ApiOperation({
+    summary: 'Create a new gallary item for the logged in business',
+  })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
   @UseGuards(AuthGuard('businessOwner', 'admin'))
@@ -62,7 +64,9 @@ export class GallaryController {
   }
 
   @Get('my-gallaries')
-  @ApiOperation({ summary: 'Get gallary items owned by the logged in business' })
+  @ApiOperation({
+    summary: 'Get gallary items owned by the logged in business',
+  })
   @ApiBearerAuth('access-token')
   @ApiQuery({
     name: 'searchTerm',
@@ -141,9 +145,78 @@ export class GallaryController {
     };
   }
 
+  @Get('owner/:ownerId')
+  @ApiOperation({
+    summary: 'Get public gallary items for a business owner',
+  })
+  @ApiParam({
+    name: 'ownerId',
+    required: true,
+    type: String,
+    description: 'Business owner user id',
+  })
+  @ApiQuery({
+    name: 'searchTerm',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Search by gallary title',
+  })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by exact title',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getPublicGallariesByOwner(
+    @Param('ownerId') ownerId: string,
+    @Req() req: Request,
+  ) {
+    const params = pick(req.query, ['searchTerm', 'title']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.gallaryService.getPublicGallariesByOwner(
+      ownerId,
+      params,
+      options,
+    );
+
+    return {
+      message: 'Gallary items fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
   @Get()
   @ApiOperation({
-    summary: 'Get all gallary items publicly for all users with or without login',
+    summary:
+      'Get all gallary items publicly for all users with or without login',
   })
   @ApiQuery({
     name: 'searchTerm',

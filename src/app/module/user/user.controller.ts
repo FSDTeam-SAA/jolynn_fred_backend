@@ -117,11 +117,11 @@ export class UserController {
         verifiedForget: {
           type: 'boolean',
         },
-      status: {
-  type: 'string',
-  enum: ['pending', 'active', 'rejected', 'suspended'],
-  example: '',
-},
+        status: {
+          type: 'string',
+          enum: ['pending', 'active', 'rejected', 'suspended'],
+          example: '',
+        },
         stripeAccountId: {
           type: 'string',
           example: '',
@@ -161,7 +161,6 @@ export class UserController {
     example: '',
     description: 'Search by ',
   })
-
   @ApiQuery({
     name: 'email',
     required: false,
@@ -318,6 +317,27 @@ export class UserController {
     );
     return {
       message: 'User updated successfully',
+      data: result,
+    };
+  }
+
+  @Get('public-business/:ownerId')
+  @ApiOperation({
+    summary: 'Get public business owner profile overview',
+  })
+  @ApiParam({
+    name: 'ownerId',
+    required: true,
+    type: String,
+    example: '',
+    description: 'Business owner user id',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getPublicBusinessOverview(@Param('ownerId') ownerId: string) {
+    const result = await this.userService.getPublicBusinessOverview(ownerId);
+
+    return {
+      message: 'Business profile fetched successfully',
       data: result,
     };
   }
