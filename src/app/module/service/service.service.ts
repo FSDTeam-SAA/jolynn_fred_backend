@@ -38,16 +38,30 @@ export class ServiceService {
     payload: T,
   ) {
     return Object.fromEntries(
-      Object.entries(payload).filter(([, value]) => value !== undefined && value !== ''),
+      Object.entries(payload).filter(
+        ([, value]) => value !== undefined && value !== '',
+      ),
     ) as T;
   }
 
-  private toObjectId(id: string) {
+  private toObjectId(id: string, label = 'service reference') {
     if (!Types.ObjectId.isValid(id)) {
-      throw new HttpException('Invalid service reference', 400);
+      throw new HttpException(`Invalid ${label}`, 400);
     }
 
     return new Types.ObjectId(id);
+  }
+
+  private async ensurePublicBusinessOwnerExists(ownerId: string) {
+    const owner = await this.userModel.exists({
+      _id: this.toObjectId(ownerId, 'business owner id'),
+      role: 'businessOwner',
+      status: 'active',
+    });
+
+    if (!owner) {
+      throw new HttpException('Business owner not found', 404);
+    }
   }
 
   private async ensureUniqueTitle(
@@ -60,9 +74,11 @@ export class ServiceService {
     }
 
     const existingService = await this.serviceModel.findOne({
-      ownerId: this.toObjectId(ownerId),
+      ownerId: this.toObjectId(ownerId, 'business owner id'),
       title,
-      ...(excludeId ? { _id: { $ne: this.toObjectId(excludeId) } } : {}),
+      ...(excludeId
+        ? { _id: { $ne: this.toObjectId(excludeId, 'service id') } }
+        : {}),
     });
 
     if (existingService) {
@@ -72,8 +88,8 @@ export class ServiceService {
 
   private async getOwnedServiceOrThrow(serviceId: string, ownerId: string) {
     const service = await this.serviceModel.findOne({
-      _id: this.toObjectId(serviceId),
-      ownerId: this.toObjectId(ownerId),
+      _id: this.toObjectId(serviceId, 'service id'),
+      ownerId: this.toObjectId(ownerId, 'business owner id'),
     });
 
     if (!service) {
@@ -84,13 +100,46 @@ export class ServiceService {
   }
 
   private async getServiceOrThrow(serviceId: string) {
-    const service = await this.serviceModel.findById(this.toObjectId(serviceId));
+    const service = await this.serviceModel.findById(
+      this.toObjectId(serviceId, 'service id'),
+    );
 
     if (!service) {
       throw new HttpException('Service not found', 404);
     }
 
     return service;
+  }
+
+  private async getServicesByOwner(
+    ownerId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const whereConditions = buildWhereConditions(
+      params,
+      serviceSearchAbleFields,
+      {
+        ownerId: this.toObjectId(ownerId, 'business owner id'),
+      },
+    );
+
+    const total = await this.serviceModel.countDocuments(whereConditions);
+    const services = await this.serviceModel
+      .find(whereConditions)
+      .skip(skip)
+      .limit(limit)
+      .sort({ [sortBy]: sortOrder } as any);
+
+    return {
+      meta: {
+        page,
+        limit,
+        total,
+      },
+      data: services,
+    };
   }
 
   private async getBusinessReviewSummaries(businessIds: Types.ObjectId[]) {
@@ -133,7 +182,7 @@ export class ServiceService {
     await this.ensureUniqueTitle(ownerId, payload.title);
 
     const servicePayload: Partial<BusinessService> = {
-      ownerId: this.toObjectId(ownerId),
+      ownerId: this.toObjectId(ownerId, 'business owner id'),
       title: payload.title,
       description: payload.description,
     };
@@ -149,31 +198,26 @@ export class ServiceService {
     return this.serviceModel.create(servicePayload);
   }
 
-  async getMyServices(ownerId: string, params: IFilterParams, options: IOptions) {
-    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
-    const whereConditions = buildWhereConditions(params, serviceSearchAbleFields, {
-      ownerId: this.toObjectId(ownerId),
-    });
-
-    const total = await this.serviceModel.countDocuments(whereConditions);
-    const services = await this.serviceModel
-      .find(whereConditions)
-      .skip(skip)
-      .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
-
-    return {
-      meta: {
-        page,
-        limit,
-        total,
-      },
-      data: services,
-    };
+  async getMyServices(
+    ownerId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    return this.getServicesByOwner(ownerId, params, options);
   }
 
   async getOwnServiceById(serviceId: string, ownerId: string) {
     return this.getOwnedServiceOrThrow(serviceId, ownerId);
+  }
+
+  async getPublicServicesByOwner(
+    ownerId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    await this.ensurePublicBusinessOwnerExists(ownerId);
+
+    return this.getServicesByOwner(ownerId, params, options);
   }
 
   async getAllPublicServices(params: IFilterParams, options: IOptions) {
@@ -233,7 +277,9 @@ export class ServiceService {
       params,
       businessOwnerSearchAbleFields,
       {
-        _id: { $in: ownerIds.map((id) => this.toObjectId(id)) },
+        _id: {
+          $in: ownerIds.map((id) => this.toObjectId(id, 'business owner id')),
+        },
         role: 'businessOwner',
         status: 'active',
       },
@@ -250,7 +296,9 @@ export class ServiceService {
       matchingServices.map((service) => [service.ownerId.toString(), service]),
     );
     const reviewSummaryMap = await this.getBusinessReviewSummaries(
-      businessOwners.map((owner) => this.toObjectId(owner.id)),
+      businessOwners.map((owner) =>
+        this.toObjectId(owner.id, 'business owner id'),
+      ),
     );
 
     const cards = businessOwners.map((owner) => {

@@ -5,9 +5,14 @@ import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import type { IFilterParams } from 'src/app/helpers/pick';
+import { User, UserDocument } from '../user/entities/user.entity';
 import { CreateGallaryDto } from './dto/create-gallary.dto';
 import { UpdateGallaryDto } from './dto/update-gallary.dto';
-import { Gallary, GallaryDocument, GallaryImage } from './entities/gallary.entity';
+import {
+  Gallary,
+  GallaryDocument,
+  GallaryImage,
+} from './entities/gallary.entity';
 
 const gallarySearchAbleFields = ['title'];
 
@@ -16,6 +21,8 @@ export class GallaryService {
   constructor(
     @InjectModel(Gallary.name)
     private readonly gallaryModel: Model<GallaryDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   private normalizePayload<T extends CreateGallaryDto | UpdateGallaryDto>(
@@ -28,12 +35,24 @@ export class GallaryService {
     ) as T;
   }
 
-  private toObjectId(id: string) {
+  private toObjectId(id: string, label = 'gallary reference') {
     if (!Types.ObjectId.isValid(id)) {
-      throw new HttpException('Invalid gallary reference', 400);
+      throw new HttpException(`Invalid ${label}`, 400);
     }
 
     return new Types.ObjectId(id);
+  }
+
+  private async ensurePublicBusinessOwnerExists(ownerId: string) {
+    const owner = await this.userModel.exists({
+      _id: this.toObjectId(ownerId, 'business owner id'),
+      role: 'businessOwner',
+      status: 'active',
+    });
+
+    if (!owner) {
+      throw new HttpException('Business owner not found', 404);
+    }
   }
 
   private async ensureUniqueTitle(
@@ -46,20 +65,25 @@ export class GallaryService {
     }
 
     const existingGallary = await this.gallaryModel.findOne({
-      userId: this.toObjectId(userId),
+      userId: this.toObjectId(userId, 'business owner id'),
       title,
-      ...(excludeId ? { _id: { $ne: this.toObjectId(excludeId) } } : {}),
+      ...(excludeId
+        ? { _id: { $ne: this.toObjectId(excludeId, 'gallary id') } }
+        : {}),
     });
 
     if (existingGallary) {
-      throw new HttpException('A gallary item with this title already exists', 400);
+      throw new HttpException(
+        'A gallary item with this title already exists',
+        400,
+      );
     }
   }
 
   private async getOwnedGallaryOrThrow(gallaryId: string, userId: string) {
     const gallary = await this.gallaryModel.findOne({
-      _id: this.toObjectId(gallaryId),
-      userId: this.toObjectId(userId),
+      _id: this.toObjectId(gallaryId, 'gallary id'),
+      userId: this.toObjectId(userId, 'business owner id'),
     });
 
     if (!gallary) {
@@ -93,30 +117,17 @@ export class GallaryService {
     );
   }
 
-  async createGallary(
-    userId: string,
-    createGallaryDto: CreateGallaryDto,
-    imageFiles?: Express.Multer.File[],
+  private async getGallariesByOwner(
+    ownerId: string,
+    params: IFilterParams,
+    options: IOptions,
   ) {
-    const payload = this.normalizePayload(createGallaryDto);
-    await this.ensureUniqueTitle(userId, payload.title);
-
-    const images = await this.uploadImages(imageFiles);
-
-    return this.gallaryModel.create({
-      userId: this.toObjectId(userId),
-      title: payload.title,
-      images,
-    });
-  }
-
-  async getMyGallaries(userId: string, params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(
       params,
       gallarySearchAbleFields,
       {
-        userId: this.toObjectId(userId),
+        userId: this.toObjectId(ownerId, 'business owner id'),
       },
     );
 
@@ -137,13 +148,51 @@ export class GallaryService {
     };
   }
 
+  async createGallary(
+    userId: string,
+    createGallaryDto: CreateGallaryDto,
+    imageFiles?: Express.Multer.File[],
+  ) {
+    const payload = this.normalizePayload(createGallaryDto);
+    await this.ensureUniqueTitle(userId, payload.title);
+
+    const images = await this.uploadImages(imageFiles);
+
+    return this.gallaryModel.create({
+      userId: this.toObjectId(userId, 'business owner id'),
+      title: payload.title,
+      images,
+    });
+  }
+
+  async getMyGallaries(
+    userId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    return this.getGallariesByOwner(userId, params, options);
+  }
+
   async getOwnGallaryById(gallaryId: string, userId: string) {
     return this.getOwnedGallaryOrThrow(gallaryId, userId);
   }
 
+  async getPublicGallariesByOwner(
+    ownerId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    await this.ensurePublicBusinessOwnerExists(ownerId);
+
+    return this.getGallariesByOwner(ownerId, params, options);
+  }
+
   async getAllPublicGallaries(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
-    const whereConditions = buildWhereConditions(params, gallarySearchAbleFields);
+    const whereConditions = buildWhereConditions(
+      params,
+      gallarySearchAbleFields,
+    );
 
     const total = await this.gallaryModel.countDocuments(whereConditions);
     const gallaries = await this.gallaryModel

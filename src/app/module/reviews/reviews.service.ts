@@ -21,7 +21,9 @@ export class ReviewsService {
     private readonly userModel: Model<UserDocument>,
   ) {}
 
-  private normalizePayload<T extends CreateReviewDto | UpdateReviewDto>(payload: T) {
+  private normalizePayload<T extends CreateReviewDto | UpdateReviewDto>(
+    payload: T,
+  ) {
     return Object.fromEntries(
       Object.entries(payload).filter(
         ([, value]) => value !== undefined && value !== '',
@@ -56,7 +58,9 @@ export class ReviewsService {
   }
 
   private async getUserOrThrow(userId: string) {
-    const user = await this.userModel.findById(this.toObjectId(userId, 'user id'));
+    const user = await this.userModel.findById(
+      this.toObjectId(userId, 'user id'),
+    );
 
     if (!user) {
       throw new HttpException('User not found', 404);
@@ -77,7 +81,7 @@ export class ReviewsService {
     return review;
   }
 
-  private async getBusinessReviewSummary(businessId: string) {
+  async getBusinessReviewSummary(businessId: string) {
     const businessObjectId = this.toObjectId(businessId, 'business id');
     const summary = await this.reviewModel.aggregate([
       {
@@ -192,7 +196,11 @@ export class ReviewsService {
     };
   }
 
-  async getMyReviews(reviewerId: string, params: IFilterParams, options: IOptions) {
+  async getMyReviews(
+    reviewerId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(
       params,
@@ -300,7 +308,10 @@ export class ReviewsService {
     const review = await this.getReviewOrThrow(reviewId);
 
     if (review.businessId.toString() !== businessOwnerId) {
-      throw new HttpException('You are not allowed to reply to this review', 403);
+      throw new HttpException(
+        'You are not allowed to reply to this review',
+        403,
+      );
     }
 
     const businessOwner = await this.getBusinessOrThrow(businessOwnerId);

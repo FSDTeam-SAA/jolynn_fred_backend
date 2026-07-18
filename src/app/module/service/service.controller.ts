@@ -132,11 +132,82 @@ export class ServiceController {
   })
   @HttpCode(HttpStatus.OK)
   async getOwnServiceById(@Param('id') id: string, @Req() req: Request) {
-    const result = await this.serviceService.getOwnServiceById(id, req.user!.id);
+    const result = await this.serviceService.getOwnServiceById(
+      id,
+      req.user!.id,
+    );
 
     return {
       message: 'Service fetched successfully',
       data: result,
+    };
+  }
+
+  @Get('owner/:ownerId')
+  @ApiOperation({
+    summary: 'Get public services for a business owner',
+  })
+  @ApiParam({
+    name: 'ownerId',
+    required: true,
+    type: String,
+    description: 'Business owner user id',
+  })
+  @ApiQuery({
+    name: 'searchTerm',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Search by service title or description',
+  })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Filter by exact title',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getPublicServicesByOwner(
+    @Param('ownerId') ownerId: string,
+    @Req() req: Request,
+  ) {
+    const params = pick(req.query, ['searchTerm', 'title']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.serviceService.getPublicServicesByOwner(
+      ownerId,
+      params,
+      options,
+    );
+
+    return {
+      message: 'Services fetched successfully',
+      meta: result.meta,
+      data: result.data,
     };
   }
 
