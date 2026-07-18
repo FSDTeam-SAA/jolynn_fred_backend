@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsMongoId, IsNotEmpty, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 const normalizeString = ({ value }: { value: unknown }) =>
@@ -10,12 +10,6 @@ export class CreateJobReportDto {
   @IsMongoId({ message: 'Valid helpWantedId is required' })
   @IsNotEmpty()
   helpWantedId: string;
-
-  @ApiPropertyOptional({ example: 'reporter@example.com' })
-  @IsOptional()
-  @Transform(normalizeString)
-  @IsEmail({}, { message: 'Valid email is required' })
-  reporterEmail?: string;
 
   @ApiProperty({ example: 'This post looks like spam / scam content.' })
   @Transform(normalizeString)
