@@ -17,6 +17,13 @@ export class Qoute {
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
+    index: true,
+  })
+  userId?: Types.ObjectId;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
     required: [true, 'Business owner id is required'],
     index: true,
   })
@@ -69,3 +76,4 @@ export class Qoute {
 export const QouteSchema = SchemaFactory.createForClass(Qoute);
 
 QouteSchema.index({ businessOwnerId: 1, createdAt: -1 });
+QouteSchema.index({ userId: 1, createdAt: -1 });

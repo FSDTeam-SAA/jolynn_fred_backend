@@ -44,6 +44,27 @@ export class QouteController {
     };
   }
 
+  @Post('my')
+  @ApiOperation({ summary: 'Submit a qoute request for the logged in user dashboard' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiBody({ type: CreateQouteDto })
+  @HttpCode(HttpStatus.CREATED)
+  async createMyQoute(
+    @Req() req: Request,
+    @Body() createQouteDto: CreateQouteDto,
+  ) {
+    const result = await this.qouteService.createMyQoute(
+      req.user!.id,
+      createQouteDto,
+    );
+
+    return {
+      message: 'Qoute request submitted successfully',
+      data: result,
+    };
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all qoute requests (admin only)' })
   @ApiBearerAuth('access-token')
@@ -95,6 +116,63 @@ export class QouteController {
 
     return {
       message: 'Qoute requests fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
+  @Get('my')
+  @ApiOperation({ summary: 'Get all qoute requests created by the logged in user' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiQuery({
+    name: 'searchTerm',
+    required: false,
+    type: String,
+    example: '',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    example: 'pending',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getMyUserQoutes(@Req() req: Request) {
+    const params = pick(req.query, ['searchTerm', 'status']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.qouteService.getMyUserQoutes(
+      req.user!.id,
+      params,
+      options,
+    );
+
+    return {
+      message: 'User qoute requests fetched successfully',
       meta: result.meta,
       data: result.data,
     };
@@ -175,6 +253,26 @@ export class QouteController {
       id,
       req.user!.id,
     );
+
+    return {
+      message: 'Qoute request fetched successfully',
+      data: result,
+    };
+  }
+
+  @Get('my/:id')
+  @ApiOperation({ summary: 'Get a single qoute request created by the logged in user' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    description: 'Qoute id',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getMyUserSingleQoute(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.qouteService.getMyUserSingleQoute(id, req.user!.id);
 
     return {
       message: 'Qoute request fetched successfully',
@@ -270,6 +368,26 @@ export class QouteController {
   @HttpCode(HttpStatus.OK)
   async deleteQoute(@Param('id') id: string) {
     const result = await this.qouteService.deleteQoute(id);
+
+    return {
+      message: 'Qoute request deleted successfully',
+      data: result,
+    };
+  }
+
+  @Delete('my/:id')
+  @ApiOperation({ summary: 'Delete a qoute request created by the logged in user' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    description: 'Qoute id',
+  })
+  @HttpCode(HttpStatus.OK)
+  async deleteMyUserQoute(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.qouteService.deleteMyUserQoute(id, req.user!.id);
 
     return {
       message: 'Qoute request deleted successfully',

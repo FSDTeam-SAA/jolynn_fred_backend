@@ -295,6 +295,29 @@ export class UserController {
     };
   }
 
+  @Get('public/:username')
+  @ApiOperation({
+    summary: 'Get a public business owner profile by username',
+  })
+  @ApiParam({
+    name: 'username',
+    required: true,
+    type: String,
+    example: 'acme_plumbing',
+    description: 'Public business profile username',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getPublicBusinessProfile(@Param('username') username: string) {
+    const result = await this.userService.getPublicBusinessProfileByUsername(
+      username,
+    );
+
+    return {
+      message: 'Public business profile fetched successfully',
+      data: result,
+    };
+  }
+
   @Put('profile')
   @ApiOperation({
     summary: 'Update the profile of the currently authenticated user',
