@@ -105,13 +105,16 @@ export class JobReportService {
     return jobReport;
   }
 
-  async deleteJobReport(id: string, requesterId: string) {
+ async deleteJobReport(id: string, requesterId: string, requesterRole: string) {
     const jobReport = await this.jobReportModel.findById(id);
     if (!jobReport) {
       throw new HttpException('Job report not found', 404);
     }
 
-    if (jobReport.userId.toString() !== requesterId) {
+    const isOwner = jobReport.userId.toString() === requesterId;
+    const isAdmin = requesterRole === 'admin';
+
+    if (!isOwner && !isAdmin) {
       throw new HttpException(
         'You are not allowed to delete this report',
         403,
