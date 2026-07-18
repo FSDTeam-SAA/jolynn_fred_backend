@@ -145,8 +145,8 @@ export class JobReportController {
     };
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete my job report by id (owner only)' })
+@Delete(':id')
+  @ApiOperation({ summary: 'Delete job report by id (owner or admin only)' })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiParam({
@@ -161,6 +161,7 @@ export class JobReportController {
     const result = await this.jobReportService.deleteJobReport(
       id,
       req.user!.id,
+      req.user!.role,
     );
     return {
       message: 'Job report deleted successfully',
