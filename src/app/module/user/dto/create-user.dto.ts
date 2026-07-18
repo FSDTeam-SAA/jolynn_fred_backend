@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsBoolean,
   IsUrl,
+  Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import {
@@ -14,9 +15,17 @@ import {
   USER_ROLES,
   USER_STATUSES,
 } from 'src/app/constants/auth.constants';
+import { USERNAME_REGEX } from 'src/app/helpers/username';
 
 const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : value;
+
+const normalizeUsernameInput = ({ value }: { value: unknown }) =>
+  value === ''
+    ? undefined
+    : typeof value === 'string'
+      ? value.trim().toLowerCase()
+      : value;
 
 export class CreateUserDto {
 
@@ -40,8 +49,12 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({ example: '' })
   @IsOptional()
-  @Transform(emptyStringToUndefined)
+  @Transform(normalizeUsernameInput)
   @IsString()
+  @Matches(USERNAME_REGEX, {
+    message:
+      'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
+  })
   username?: string;
 
   @ApiPropertyOptional({ example: '' })

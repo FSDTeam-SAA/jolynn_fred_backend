@@ -8,7 +8,17 @@ import { fileUpload } from 'src/app/helpers/fileUploder';
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
-import { ReviewsService } from '../reviews/reviews.service';
+import {
+  BusinessService,
+  BusinessServiceDocument,
+} from '../service/entities/service.entity';
+import { Review, ReviewDocument } from '../reviews/entities/review.entity';
+import { Gallary, GallaryDocument } from '../gallary/entities/gallary.entity';
+import {
+  isReservedUsername,
+  normalizeUsername,
+  USERNAME_REGEX,
+} from 'src/app/helpers/username';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -37,7 +47,12 @@ const userSearchAbleFields = [
 export class UserService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    private readonly reviewsService: ReviewsService,
+    @InjectModel(BusinessService.name)
+    private readonly serviceModel: Model<BusinessServiceDocument>,
+    @InjectModel(Review.name)
+    private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel(Gallary.name)
+    private readonly gallaryModel: Model<GallaryDocument>,
   ) {}
 
   private toObjectId(id: string, label = 'user id') {
@@ -48,9 +63,76 @@ export class UserService {
     return new Types.ObjectId(id);
   }
 
+  private normalizeAndValidateUsername(username?: string) {
+    const normalizedUsername = normalizeUsername(username);
+
+    if (!normalizedUsername) {
+      return normalizedUsername;
+    }
+
+    if (!USERNAME_REGEX.test(normalizedUsername)) {
+      throw new HttpException(
+        'Username must be 3-30 characters and can contain lowercase letters, numbers, underscores, or hyphens',
+        400,
+      );
+    }
+
+    if (isReservedUsername(normalizedUsername)) {
+      throw new HttpException('This username is not available', 400);
+    }
+
+    return normalizedUsername;
+  }
+
   private buildDisplayName(user: UserDocument) {
     const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
     return user.businessName || fullName || user.username || user.email;
+  }
+
+  private async getBusinessReviewSummary(businessOwnerId: Types.ObjectId) {
+    const summary = await this.reviewModel.aggregate([
+      {
+        $match: {
+          businessId: businessOwnerId,
+        },
+      },
+      {
+        $group: {
+          _id: '$businessId',
+          totalReviews: { $sum: 1 },
+          averageRating: { $avg: '$rating' },
+          fiveStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 5] }, 1, 0] },
+          },
+          fourStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 4] }, 1, 0] },
+          },
+          threeStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 3] }, 1, 0] },
+          },
+          twoStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] },
+          },
+          oneStar: {
+            $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const item = summary[0];
+
+    return {
+      averageRating: item ? Number(item.averageRating.toFixed(1)) : 0,
+      totalReviews: item?.totalReviews ?? 0,
+      ratingBreakdown: {
+        5: item?.fiveStar ?? 0,
+        4: item?.fourStar ?? 0,
+        3: item?.threeStar ?? 0,
+        2: item?.twoStar ?? 0,
+        1: item?.oneStar ?? 0,
+      },
+    };
   }
 
   private async getPublicBusinessOwnerOrThrow(ownerId: string) {
@@ -111,7 +193,7 @@ export class UserService {
 
     if (payload.username) {
       const existingUser = await this.userModel.findOne({
-        username: payload.username.toLowerCase(),
+        username: this.normalizeAndValidateUsername(payload.username),
         ...(currentUserId ? { _id: { $ne: currentUserId } } : {}),
       });
 
@@ -204,7 +286,7 @@ export class UserService {
       payload.email = payload.email.toLowerCase();
     }
     if (payload.username) {
-      payload.username = payload.username.toLowerCase();
+      payload.username = this.normalizeAndValidateUsername(payload.username);
     }
 
     await this.ensureUniqueUserFields(payload);
@@ -249,8 +331,8 @@ export class UserService {
 
   async getPublicBusinessOverview(ownerId: string) {
     const businessOwner = await this.getPublicBusinessOwnerOrThrow(ownerId);
-    const reviewSummary =
-      await this.reviewsService.getBusinessReviewSummary(ownerId);
+    const businessOwnerId = this.toObjectId(ownerId, 'business owner id');
+    const reviewSummary = await this.getBusinessReviewSummary(businessOwnerId);
 
     return {
       ownerId: businessOwner.id,
@@ -300,7 +382,9 @@ export class UserService {
       updateUserDto.email = updateUserDto.email.toLowerCase();
     }
     if (updateUserDto.username) {
-      updateUserDto.username = updateUserDto.username.toLowerCase();
+      updateUserDto.username = this.normalizeAndValidateUsername(
+        updateUserDto.username,
+      );
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
@@ -347,7 +431,9 @@ export class UserService {
       updateUserDto.email = updateUserDto.email.toLowerCase();
     }
     if (updateUserDto.username) {
-      updateUserDto.username = updateUserDto.username.toLowerCase();
+      updateUserDto.username = this.normalizeAndValidateUsername(
+        updateUserDto.username,
+      );
     }
 
     await this.ensureUniqueUserFields(updateUserDto, id);
@@ -356,5 +442,87 @@ export class UserService {
       new: true,
     });
     return result;
+  }
+
+  async getPublicBusinessProfileByUsername(username: string) {
+    const normalizedUsername = this.normalizeAndValidateUsername(username);
+
+    const businessOwner = await this.userModel.findOne({
+      username: normalizedUsername,
+      role: 'businessOwner',
+      status: 'active',
+    });
+
+    if (!businessOwner) {
+      throw new HttpException('Business profile not found', 404);
+    }
+
+    const businessOwnerId = this.toObjectId(
+      businessOwner.id,
+      'business owner id',
+    );
+
+    const [services, galleryItems, reviewSummary] = await Promise.all([
+      this.serviceModel
+        .find({ ownerId: businessOwnerId })
+        .select('title description logo createdAt')
+        .sort({ createdAt: -1 }),
+      this.gallaryModel
+        .find({ userId: businessOwnerId })
+        .select('title images createdAt')
+        .sort({ createdAt: -1 }),
+      this.reviewModel.aggregate([
+        {
+          $match: {
+            businessId: businessOwnerId,
+          },
+        },
+        {
+          $group: {
+            _id: '$businessId',
+            totalReviews: { $sum: 1 },
+            averageRating: { $avg: '$rating' },
+          },
+        },
+      ]),
+    ]);
+
+    const reviewMetrics = reviewSummary[0];
+    const totalGalleryImages = galleryItems.reduce(
+      (count, item) => count + item.images.length,
+      0,
+    );
+
+    return {
+      profile: {
+        id: businessOwner.id,
+        username: businessOwner.username,
+        businessName: businessOwner.businessName,
+        ownerName: [businessOwner.firstName, businessOwner.lastName]
+          .filter(Boolean)
+          .join(' '),
+        profilePicture: businessOwner.profilePicture,
+        bio: businessOwner.bio,
+        category: businessOwner.category,
+        serviceArea: businessOwner.serviceArea,
+        businessWebsiteUrl: businessOwner.businessWebsiteUrl,
+        businessEmail: businessOwner.businessEmail,
+        phoneNumber: businessOwner.phoneNumber,
+        country: businessOwner.country,
+        city: businessOwner.city,
+        state: businessOwner.state,
+        address: businessOwner.address,
+      },
+      summary: {
+        totalServices: services.length,
+        totalGalleryImages,
+        totalReviews: reviewMetrics?.totalReviews ?? 0,
+        averageRating: reviewMetrics?.averageRating
+          ? Number(reviewMetrics.averageRating.toFixed(1))
+          : 0,
+      },
+      services,
+      gallery: galleryItems,
+    };
   }
 }

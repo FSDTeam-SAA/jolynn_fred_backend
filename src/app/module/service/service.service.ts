@@ -44,6 +44,43 @@ export class ServiceService {
     ) as T;
   }
 
+  private escapeRegex(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private buildContainsRegex(value?: string) {
+    if (!value?.trim()) {
+      return null;
+    }
+
+    return new RegExp(this.escapeRegex(value.trim()), 'i');
+  }
+
+  private buildExactRegex(value?: string) {
+    if (!value?.trim()) {
+      return null;
+    }
+
+    return new RegExp(`^${this.escapeRegex(value.trim())}$`, 'i');
+  }
+
+  private parseMinimumRating(value: unknown) {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+
+    const parsedRating = Number(value);
+
+    if (Number.isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
+      throw new HttpException(
+        'minimumRating must be a number between 0 and 5',
+        400,
+      );
+    }
+
+    return parsedRating;
+  }
+
   private toObjectId(id: string, label = 'service reference') {
     if (!Types.ObjectId.isValid(id)) {
       throw new HttpException(`Invalid ${label}`, 400);
@@ -173,6 +210,161 @@ export class ServiceService {
     );
   }
 
+  private buildBusinessOwnerWhereConditions(
+    ownerIds: string[],
+    params: IFilterParams,
+  ) {
+    const { searchTerm, businessName, category, city, state, location } =
+      params;
+
+    const andConditions: Record<string, unknown>[] = [
+      {
+        _id: {
+          $in: ownerIds.map((id) => this.toObjectId(id, 'business owner id')),
+        },
+        role: 'businessOwner',
+        status: 'active',
+      },
+    ];
+
+    const searchRegex = this.buildContainsRegex(searchTerm);
+    if (searchRegex) {
+      andConditions.push({
+        $or: businessOwnerSearchAbleFields.map((field) => ({
+          [field]: { $regex: searchRegex },
+        })),
+      });
+    }
+
+    const businessNameRegex = this.buildExactRegex(businessName);
+    if (businessNameRegex) {
+      andConditions.push({
+        businessName: { $regex: businessNameRegex },
+      });
+    }
+
+    const categoryRegex = this.buildExactRegex(category);
+    if (categoryRegex) {
+      andConditions.push({
+        category: { $regex: categoryRegex },
+      });
+    }
+
+    const cityRegex = this.buildExactRegex(city);
+    if (cityRegex) {
+      andConditions.push({
+        city: { $regex: cityRegex },
+      });
+    }
+
+    const stateRegex = this.buildExactRegex(state);
+    if (stateRegex) {
+      andConditions.push({
+        state: { $regex: stateRegex },
+      });
+    }
+
+    const locationRegex = this.buildContainsRegex(location);
+    if (locationRegex) {
+      andConditions.push({
+        $or: [
+          { city: { $regex: locationRegex } },
+          { state: { $regex: locationRegex } },
+          { country: { $regex: locationRegex } },
+          { address: { $regex: locationRegex } },
+          { serviceArea: { $regex: locationRegex } },
+        ],
+      });
+    }
+
+    return andConditions.length > 0 ? { $and: andConditions } : {};
+  }
+
+  private buildBusinessOwnerCards(
+    businessOwners: UserDocument[],
+    servicesByOwnerId: Map<string, BusinessServiceDocument>,
+    reviewSummaryMap: Map<
+      string,
+      { averageRating: number; totalReviews: number }
+    >,
+  ) {
+    return businessOwners.map((owner) => {
+      const service = servicesByOwnerId.get(owner.id);
+      const reviewSummary = reviewSummaryMap.get(owner.id) ?? {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      return {
+        businessOwnerId: owner.id,
+        businessName: owner.businessName || owner.username || owner.email,
+        category: owner.category,
+        city: owner.city,
+        state: owner.state,
+        country: owner.country,
+        address: owner.address,
+        serviceArea: owner.serviceArea,
+        profilePicture: owner.profilePicture,
+        bio: owner.bio,
+        businessWebsiteUrl: owner.businessWebsiteUrl,
+        phoneNumber: owner.phoneNumber,
+        rating: reviewSummary.averageRating,
+        totalReviews: reviewSummary.totalReviews,
+        createdAt: (owner as any).createdAt,
+        service: service
+          ? {
+              id: service.id,
+              title: service.title,
+              description: service.description,
+              logo: service.logo,
+            }
+          : null,
+      };
+    });
+  }
+
+  private sortAndPaginateBusinessOwnerCards(
+    cards: Array<Record<string, any>>,
+    options: IOptions,
+  ) {
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const direction = sortOrder === 'asc' ? 1 : -1;
+
+    const sortedCards = [...cards].sort((left, right) => {
+      const leftValue =
+        sortBy === 'serviceTitle' ? left.service?.title : left[sortBy];
+      const rightValue =
+        sortBy === 'serviceTitle' ? right.service?.title : right[sortBy];
+
+      if (leftValue === rightValue) {
+        return 0;
+      }
+
+      if (leftValue === undefined || leftValue === null) {
+        return 1;
+      }
+
+      if (rightValue === undefined || rightValue === null) {
+        return -1;
+      }
+
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return (leftValue - rightValue) * direction;
+      }
+
+      return String(leftValue).localeCompare(String(rightValue)) * direction;
+    });
+
+    return {
+      meta: {
+        page,
+        limit,
+        total: sortedCards.length,
+      },
+      data: sortedCards.slice(skip, skip + limit),
+    };
+  }
+
   async createService(
     ownerId: string,
     createServiceDto: CreateServiceDto,
@@ -244,13 +436,75 @@ export class ServiceService {
     };
   }
 
+  async searchBusinessOwnersByService(
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    const serviceRegex = this.buildContainsRegex(
+      params.service || params.searchTerm,
+    );
+
+    if (!serviceRegex) {
+      throw new HttpException('Service search keyword is required', 400);
+    }
+
+    const matchingServices = await this.serviceModel
+      .find({
+        $or: [
+          { title: { $regex: serviceRegex } },
+          { description: { $regex: serviceRegex } },
+        ],
+      })
+      .select('ownerId title description logo createdAt');
+
+    const ownerIds = [
+      ...new Set(matchingServices.map((service) => service.ownerId.toString())),
+    ];
+
+    if (!ownerIds.length) {
+      return this.sortAndPaginateBusinessOwnerCards([], options);
+    }
+
+    const whereConditions = this.buildBusinessOwnerWhereConditions(
+      ownerIds,
+      params,
+    );
+    const businessOwners = await this.userModel.find(whereConditions);
+    const servicesByOwnerId = new Map<string, BusinessServiceDocument>();
+
+    for (const service of matchingServices) {
+      const ownerId = service.ownerId.toString();
+      if (!servicesByOwnerId.has(ownerId)) {
+        servicesByOwnerId.set(ownerId, service);
+      }
+    }
+
+    const reviewSummaryMap = await this.getBusinessReviewSummaries(
+      businessOwners.map((owner) => this.toObjectId(owner.id)),
+    );
+    const minimumRating = this.parseMinimumRating(
+      params.minimumRating ?? params.rating,
+    );
+
+    let cards = this.buildBusinessOwnerCards(
+      businessOwners,
+      servicesByOwnerId,
+      reviewSummaryMap,
+    );
+
+    if (minimumRating !== null) {
+      cards = cards.filter((card) => card.rating >= minimumRating);
+    }
+
+    return this.sortAndPaginateBusinessOwnerCards(cards, options);
+  }
+
   async getBusinessOwnersByService(
     serviceId: string,
     params: IFilterParams,
     options: IOptions,
   ) {
     const selectedService = await this.getServiceOrThrow(serviceId);
-    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
 
     const matchingServices = await this.serviceModel
       .find({
@@ -263,36 +517,15 @@ export class ServiceService {
     ];
 
     if (!ownerIds.length) {
-      return {
-        meta: {
-          page,
-          limit,
-          total: 0,
-        },
-        data: [],
-      };
+      return this.sortAndPaginateBusinessOwnerCards([], options);
     }
 
-    const whereConditions = buildWhereConditions(
+    const whereConditions = this.buildBusinessOwnerWhereConditions(
+      ownerIds,
       params,
-      businessOwnerSearchAbleFields,
-      {
-        _id: {
-          $in: ownerIds.map((id) => this.toObjectId(id, 'business owner id')),
-        },
-        role: 'businessOwner',
-        status: 'active',
-      },
     );
-
-    const total = await this.userModel.countDocuments(whereConditions);
-    const businessOwners = await this.userModel
-      .find(whereConditions)
-      .skip(skip)
-      .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
-
-    const servicesByOwnerId = new Map(
+    const businessOwners = await this.userModel.find(whereConditions);
+    const servicesByOwnerId = new Map<string, BusinessServiceDocument>(
       matchingServices.map((service) => [service.ownerId.toString(), service]),
     );
     const reviewSummaryMap = await this.getBusinessReviewSummaries(
@@ -300,47 +533,21 @@ export class ServiceService {
         this.toObjectId(owner.id, 'business owner id'),
       ),
     );
+    const minimumRating = this.parseMinimumRating(
+      params.minimumRating ?? params.rating,
+    );
 
-    const cards = businessOwners.map((owner) => {
-      const service = servicesByOwnerId.get(owner.id);
-      const reviewSummary = reviewSummaryMap.get(owner.id) ?? {
-        averageRating: 0,
-        totalReviews: 0,
-      };
+    let cards = this.buildBusinessOwnerCards(
+      businessOwners,
+      servicesByOwnerId,
+      reviewSummaryMap,
+    );
 
-      return {
-        businessOwnerId: owner.id,
-        businessName: owner.businessName || owner.username || owner.email,
-        category: owner.category,
-        city: owner.city,
-        state: owner.state,
-        country: owner.country,
-        address: owner.address,
-        profilePicture: owner.profilePicture,
-        bio: owner.bio,
-        businessWebsiteUrl: owner.businessWebsiteUrl,
-        phoneNumber: owner.phoneNumber,
-        rating: reviewSummary.averageRating,
-        totalReviews: reviewSummary.totalReviews,
-        service: service
-          ? {
-              id: service.id,
-              title: service.title,
-              description: service.description,
-              logo: service.logo,
-            }
-          : null,
-      };
-    });
+    if (minimumRating !== null) {
+      cards = cards.filter((card) => card.rating >= minimumRating);
+    }
 
-    return {
-      meta: {
-        page,
-        limit,
-        total,
-      },
-      data: cards,
-    };
+    return this.sortAndPaginateBusinessOwnerCards(cards, options);
   }
 
   async updateOwnService(

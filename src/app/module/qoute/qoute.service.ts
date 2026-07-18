@@ -62,6 +62,16 @@ export class QouteService {
     return businessOwner;
   }
 
+  private async getUserOrThrow(userId: string) {
+    const user = await this.userModel.findById(this.toObjectId(userId, 'user id'));
+
+    if (!user) {
+      throw new HttpException('User not found', 404);
+    }
+
+    return user;
+  }
+
   private async getQouteOrThrow(id: string) {
     const qoute = await this.qouteModel.findById(this.toObjectId(id, 'qoute id'));
 
@@ -85,24 +95,40 @@ export class QouteService {
     return qoute;
   }
 
-  async createQoute(createQouteDto: CreateQouteDto) {
-    const payload = this.normalizePayload(createQouteDto);
-    const businessOwner = await this.getBusinessOwnerOrThrow(
-      payload.businessOwnerId,
-    );
+  private async getUserOwnedQouteOrThrow(id: string, userId: string) {
+    const qoute = await this.qouteModel.findOne({
+      _id: this.toObjectId(id, 'qoute id'),
+      userId: this.toObjectId(userId, 'user id'),
+    });
 
+    if (!qoute) {
+      throw new HttpException('Qoute request not found', 404);
+    }
+
+    return qoute;
+  }
+
+  private async createQouteRecord(
+    payload: CreateQouteDto,
+    businessOwner: UserDocument,
+    userId?: string,
+  ) {
     return this.qouteModel.create({
       ...payload,
       email: payload.email.toLowerCase(),
       businessOwnerId: businessOwner._id,
       businessOwnerName: this.buildDisplayName(businessOwner),
+      ...(userId
+        ? { userId: this.toObjectId(userId, 'user id') }
+        : {}),
     });
   }
 
-  async getAllQoute(params: IFilterParams, options: IOptions) {
+  private async getPaginatedQoutes(
+    whereConditions: Record<string, unknown>,
+    options: IOptions,
+  ) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
-    const whereConditions = buildWhereConditions(params, qouteSearchAbleFields);
-
     const total = await this.qouteModel.countDocuments(whereConditions);
     const qoutes = await this.qouteModel
       .find(whereConditions)
@@ -118,6 +144,32 @@ export class QouteService {
       },
       data: qoutes,
     };
+  }
+
+  async createQoute(createQouteDto: CreateQouteDto) {
+    const payload = this.normalizePayload(createQouteDto);
+    const businessOwner = await this.getBusinessOwnerOrThrow(
+      payload.businessOwnerId,
+    );
+
+    return this.createQouteRecord(payload, businessOwner);
+  }
+
+  async createMyQoute(userId: string, createQouteDto: CreateQouteDto) {
+    await this.getUserOrThrow(userId);
+
+    const payload = this.normalizePayload(createQouteDto);
+    const businessOwner = await this.getBusinessOwnerOrThrow(
+      payload.businessOwnerId,
+    );
+
+    return this.createQouteRecord(payload, businessOwner, userId);
+  }
+
+  async getAllQoute(params: IFilterParams, options: IOptions) {
+    const whereConditions = buildWhereConditions(params, qouteSearchAbleFields);
+
+    return this.getPaginatedQoutes(whereConditions, options);
   }
 
   async getMyBusinessQoutes(
@@ -127,7 +179,6 @@ export class QouteService {
   ) {
     await this.getBusinessOwnerOrThrow(businessOwnerId);
 
-    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(
       params,
       qouteSearchAbleFields,
@@ -136,21 +187,25 @@ export class QouteService {
       },
     );
 
-    const total = await this.qouteModel.countDocuments(whereConditions);
-    const qoutes = await this.qouteModel
-      .find(whereConditions)
-      .skip(skip)
-      .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
+    return this.getPaginatedQoutes(whereConditions, options);
+  }
 
-    return {
-      meta: {
-        page,
-        limit,
-        total,
+  async getMyUserQoutes(
+    userId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    await this.getUserOrThrow(userId);
+
+    const whereConditions = buildWhereConditions(
+      params,
+      qouteSearchAbleFields,
+      {
+        userId: this.toObjectId(userId, 'user id'),
       },
-      data: qoutes,
-    };
+    );
+
+    return this.getPaginatedQoutes(whereConditions, options);
   }
 
   async getSingleQoute(id: string) {
@@ -159,6 +214,11 @@ export class QouteService {
 
   async getMyBusinessSingleQoute(id: string, businessOwnerId: string) {
     return this.getOwnedQouteOrThrow(id, businessOwnerId);
+  }
+
+  async getMyUserSingleQoute(id: string, userId: string) {
+    await this.getUserOrThrow(userId);
+    return this.getUserOwnedQouteOrThrow(id, userId);
   }
 
   async updateQoute(id: string, updateQouteDto: UpdateQouteDto) {
@@ -193,6 +253,13 @@ export class QouteService {
 
   async deleteQoute(id: string) {
     const qoute = await this.getQouteOrThrow(id);
+    await this.qouteModel.findByIdAndDelete(qoute._id);
+    return qoute;
+  }
+
+  async deleteMyUserQoute(id: string, userId: string) {
+    await this.getUserOrThrow(userId);
+    const qoute = await this.getUserOwnedQouteOrThrow(id, userId);
     await this.qouteModel.findByIdAndDelete(qoute._id);
     return qoute;
   }

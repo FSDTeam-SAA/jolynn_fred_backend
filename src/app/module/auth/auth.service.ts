@@ -15,6 +15,10 @@ import config from '../../config';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createForgotPasswordEmailTemplate } from 'src/app/helpers/template';
 import { type UserRole } from 'src/app/constants/auth.constants';
+import {
+  isReservedUsername,
+  normalizeUsername,
+} from 'src/app/helpers/username';
 
 @Injectable()
 export class AuthService {
@@ -80,11 +84,27 @@ export class AuthService {
     }
   }
 
+  private validatePublicUsername(username?: string) {
+    const normalizedUsername = normalizeUsername(username);
+
+    if (!normalizedUsername) {
+      return normalizedUsername;
+    }
+
+    if (isReservedUsername(normalizedUsername)) {
+      throw new HttpException('This username is not available', 400);
+    }
+
+    return normalizedUsername;
+  }
+
   private async createAccount(payload: Partial<User>, role: UserRole) {
-    await this.ensureUniqueCredentials(payload.email!, payload.username);
+    const normalizedUsername = this.validatePublicUsername(payload.username);
+    await this.ensureUniqueCredentials(payload.email!, normalizedUsername);
 
     const newUser = await this.userModel.create({
       ...payload,
+      username: normalizedUsername,
       role,
     });
 
@@ -106,7 +126,7 @@ return this.createAccount(
   {
     firstName: registerUserDto.firstName,
     lastName: registerUserDto.lastName,
-    username: registerUserDto.username.toLowerCase(),
+    username: registerUserDto.username,
     email: registerUserDto.email.toLowerCase(),
     phoneNumber: registerUserDto.phoneNumber,
     password: registerUserDto.password,
@@ -129,7 +149,7 @@ return this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
         lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
-        username: registerBusinessOwnerDto.username.toLowerCase(),
+        username: registerBusinessOwnerDto.username,
         email: registerBusinessOwnerDto.personalEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,
         businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
@@ -148,7 +168,7 @@ return this.createAccount(
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
-    const identifier = loginDto.identifier ?? loginDto.email;
+    const identifier =  loginDto.email;
     if (!identifier) {
       throw new HttpException('Email or username is required', 400);
     }
@@ -173,12 +193,12 @@ return this.createAccount(
       throw new HttpException('Incorrect password', 401);
     }
 
-    // if (user.status === 'pending') {
-    //   throw new HttpException(
-    //     'Your registration is pending admin approval',
-    //     403,
-    //   );
-    // }
+    if (user.status === 'pending') {
+      throw new HttpException(
+        'Your registration is pending admin approval',
+        403,
+      );
+    }
 
     if (user.status === 'rejected') {
       throw new HttpException(
