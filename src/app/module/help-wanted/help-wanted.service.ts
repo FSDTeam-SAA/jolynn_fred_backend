@@ -35,7 +35,7 @@ export class HelpWantedService {
     return helpWanted;
   }
 
-  async getAllHelpWanted(params: IFilterParams, options: IOptions) {
+async getAllHelpWanted(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(
       params,
@@ -45,6 +45,7 @@ export class HelpWantedService {
     const total = await this.helpWantedModel.countDocuments(whereConditions);
     const helpWanteds = await this.helpWantedModel
       .find(whereConditions)
+      .populate('userId', 'firstName lastName email username phoneNumber profilePicture')
       .skip(skip)
       .limit(limit)
       .sort({ [sortBy]: sortOrder } as any);
@@ -83,8 +84,10 @@ async getMyHelpWanted(userId: string, params: IFilterParams, options: IOptions) 
     };
   }
 
-  async getSingleHelpWanted(id: string) {
-    const helpWanted = await this.helpWantedModel.findById(id);
+async getSingleHelpWanted(id: string) {
+    const helpWanted = await this.helpWantedModel
+      .findById(id)
+      .populate('userId', 'firstName lastName email username phoneNumber profilePicture');
     if (!helpWanted) {
       throw new HttpException('Help wanted request not found', 404);
     }
