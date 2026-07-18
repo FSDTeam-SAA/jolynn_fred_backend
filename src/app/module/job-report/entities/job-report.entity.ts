@@ -13,10 +13,11 @@ export class JobReport {
   helpWantedId: Types.ObjectId;
 
   @Prop({
-    trim: true,
-    lowercase: true,
+    type: Types.ObjectId,
+    ref: 'User',
+    required: [true, 'User id is required'],
   })
-  reporterEmail?: string;
+  userId: Types.ObjectId;
 
   @Prop({
     required: [true, 'Message is required'],
