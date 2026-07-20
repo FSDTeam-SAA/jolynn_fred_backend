@@ -8,6 +8,7 @@ import {
   BusinessService,
   BusinessServiceSchema,
 } from './entities/service.entity';
+import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import {
     ]),
   ],
   controllers: [ServiceController],
-  providers: [ServiceService],
+  providers: [ServiceService, ActiveBusinessOwnerGuard],
   exports: [ServiceService],
 })
 export class ServiceModule {}

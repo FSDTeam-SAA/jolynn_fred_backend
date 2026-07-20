@@ -136,12 +136,9 @@ export class UserService {
   }
 
   private async getPublicBusinessOwnerOrThrow(ownerId: string) {
+    const businessOwnerId = this.toObjectId(ownerId, 'business owner id');
     const businessOwner = await this.userModel
-      .findOne({
-        _id: this.toObjectId(ownerId, 'business owner id'),
-        role: 'businessOwner',
-        status: 'active',
-      })
+      .findById(businessOwnerId)
       .select(
         [
           'firstName',
@@ -171,6 +168,14 @@ export class UserService {
 
     if (!businessOwner) {
       throw new HttpException('Business owner not found', 404);
+    }
+
+    if (businessOwner.role !== 'businessOwner') {
+      throw new HttpException('Business owner not found', 404);
+    }
+
+    if (businessOwner.status !== 'active') {
+      throw new HttpException('Business owner is not active', 404);
     }
 
     return businessOwner;
