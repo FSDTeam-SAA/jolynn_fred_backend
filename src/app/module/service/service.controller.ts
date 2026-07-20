@@ -26,6 +26,7 @@ import type { Request } from 'express';
 import pick from 'src/app/helpers/pick';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import AuthGuard from 'src/app/middlewares/auth.guard';
+import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ServiceService } from './service.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -40,7 +41,7 @@ export class ServiceController {
   @ApiOperation({ summary: 'Create a new service for the logged in business' })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @UseGuards(AuthGuard('businessOwner', 'admin'), ActiveBusinessOwnerGuard)
   @UseInterceptors(FileInterceptor('logo', fileUpload.uploadConfig))
   @ApiBody({ type: CreateServiceDto })
   @HttpCode(HttpStatus.CREATED)
@@ -259,15 +260,14 @@ export class ServiceController {
 
   @Get('search/business-owners')
   @ApiOperation({
-    summary:
-      'Globally search business owners by service keyword for public homepage results',
+    summary: 'Globally search active business owners with optional filters',
   })
   @ApiQuery({
     name: 'service',
     required: false,
     type: String,
     example: 'plumbing',
-    description: 'Service keyword typed by the user on the homepage',
+    description: 'Optional service keyword typed by the user on the homepage',
   })
   @ApiQuery({
     name: 'searchTerm',
@@ -297,7 +297,8 @@ export class ServiceController {
     required: false,
     type: Number,
     example: 4,
-    description: 'Filter businesses with rating greater than or equal to this value',
+    description:
+      'Filter businesses with rating greater than or equal to this value',
   })
   @ApiQuery({
     name: 'page',
@@ -462,7 +463,7 @@ export class ServiceController {
   @ApiOperation({ summary: 'Update an owned service' })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @UseGuards(AuthGuard('businessOwner', 'admin'), ActiveBusinessOwnerGuard)
   @UseInterceptors(FileInterceptor('logo', fileUpload.uploadConfig))
   @ApiParam({
     name: 'id',
@@ -494,7 +495,7 @@ export class ServiceController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete an owned service' })
   @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @UseGuards(AuthGuard('businessOwner', 'admin'), ActiveBusinessOwnerGuard)
   @ApiParam({
     name: 'id',
     required: true,

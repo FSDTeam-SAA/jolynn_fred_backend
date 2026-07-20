@@ -27,6 +27,7 @@ import type { Request } from 'express';
 import pick from 'src/app/helpers/pick';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import AuthGuard from 'src/app/middlewares/auth.guard';
+import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
 import { CreateGallaryDto } from './dto/create-gallary.dto';
 import { UpdateGallaryDto } from './dto/update-gallary.dto';
 import { GallaryService } from './gallary.service';
@@ -42,7 +43,7 @@ export class GallaryController {
   })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @UseGuards(AuthGuard('businessOwner', 'admin'), ActiveBusinessOwnerGuard)
   @UseInterceptors(FilesInterceptor('images', 10, fileUpload.uploadConfig))
   @ApiBody({ type: CreateGallaryDto })
   @HttpCode(HttpStatus.CREATED)
@@ -264,7 +265,7 @@ export class GallaryController {
   @ApiOperation({ summary: 'Update an owned gallary item' })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @UseGuards(AuthGuard('businessOwner', 'admin'), ActiveBusinessOwnerGuard)
   @UseInterceptors(FilesInterceptor('images', 10, fileUpload.uploadConfig))
   @ApiParam({
     name: 'id',
@@ -296,7 +297,7 @@ export class GallaryController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete an owned gallary item' })
   @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @UseGuards(AuthGuard('businessOwner', 'admin'), ActiveBusinessOwnerGuard)
   @ApiParam({
     name: 'id',
     required: true,
