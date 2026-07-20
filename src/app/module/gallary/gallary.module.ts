@@ -4,6 +4,7 @@ import { GallaryController } from './gallary.controller';
 import { GallaryService } from './gallary.service';
 import { Gallary, GallarySchema } from './entities/gallary.entity';
 import { User, UserSchema } from '../user/entities/user.entity';
+import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { User, UserSchema } from '../user/entities/user.entity';
     ]),
   ],
   controllers: [GallaryController],
-  providers: [GallaryService],
+  providers: [GallaryService, ActiveBusinessOwnerGuard],
   exports: [GallaryService],
 })
 export class GallaryModule {}

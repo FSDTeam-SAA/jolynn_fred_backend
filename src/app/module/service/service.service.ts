@@ -90,14 +90,20 @@ export class ServiceService {
   }
 
   private async ensurePublicBusinessOwnerExists(ownerId: string) {
-    const owner = await this.userModel.exists({
-      _id: this.toObjectId(ownerId, 'business owner id'),
-      role: 'businessOwner',
-      status: 'active',
-    });
+    const owner = await this.userModel
+      .findById(this.toObjectId(ownerId, 'business owner id'))
+      .select('role status');
 
     if (!owner) {
       throw new HttpException('Business owner not found', 404);
+    }
+
+    if (owner.role !== 'businessOwner') {
+      throw new HttpException('Business owner not found', 404);
+    }
+
+    if (owner.status !== 'active') {
+      throw new HttpException('Business owner is not active', 404);
     }
   }
 
@@ -211,7 +217,7 @@ export class ServiceService {
   }
 
   private buildBusinessOwnerWhereConditions(
-    ownerIds: string[],
+    ownerIds: string[] | null,
     params: IFilterParams,
   ) {
     const { searchTerm, businessName, category, city, state, location } =
@@ -219,13 +225,18 @@ export class ServiceService {
 
     const andConditions: Record<string, unknown>[] = [
       {
-        _id: {
-          $in: ownerIds.map((id) => this.toObjectId(id, 'business owner id')),
-        },
         role: 'businessOwner',
         status: 'active',
       },
     ];
+
+    if (ownerIds) {
+      andConditions.push({
+        _id: {
+          $in: ownerIds.map((id) => this.toObjectId(id, 'business owner id')),
+        },
+      });
+    }
 
     const searchRegex = this.buildContainsRegex(searchTerm);
     if (searchRegex) {
@@ -440,28 +451,27 @@ export class ServiceService {
     params: IFilterParams,
     options: IOptions,
   ) {
-    const serviceRegex = this.buildContainsRegex(
-      params.service || params.searchTerm,
-    );
+    const serviceRegex = this.buildContainsRegex(params.service);
+    const matchingServices = serviceRegex
+      ? await this.serviceModel
+          .find({
+            $or: [
+              { title: { $regex: serviceRegex } },
+              { description: { $regex: serviceRegex } },
+            ],
+          })
+          .select('ownerId title description logo createdAt')
+      : [];
 
-    if (!serviceRegex) {
-      throw new HttpException('Service search keyword is required', 400);
-    }
+    const ownerIds = serviceRegex
+      ? [
+          ...new Set(
+            matchingServices.map((service) => service.ownerId.toString()),
+          ),
+        ]
+      : null;
 
-    const matchingServices = await this.serviceModel
-      .find({
-        $or: [
-          { title: { $regex: serviceRegex } },
-          { description: { $regex: serviceRegex } },
-        ],
-      })
-      .select('ownerId title description logo createdAt');
-
-    const ownerIds = [
-      ...new Set(matchingServices.map((service) => service.ownerId.toString())),
-    ];
-
-    if (!ownerIds.length) {
+    if (serviceRegex && !ownerIds?.length) {
       return this.sortAndPaginateBusinessOwnerCards([], options);
     }
 
@@ -471,8 +481,20 @@ export class ServiceService {
     );
     const businessOwners = await this.userModel.find(whereConditions);
     const servicesByOwnerId = new Map<string, BusinessServiceDocument>();
+    const servicesForCards = serviceRegex
+      ? matchingServices
+      : await this.serviceModel
+          .find({
+            ownerId: {
+              $in: businessOwners.map((owner) =>
+                this.toObjectId(owner.id, 'business owner id'),
+              ),
+            },
+          })
+          .sort({ createdAt: -1 })
+          .select('ownerId title description logo createdAt');
 
-    for (const service of matchingServices) {
+    for (const service of servicesForCards) {
       const ownerId = service.ownerId.toString();
       if (!servicesByOwnerId.has(ownerId)) {
         servicesByOwnerId.set(ownerId, service);
