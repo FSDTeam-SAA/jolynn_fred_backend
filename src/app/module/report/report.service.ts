@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateReportDto } from './dto/create-report.dto';
 import { Report, ReportDocument } from './entities/report.entity';
+import { User, UserDocument } from 'src/app/module/user/entities/user.entity';
 import {
   BusinessService,
   BusinessServiceDocument,
@@ -15,8 +16,10 @@ const reportSearchAbleFields = ['message'];
 
 const populateFields = [
   { path: 'userId', select: 'firstName lastName email phoneNumber' },
-  { path: 'serviceId', select: 'title description logo' },
-  { path: 'ownerId', select: 'firstName lastName email phoneNumber' },
+  {
+    path: 'ownerId',
+    select: 'firstName lastName businessName email phoneNumber',
+  },
 ];
 
 @Injectable()
@@ -24,26 +27,46 @@ export class ReportService {
   constructor(
     @InjectModel(Report.name)
     private readonly reportModel: Model<ReportDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
     @InjectModel(BusinessService.name)
     private readonly serviceModel: Model<BusinessServiceDocument>,
   ) {}
 
   async createReport(userId: string, createReportDto: CreateReportDto) {
-    const service = await this.serviceModel.findById(
-      createReportDto.serviceId,
-    );
-    if (!service) {
-      throw new HttpException('Service not found', 404);
+    const owner = await this.userModel.findOne({
+      _id: createReportDto.ownerId,
+      role: 'businessOwner',
+    });
+    if (!owner) {
+      throw new HttpException('Business owner not found', 404);
     }
 
     const report = await this.reportModel.create({
       userId,
-      serviceId: createReportDto.serviceId,
-      ownerId: service.ownerId,
+      ownerId: createReportDto.ownerId,
       message: createReportDto.message,
     });
 
     return report;
+  }
+
+  private async attachServices(reports: ReportDocument[]) {
+    const ownerIds = [
+      ...new Set(reports.map((report) => report.ownerId.toString())),
+    ];
+
+    const services = await this.serviceModel.find({
+      ownerId: { $in: ownerIds },
+    });
+
+    return reports.map((report) => {
+      const reportObj = report.toObject() as any;
+      reportObj.services = services.filter(
+        (service) => service.ownerId.toString() === report.ownerId.toString(),
+      );
+      return reportObj;
+    });
   }
 
   async getAllReport(params: IFilterParams, options: IOptions) {
@@ -61,13 +84,15 @@ export class ReportService {
       .limit(limit)
       .sort({ [sortBy]: sortOrder } as any);
 
+    const data = await this.attachServices(reports);
+
     return {
       meta: {
         page,
         limit,
         total,
       },
-      data: reports,
+      data,
     };
   }
 
@@ -78,7 +103,9 @@ export class ReportService {
     if (!report) {
       throw new HttpException('Report not found', 404);
     }
-    return report;
+
+    const [enriched] = await this.attachServices([report]);
+    return enriched;
   }
 
   async deleteReport(id: string) {
