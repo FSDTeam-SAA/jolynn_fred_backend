@@ -6,13 +6,13 @@ const normalizeString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
 export class CreateReportDto {
-  @ApiProperty({ example: '6a4de4d04872d2c3ff216b44' })
-  @IsMongoId({ message: 'Valid serviceId is required' })
+  @ApiProperty({ example: '6a4dd687ae2791392abdd152' })
+  @IsMongoId({ message: 'Valid ownerId is required' })
   @IsNotEmpty()
-  serviceId: string;
+  ownerId: string;
 
   @ApiProperty({
-    example: 'This service was never delivered as described...',
+    example: 'This business owner never delivered as promised...',
   })
   @Transform(normalizeString)
   @IsString()

@@ -53,6 +53,59 @@ export class ReviewsController {
     };
   }
 
+  @Get()
+  @ApiOperation({ summary: 'Get all reviews across all businesses (public)' })
+  @ApiQuery({
+    name: 'searchTerm',
+    required: false,
+    type: String,
+    example: '',
+    description: 'Search by review message, reviewer name or business name',
+  })
+  @ApiQuery({
+    name: 'rating',
+    required: false,
+    type: Number,
+    example: 5,
+    description: 'Filter by exact rating value',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @HttpCode(HttpStatus.OK)
+  async getAllReviews(@Req() req: Request) {
+    const params = pick(req.query, ['searchTerm', 'rating']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.reviewsService.getAllReviews(params, options);
+
+    return {
+      message: 'Reviews fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
   @Get('business/:businessId')
   @ApiOperation({ summary: 'Get public reviews for a business profile' })
   @ApiParam({

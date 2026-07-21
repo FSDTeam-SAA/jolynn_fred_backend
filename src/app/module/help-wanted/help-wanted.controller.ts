@@ -199,7 +199,7 @@ export class HelpWantedController {
       data: result,
     };
   }
-
+ 
 @Delete(':id')
   @ApiOperation({
     summary: 'Delete help wanted request by id (owner or admin only)',

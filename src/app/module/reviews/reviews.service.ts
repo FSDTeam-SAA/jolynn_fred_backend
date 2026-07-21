@@ -196,6 +196,27 @@ export class ReviewsService {
     };
   }
 
+  async getAllReviews(params: IFilterParams, options: IOptions) {
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const whereConditions = buildWhereConditions(params, reviewSearchAbleFields);
+
+    const total = await this.reviewModel.countDocuments(whereConditions);
+    const reviews = await this.reviewModel
+      .find(whereConditions)
+      .skip(skip)
+      .limit(limit)
+      .sort({ [sortBy]: sortOrder } as any);
+
+    return {
+      meta: {
+        page,
+        limit,
+        total,
+      },
+      data: reviews,
+    };
+  }
+
   async getMyReviews(
     reviewerId: string,
     params: IFilterParams,
