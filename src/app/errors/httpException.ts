@@ -18,7 +18,7 @@ export function handleHttpException(err: HttpException): {
     const messages: string[] = (response as any).message;
     return {
       statusCode,
-      message: 'Validation Error',
+      message: messages[0] ?? err.message,
       errorSources: messages.map((msg) => ({ path: '', message: msg })),
     };
   }
