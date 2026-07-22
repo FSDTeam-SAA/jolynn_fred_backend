@@ -3,7 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as fs from 'fs';
 import { join } from 'path';
-import { CountryCity, CountryCityDocument } from './entities/country-city.entity';
+import { City } from 'country-state-city';
+import {
+  CountryCity,
+  CountryCityDocument,
+} from './entities/country-city.entity';
 import { State, StateDocument } from './entities/state.entity';
 import {
   GetCitiesByStateQueryDto,
@@ -63,7 +67,11 @@ export class LocationService {
       process.env.LOCATION_DATA_FILE,
       join(process.cwd(), 'src', 'app', 'data', 'countries+states+cities.json'),
       join(process.cwd(), 'countries+states+cities.json'),
-      join(process.env.USERPROFILE || '', 'Downloads', 'countries+states+cities.json'),
+      join(
+        process.env.USERPROFILE || '',
+        'Downloads',
+        'countries+states+cities.json',
+      ),
     ].filter((path): path is string => Boolean(path));
   }
 
@@ -101,7 +109,8 @@ export class LocationService {
       return null;
     }
 
-    const countryName = query.countryName || state.country_name || 'United States';
+    const countryName =
+      query.countryName || state.country_name || 'United States';
     const countryCode = state.country_code;
 
     const country = dataset.find(
@@ -135,6 +144,37 @@ export class LocationService {
     return {
       state: this.mapStateResponse(state),
       dataSource: 'json-file',
+      cities,
+    };
+  }
+
+  private getCitiesFromCountryStateCityDataset(
+    state: StatePayload,
+    searchRegex: RegExp | null,
+    limit: number,
+  ) {
+    const countryCode = state.country_code?.trim().toUpperCase();
+    const stateCode = state.iso2?.trim().toUpperCase();
+
+    if (!countryCode || !stateCode) {
+      return null;
+    }
+
+    const cities = City.getCitiesOfState(countryCode, stateCode)
+      .map((city) => city.name?.trim())
+      .filter((city): city is string => Boolean(city))
+      .filter((city, index, collection) => collection.indexOf(city) === index)
+      .filter((city) => !searchRegex || searchRegex.test(city))
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, limit);
+
+    if (!cities.length) {
+      return null;
+    }
+
+    return {
+      state: this.mapStateResponse(state),
+      dataSource: 'country-state-city',
       cities,
     };
   }
@@ -263,7 +303,15 @@ export class LocationService {
       return jsonDatasetCities;
     }
 
-    const countryName = query.countryName || state.country_name || 'United States';
+    const countryStateCityDatasetCities =
+      this.getCitiesFromCountryStateCityDataset(state, searchRegex, limit);
+
+    if (countryStateCityDatasetCities) {
+      return countryStateCityDatasetCities;
+    }
+
+    const countryName =
+      query.countryName || state.country_name || 'United States';
     const countryCityDocument = await this.countryCityModel
       .findOne({ name: countryName })
       .lean();
@@ -281,10 +329,11 @@ export class LocationService {
     );
 
     if (!hasStateLinkedCities) {
-      throw new HttpException(
-        'Current Mongo city dataset is not linked to states, and no usable state-city JSON fallback was found.',
-        409,
-      );
+      return {
+        state: this.mapStateResponse(state),
+        dataSource: 'unavailable',
+        cities: [],
+      };
     }
 
     const cities = normalizedCities
