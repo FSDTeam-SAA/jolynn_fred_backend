@@ -20,5 +20,8 @@ export function handleClassValidatorErrors(errors: ValidationError[]): {
   };
 
   extract(errors);
-  return { message: 'Validation Error', errorSources };
+  return {
+    message: errorSources[0]?.message ?? 'Validation failed',
+    errorSources,
+  };
 }
