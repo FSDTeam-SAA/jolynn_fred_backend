@@ -53,7 +53,7 @@ export class User {
   gender: UserGender;
 
   @Prop()
-  phoneNumber: string;
+  phoneNumber?: string;
 
   @Prop({ trim: true })
   businessName?: string;

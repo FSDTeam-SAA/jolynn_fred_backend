@@ -56,9 +56,8 @@ export class RegisterUserDto {
   @ApiProperty({ example: '+12345678901' })
   @Transform(normalizeString)
   @IsString()
-  @IsNotEmpty()
-  @MinLength(8, { message: 'Phone number must be at least 8 characters' })
-  phoneNumber: string;
+  @IsOptional()
+  phoneNumber?: string;
 
   @ApiProperty({ example: 'secret123' })
   @IsString()
