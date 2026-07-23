@@ -22,6 +22,9 @@ export class Sponsor {
 
   @Prop()
   imagePublicId: string;
+
+  @Prop()
+  link?: string;
 }
 
 export const SponsorSchema = SchemaFactory.createForClass(Sponsor);

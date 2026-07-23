@@ -27,4 +27,10 @@ export class CreateSponsorDto {
   })
   @IsOptional()
   image?: any;
+
+  @ApiPropertyOptional({ example: 'https://example.com/sponsor' })
+  @Transform(normalizeString)
+  @IsString()
+  @IsOptional()
+  link?: string;
 }
