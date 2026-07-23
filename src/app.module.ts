@@ -20,6 +20,7 @@ import { LocationModule } from './app/module/location/location.module';
 import { DashboardModule } from './app/module/dashboard/dashboard.module';
 import { SaveQuoteModule } from './app/module/save-quote/save-quote.module';
 import { JobReportModule } from './app/module/job-report/job-report.module';
+import { CategoryModule } from './app/module/category/category.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -40,6 +41,7 @@ import { JobReportModule } from './app/module/job-report/job-report.module';
     DashboardModule,
     SaveQuoteModule,
     JobReportModule,
+    CategoryModule,
   ],
 
   controllers: [AppController],
