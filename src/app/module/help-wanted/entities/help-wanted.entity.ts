@@ -36,6 +36,9 @@ export class HelpWanted {
   })
   category: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
+  serviceCategoryId?: Types.ObjectId;
+
   @Prop({
     required: [true, 'Phone is required'],
     trim: true,

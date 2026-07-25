@@ -134,6 +134,15 @@ export class RegisterBusinessOwnerDto {
   @IsNotEmpty()
   category: string;
 
+  @ApiPropertyOptional({
+    example: 'Solar Installation',
+    description: 'Required when category is Other',
+  })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  requestedCategory?: string;
+
   @ApiProperty({ example: 'New York' })
   @Transform(normalizeString)
   @IsString()
