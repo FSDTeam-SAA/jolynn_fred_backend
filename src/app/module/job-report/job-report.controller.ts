@@ -30,11 +30,17 @@ export class JobReportController {
   constructor(private readonly jobReportService: JobReportService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Report a job post (public, no login required)' })
+  @ApiOperation({ summary: 'Report a job post (logged-in user only)' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiBody({ type: CreateJobReportDto })
   @HttpCode(HttpStatus.CREATED)
-  async createJobReport(@Body() createJobReportDto: CreateJobReportDto) {
+  async createJobReport(
+    @Req() req: Request,
+    @Body() createJobReportDto: CreateJobReportDto,
+  ) {
     const result = await this.jobReportService.createJobReport(
+      req.user!.id,
       createJobReportDto,
     );
     return {
@@ -44,15 +50,13 @@ export class JobReportController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all job reports (admin only)' })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('admin'))
+  @ApiOperation({ summary: 'Get all job reports (public)' })
   @ApiQuery({
     name: 'searchTerm',
     required: false,
     type: String,
     example: '',
-    description: 'Search by message or reporterEmail',
+    description: 'Search by message',
   })
   @ApiQuery({
     name: 'page',
@@ -98,10 +102,33 @@ export class JobReportController {
     };
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get single job report by id (admin only)' })
+  @Get('my')
+  @ApiOperation({ summary: 'Get my own job reports (logged-in user)' })
   @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('admin'))
+  @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
+  @ApiQuery({ name: 'searchTerm', required: false, type: String, example: '' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'sortBy', required: false, type: String, example: 'createdAt' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc' })
+  @HttpCode(HttpStatus.OK)
+  async getMyJobReport(@Req() req: Request) {
+    const params = pick(req.query, ['searchTerm']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.jobReportService.getMyJobReport(
+      req.user!.id,
+      params,
+      options,
+    );
+    return {
+      message: 'Your job reports fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get single job report by id (public)' })
   @ApiParam({
     name: 'id',
     required: true,
@@ -118,10 +145,10 @@ export class JobReportController {
     };
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete job report by id (admin only)' })
+@Delete(':id')
+  @ApiOperation({ summary: 'Delete job report by id (owner or admin only)' })
   @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard('admin'))
+  @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiParam({
     name: 'id',
     required: true,
@@ -130,8 +157,12 @@ export class JobReportController {
     description: 'Job report id',
   })
   @HttpCode(HttpStatus.OK)
-  async deleteJobReport(@Param('id') id: string) {
-    const result = await this.jobReportService.deleteJobReport(id);
+  async deleteJobReport(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.jobReportService.deleteJobReport(
+      id,
+      req.user!.id,
+      req.user!.role,
+    );
     return {
       message: 'Job report deleted successfully',
       data: result,

@@ -6,11 +6,17 @@ export type HelpWantedDocument = HydratedDocument<HelpWanted>;
 @Schema({ timestamps: true })
 export class HelpWanted {
   @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+  })
+  userId?: Types.ObjectId;
+
+  @Prop({
     required: [true, 'Username is required'],
     trim: true,
   })
   username: string;
-
+  
   @Prop({
     required: [true, 'Email is required'],
     trim: true,
