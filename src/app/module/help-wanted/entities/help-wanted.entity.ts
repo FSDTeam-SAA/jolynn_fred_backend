@@ -16,7 +16,7 @@ export class HelpWanted {
     trim: true,
   })
   username: string;
-  
+
   @Prop({
     required: [true, 'Email is required'],
     trim: true,

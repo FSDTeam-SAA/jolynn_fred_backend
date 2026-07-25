@@ -9,9 +9,11 @@ import {
   BusinessServiceSchema,
 } from './entities/service.entity';
 import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
+import { ServiceCategoryModule } from '../service-category/service-category.module';
 
 @Module({
   imports: [
+    ServiceCategoryModule,
     MongooseModule.forFeature([
       { name: BusinessService.name, schema: BusinessServiceSchema },
       { name: User.name, schema: UserSchema },
