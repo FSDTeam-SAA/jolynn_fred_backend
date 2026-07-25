@@ -19,15 +19,15 @@ import {
   isReservedUsername,
   normalizeUsername,
 } from 'src/app/helpers/username';
+import { ServiceCategoryService } from '../service-category/service-category.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly jwtService: jwt.JwtService,
+    private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
-
- 
 
   private sanitizeUser(user: UserDocument) {
     const rawUser = user.toObject() as unknown as {
@@ -53,7 +53,10 @@ export class AuthService {
 
   private async ensureUniqueCredentials(email: string, username?: string) {
     const existingUser = await this.userModel.findOne({
-      $or: [{ email }, ...(username ? [{ username: username.toLowerCase() }] : [])],
+      $or: [
+        { email },
+        ...(username ? [{ username: username.toLowerCase() }] : []),
+      ],
     });
 
     if (!existingUser) {
@@ -74,13 +77,19 @@ export class AuthService {
     confirmPassword: string,
   ) {
     if (password !== confirmPassword) {
-      throw new HttpException('Password and confirm password do not match', 400);
+      throw new HttpException(
+        'Password and confirm password do not match',
+        400,
+      );
     }
   }
 
   private validateTermsAcceptance(agreementAccepted: boolean) {
     if (!agreementAccepted) {
-      throw new HttpException('You must agree to the terms and conditions', 400);
+      throw new HttpException(
+        'You must agree to the terms and conditions',
+        400,
+      );
     }
   }
 
@@ -122,18 +131,18 @@ export class AuthService {
     );
     this.validateTermsAcceptance(registerUserDto.agreementAccepted);
 
-return this.createAccount(
-  {
-    firstName: registerUserDto.firstName,
-    lastName: registerUserDto.lastName,
-    username: registerUserDto.username,
-    email: registerUserDto.email.toLowerCase(),
-    phoneNumber: registerUserDto.phoneNumber,
-    password: registerUserDto.password,
-    agreementAccepted: registerUserDto.agreementAccepted,
-  },
-  'user',
-);
+    return this.createAccount(
+      {
+        firstName: registerUserDto.firstName,
+        lastName: registerUserDto.lastName,
+        username: registerUserDto.username,
+        email: registerUserDto.email.toLowerCase(),
+        phoneNumber: registerUserDto.phoneNumber,
+        password: registerUserDto.password,
+        agreementAccepted: registerUserDto.agreementAccepted,
+      },
+      'user',
+    );
   }
 
   async registerBusinessOwner(
@@ -145,10 +154,22 @@ return this.createAccount(
     );
     this.validateTermsAcceptance(registerBusinessOwnerDto.agreementAccepted);
 
+    const serviceCategory =
+      await this.serviceCategoryService.resolveCategorySelection(
+        registerBusinessOwnerDto.category,
+        registerBusinessOwnerDto.requestedCategory,
+        'business_registration',
+      );
+    const categoryName =
+      serviceCategory?.name ?? registerBusinessOwnerDto.category;
+
     return this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
-        lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
+        lastName: registerBusinessOwnerDto.ownerName
+          .split(' ')
+          .slice(1)
+          .join(' '),
         username: registerBusinessOwnerDto.username,
         email: registerBusinessOwnerDto.personalEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,
@@ -156,7 +177,8 @@ return this.createAccount(
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: registerBusinessOwnerDto.category,
+        category: categoryName,
+        serviceCategoryId: serviceCategory?._id,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
@@ -168,7 +190,7 @@ return this.createAccount(
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
-    const identifier =  loginDto.email;
+    const identifier = loginDto.email;
     if (!identifier) {
       throw new HttpException('Email or username is required', 400);
     }
@@ -211,21 +233,14 @@ return this.createAccount(
       throw new HttpException('Your account has been suspended', 403);
     }
 
-
-    const accessToken = this.jwtService.sign(
-      this.createTokenPayload(user),
-      {
-        secret: config.jwt.accessTokenSecret,
-        expiresIn: config.jwt.accessTokenExpires as any,
-      } as jwt.JwtSignOptions,
-    );
-    const refreshToken = this.jwtService.sign(
-      this.createTokenPayload(user),
-      {
-        secret: config.jwt.refreshTokenSecret,
-        expiresIn: config.jwt.refreshTokenExpires as any,
-      } as jwt.JwtSignOptions,
-    );
+    const accessToken = this.jwtService.sign(this.createTokenPayload(user), {
+      secret: config.jwt.accessTokenSecret,
+      expiresIn: config.jwt.accessTokenExpires as any,
+    } as jwt.JwtSignOptions);
+    const refreshToken = this.jwtService.sign(this.createTokenPayload(user), {
+      secret: config.jwt.refreshTokenSecret,
+      expiresIn: config.jwt.refreshTokenExpires as any,
+    } as jwt.JwtSignOptions);
     res.cookie('refreshToken', refreshToken, this.buildCookieOptions());
 
     return { accessToken, user: this.sanitizeUser(user) };

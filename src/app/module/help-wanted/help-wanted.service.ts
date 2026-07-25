@@ -7,6 +7,7 @@ import { HelpWanted, HelpWantedDocument } from './entities/help-wanted.entity';
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+import { ServiceCategoryService } from '../service-category/service-category.service';
 
 const helpWantedSearchAbleFields = [
   'username',
@@ -22,10 +23,22 @@ export class HelpWantedService {
   constructor(
     @InjectModel(HelpWanted.name)
     private readonly helpWantedModel: Model<HelpWantedDocument>,
+    private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
 
   async createHelpWanted(createHelpWantedDto: CreateHelpWantedDto) {
-    const helpWanted = await this.helpWantedModel.create(createHelpWantedDto);
+    const serviceCategory =
+      await this.serviceCategoryService.resolveCategorySelection(
+        createHelpWantedDto.category,
+        createHelpWantedDto.requestedCategory,
+        'help_wanted',
+      );
+    const categoryName = serviceCategory?.name ?? createHelpWantedDto.category;
+    const helpWanted = await this.helpWantedModel.create({
+      ...createHelpWantedDto,
+      category: categoryName,
+      serviceCategoryId: serviceCategory?._id,
+    });
     return helpWanted;
   }
 
@@ -61,10 +74,7 @@ export class HelpWantedService {
     return helpWanted;
   }
 
-  async updateHelpWanted(
-    id: string,
-    updateHelpWantedDto: UpdateHelpWantedDto,
-  ) {
+  async updateHelpWanted(id: string, updateHelpWantedDto: UpdateHelpWantedDto) {
     const helpWanted = await this.helpWantedModel.findById(id);
     if (!helpWanted) {
       throw new HttpException('Help wanted request not found', 404);

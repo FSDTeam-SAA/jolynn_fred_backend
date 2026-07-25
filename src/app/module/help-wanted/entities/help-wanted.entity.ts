@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type HelpWantedDocument = HydratedDocument<HelpWanted>;
 
@@ -29,6 +29,9 @@ export class HelpWanted {
     trim: true,
   })
   category: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
+  serviceCategoryId?: Types.ObjectId;
 
   @Prop({
     required: [true, 'Phone is required'],
