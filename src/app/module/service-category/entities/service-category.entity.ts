@@ -15,6 +15,7 @@ export const SERVICE_CATEGORY_SOURCES = [
   'admin',
   'help_wanted',
   'business_registration',
+  'service_creation',
 ] as const;
 
 export type ServiceCategorySource = (typeof SERVICE_CATEGORY_SOURCES)[number];
