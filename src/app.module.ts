@@ -20,6 +20,7 @@ import { LocationModule } from './app/module/location/location.module';
 import { DashboardModule } from './app/module/dashboard/dashboard.module';
 import { SaveQuoteModule } from './app/module/save-quote/save-quote.module';
 import { JobReportModule } from './app/module/job-report/job-report.module';
+import { ServiceCategoryModule } from './app/module/service-category/service-category.module';
 import { CategoryModule } from './app/module/category/category.module';
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { CategoryModule } from './app/module/category/category.module';
     DashboardModule,
     SaveQuoteModule,
     JobReportModule,
+    ServiceCategoryModule,
     CategoryModule,
   ],
 

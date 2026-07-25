@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 export type UserDocument = HydratedDocument<User>;
 import * as bcrypt from 'bcrypt';
 import config from '../../../config';
@@ -14,8 +14,6 @@ import {
 
 @Schema({ timestamps: true })
 export class User {
-
-
   @Prop({ trim: true })
   firstName?: string;
 
@@ -70,6 +68,9 @@ export class User {
   @Prop({ trim: true })
   category?: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
+  serviceCategoryId?: Types.ObjectId;
+
   @Prop()
   country: string;
 
@@ -97,8 +98,8 @@ export class User {
   @Prop()
   otpExpiry?: Date;
 
-@Prop({ enum: USER_STATUSES, default: 'active' })
-status: UserStatus;
+  @Prop({ enum: USER_STATUSES, default: 'active' })
+  status: UserStatus;
 
   @Prop({ default: false })
   verifiedForget: boolean;
@@ -112,7 +113,15 @@ status: UserStatus;
   @Prop()
   bio: string;
 
-  @Prop({enum: ['Boiler Customer', 'Annual Service Agreement', 'Heat Pump Quote', 'Bathroom Lead'], default: 'Boiler Customer'})
+  @Prop({
+    enum: [
+      'Boiler Customer',
+      'Annual Service Agreement',
+      'Heat Pump Quote',
+      'Bathroom Lead',
+    ],
+    default: 'Boiler Customer',
+  })
   tag: string;
 }
 

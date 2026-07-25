@@ -1,9 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 const normalizeString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
+
+const emptyStringToUndefined = ({ value }: { value: unknown }) =>
+  value === '' ? undefined : normalizeString({ value });
 
 export class CreateHelpWantedDto {
   @ApiProperty({ example: 'john_doe' })
@@ -29,6 +32,15 @@ export class CreateHelpWantedDto {
   @IsString()
   @IsNotEmpty()
   category: string;
+
+  @ApiPropertyOptional({
+    example: 'Solar Installation',
+    description: 'Required when category is Other',
+  })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  requestedCategory?: string;
 
   @ApiProperty({ example: '+12345678901' })
   @Transform(normalizeString)
