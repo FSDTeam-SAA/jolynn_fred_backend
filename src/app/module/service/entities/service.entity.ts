@@ -30,6 +30,9 @@ export class BusinessService {
   })
   title: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'ServiceCategory', index: true })
+  serviceCategoryId: Types.ObjectId;
+
   @Prop({
     required: [true, 'Service description is required'],
     trim: true,

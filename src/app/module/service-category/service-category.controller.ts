@@ -149,7 +149,7 @@ export class ServiceCategoryController {
   @ApiQuery({
     name: 'source',
     required: false,
-    enum: ['admin', 'help_wanted', 'business_registration'],
+    enum: ['admin', 'help_wanted', 'business_registration', 'service_creation'],
     example: 'help_wanted',
   })
   @ApiQuery({

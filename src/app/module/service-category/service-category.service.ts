@@ -21,7 +21,7 @@ const serviceCategorySearchAbleFields = [
 
 type CategorySelectionSource = Extract<
   ServiceCategorySource,
-  'help_wanted' | 'business_registration'
+  'help_wanted' | 'business_registration' | 'service_creation'
 >;
 
 @Injectable()
@@ -198,7 +198,18 @@ export class ServiceCategoryService {
 
     const existingCategory = await this.findByNormalizedName(category);
 
-    return existingCategory ?? null;
+    if (
+      !existingCategory ||
+      existingCategory.status !== 'approved' ||
+      !existingCategory.isActive
+    ) {
+      throw new HttpException(
+        'Please select an approved service category or choose Other',
+        400,
+      );
+    }
+
+    return existingCategory;
   }
 
   async getAllServiceCategories(params: IFilterParams, options: IOptions) {
