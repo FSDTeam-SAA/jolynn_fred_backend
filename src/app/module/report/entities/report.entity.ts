@@ -14,13 +14,6 @@ export class Report {
 
   @Prop({
     type: Types.ObjectId,
-    ref: 'BusinessService',
-    required: [true, 'Service id is required'],
-  })
-  serviceId: Types.ObjectId;
-
-  @Prop({
-    type: Types.ObjectId,
     ref: 'User',
     required: [true, 'Owner id is required'],
   })

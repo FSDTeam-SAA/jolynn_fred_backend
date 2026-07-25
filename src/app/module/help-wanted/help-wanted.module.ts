@@ -4,12 +4,14 @@ import { HelpWantedService } from './help-wanted.service';
 import { HelpWantedController } from './help-wanted.controller';
 import { HelpWanted, HelpWantedSchema } from './entities/help-wanted.entity';
 import { ServiceCategoryModule } from '../service-category/service-category.module';
+import { User, UserSchema } from 'src/app/module/user/entities/user.entity';
 
 @Module({
   imports: [
     ServiceCategoryModule,
     MongooseModule.forFeature([
       { name: HelpWanted.name, schema: HelpWantedSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [HelpWantedController],
