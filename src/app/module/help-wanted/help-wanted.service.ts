@@ -26,23 +26,28 @@ export class HelpWantedService {
     private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
 
-  async createHelpWanted(createHelpWantedDto: CreateHelpWantedDto) {
+  async createHelpWanted(
+    createHelpWantedDto: CreateHelpWantedDto,
+    userId?: string,
+  ) {
     const serviceCategory =
       await this.serviceCategoryService.resolveCategorySelection(
         createHelpWantedDto.category,
         createHelpWantedDto.requestedCategory,
         'help_wanted',
+        userId,
       );
     const categoryName = serviceCategory?.name ?? createHelpWantedDto.category;
     const helpWanted = await this.helpWantedModel.create({
       ...createHelpWantedDto,
+      userId,
       category: categoryName,
       serviceCategoryId: serviceCategory?._id,
     });
     return helpWanted;
   }
 
-async getAllHelpWanted(params: IFilterParams, options: IOptions) {
+  async getAllHelpWanted(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(
       params,
@@ -52,7 +57,10 @@ async getAllHelpWanted(params: IFilterParams, options: IOptions) {
     const total = await this.helpWantedModel.countDocuments(whereConditions);
     const helpWanteds = await this.helpWantedModel
       .find(whereConditions)
-      .populate('userId', 'firstName lastName email username phoneNumber profilePicture')
+      .populate(
+        'userId',
+        'firstName lastName email username phoneNumber profilePicture',
+      )
       .skip(skip)
       .limit(limit)
       .sort({ [sortBy]: sortOrder } as any);
@@ -67,7 +75,11 @@ async getAllHelpWanted(params: IFilterParams, options: IOptions) {
     };
   }
 
-async getMyHelpWanted(userId: string, params: IFilterParams, options: IOptions) {
+  async getMyHelpWanted(
+    userId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = {
       ...buildWhereConditions(params, helpWantedSearchAbleFields),
@@ -91,10 +103,13 @@ async getMyHelpWanted(userId: string, params: IFilterParams, options: IOptions) 
     };
   }
 
-async getSingleHelpWanted(id: string) {
+  async getSingleHelpWanted(id: string) {
     const helpWanted = await this.helpWantedModel
       .findById(id)
-      .populate('userId', 'firstName lastName email username phoneNumber profilePicture');
+      .populate(
+        'userId',
+        'firstName lastName email username phoneNumber profilePicture',
+      );
     if (!helpWanted) {
       throw new HttpException('Help wanted request not found', 404);
     }
@@ -115,7 +130,11 @@ async getSingleHelpWanted(id: string) {
     return updatedHelpWanted;
   }
 
-async deleteHelpWanted(id: string, requesterId: string, requesterRole: string) {
+  async deleteHelpWanted(
+    id: string,
+    requesterId: string,
+    requesterRole: string,
+  ) {
     const helpWanted = await this.helpWantedModel.findById(id);
     if (!helpWanted) {
       throw new HttpException('Help wanted request not found', 404);
@@ -126,10 +145,7 @@ async deleteHelpWanted(id: string, requesterId: string, requesterRole: string) {
     const isAdmin = requesterRole === 'admin';
 
     if (!isOwner && !isAdmin) {
-      throw new HttpException(
-        'You are not allowed to delete this post',
-        403,
-      );
+      throw new HttpException('You are not allowed to delete this post', 403);
     }
 
     const result = await this.helpWantedModel.findByIdAndDelete(id);

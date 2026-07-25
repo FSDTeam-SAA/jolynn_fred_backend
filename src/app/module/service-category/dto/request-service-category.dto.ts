@@ -5,6 +5,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 const REQUEST_SERVICE_CATEGORY_SOURCES = [
   'help_wanted',
   'business_registration',
+  'service_creation',
 ] as const;
 
 type RequestServiceCategorySource =
@@ -28,7 +29,8 @@ export class RequestServiceCategoryDto {
     example: 'help_wanted',
   })
   @IsEnum(REQUEST_SERVICE_CATEGORY_SOURCES, {
-    message: 'source must be one of: help_wanted, business_registration',
+    message:
+      'source must be one of: help_wanted, business_registration, service_creation',
   })
   source: RequestServiceCategorySource;
 

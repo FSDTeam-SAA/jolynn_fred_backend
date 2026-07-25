@@ -13,6 +13,7 @@ import {
 } from './entities/service.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { ServiceCategoryService } from '../service-category/service-category.service';
 
 const serviceSearchAbleFields = ['title', 'description'];
 const businessOwnerSearchAbleFields = [
@@ -32,6 +33,7 @@ export class ServiceService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(Review.name)
     private readonly reviewModel: Model<ReviewDocument>,
+    private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
 
   private normalizePayload<T extends CreateServiceDto | UpdateServiceDto>(
@@ -382,11 +384,21 @@ export class ServiceService {
     logoFile?: Express.Multer.File,
   ) {
     const payload = this.normalizePayload(createServiceDto);
-    await this.ensureUniqueTitle(ownerId, payload.title);
+    const serviceCategory =
+      await this.serviceCategoryService.resolveCategorySelection(
+        payload.title,
+        payload.requestedCategory,
+        'service_creation',
+        ownerId,
+      );
+    const title = serviceCategory.name;
+
+    await this.ensureUniqueTitle(ownerId, title);
 
     const servicePayload: Partial<BusinessService> = {
       ownerId: this.toObjectId(ownerId, 'business owner id'),
-      title: payload.title,
+      title,
+      serviceCategoryId: serviceCategory._id,
       description: payload.description,
     };
 
@@ -579,7 +591,26 @@ export class ServiceService {
     logoFile?: Express.Multer.File,
   ) {
     const service = await this.getOwnedServiceOrThrow(serviceId, ownerId);
-    const payload = this.normalizePayload(updateServiceDto);
+    const payload = this.normalizePayload(
+      updateServiceDto,
+    ) as UpdateServiceDto & {
+      serviceCategoryId?: Types.ObjectId;
+    };
+
+    if (payload.title) {
+      const serviceCategory =
+        await this.serviceCategoryService.resolveCategorySelection(
+          payload.title,
+          payload.requestedCategory,
+          'service_creation',
+          ownerId,
+        );
+
+      payload.title = serviceCategory.name;
+      payload.serviceCategoryId = serviceCategory._id;
+    }
+
+    delete payload.requestedCategory;
 
     await this.ensureUniqueTitle(ownerId, payload.title, serviceId);
 

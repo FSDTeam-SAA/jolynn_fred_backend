@@ -49,9 +49,10 @@ export class HelpWantedController {
     }
   }
 
-@Post()
+  @Post()
   @ApiOperation({
-    summary: 'Submit a help wanted request (public, login optional to link post to your account)',
+    summary:
+      'Submit a help wanted request (public, login optional to link post to your account)',
   })
   @ApiBearerAuth('access-token')
   @ApiBody({ type: CreateHelpWantedDto })
@@ -71,14 +72,15 @@ export class HelpWantedController {
     };
   }
 
- @Get()
+  @Get()
   @ApiOperation({ summary: 'Get all help wanted requests (public)' })
   @ApiQuery({
     name: 'searchTerm',
     required: false,
     type: String,
     example: '',
-    description: 'Search by username, email, zipcode, category, phone or message',
+    description:
+      'Search by username, email, zipcode, category, phone or message',
   })
   @ApiQuery({
     name: 'page',
@@ -131,8 +133,18 @@ export class HelpWantedController {
   @ApiQuery({ name: 'searchTerm', required: false, type: String, example: '' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
-  @ApiQuery({ name: 'sortBy', required: false, type: String, example: 'createdAt' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc' })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
   @HttpCode(HttpStatus.OK)
   async getMyHelpWanted(@Req() req: Request) {
     const params = pick(req.query, ['searchTerm']);
@@ -199,8 +211,8 @@ export class HelpWantedController {
       data: result,
     };
   }
- 
-@Delete(':id')
+
+  @Delete(':id')
   @ApiOperation({
     summary: 'Delete help wanted request by id (owner or admin only)',
   })
