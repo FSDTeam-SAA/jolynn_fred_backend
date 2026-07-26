@@ -91,6 +91,12 @@ export class ServiceService {
     return new Types.ObjectId(id);
   }
 
+  private buildDisplayName(
+    user: Pick<UserDocument, 'businessName' | 'username' | 'email'>,
+  ) {
+    return user.businessName || user.username || user.email;
+  }
+
   private async ensurePublicBusinessOwnerExists(ownerId: string) {
     const owner = await this.userModel
       .findById(this.toObjectId(ownerId, 'business owner id'))
@@ -447,7 +453,40 @@ export class ServiceService {
       .find(whereConditions)
       .skip(skip)
       .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
+      .sort({ [sortBy]: sortOrder } as any)
+      .lean();
+
+    const ownerIds = services.map((service) => service.ownerId);
+    const owners = await this.userModel
+      .find({
+        _id: { $in: ownerIds },
+      })
+      .select(
+        'businessName username email city state country address serviceArea',
+      )
+      .lean();
+
+    const ownerMap = new Map(
+      owners.map((owner) => [owner._id.toString(), owner]),
+    );
+
+    const data = services.map((service) => {
+      const owner = ownerMap.get(service.ownerId.toString());
+
+      return {
+        ...service,
+        businessOwnerName: owner ? this.buildDisplayName(owner as any) : null,
+        businessOwnerLocation: owner
+          ? {
+              city: owner.city,
+              state: owner.state,
+              country: owner.country,
+              address: owner.address,
+              serviceArea: owner.serviceArea,
+            }
+          : null,
+      };
+    });
 
     return {
       meta: {
@@ -455,7 +494,7 @@ export class ServiceService {
         limit,
         total,
       },
-      data: services,
+      data,
     };
   }
 
