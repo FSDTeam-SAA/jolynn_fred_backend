@@ -33,7 +33,9 @@ export class SaveQuoteService {
   }
 
   private async getUserOrThrow(userId: string) {
-    const user = await this.userModel.findById(this.toObjectId(userId, 'user id'));
+    const user = await this.userModel.findById(
+      this.toObjectId(userId, 'user id'),
+    );
 
     if (!user) {
       throw new HttpException('User not found', 404);
@@ -87,7 +89,10 @@ export class SaveQuoteService {
     );
   }
 
-  async saveBusinessman(userId: string, createSaveQuoteDto: CreateSaveQuoteDto) {
+  async saveBusinessman(
+    userId: string,
+    createSaveQuoteDto: CreateSaveQuoteDto,
+  ) {
     const user = await this.getUserOrThrow(userId);
     const businessOwner = await this.getBusinessOwnerOrThrow(
       createSaveQuoteDto.businessOwnerId,
@@ -112,6 +117,23 @@ export class SaveQuoteService {
     });
   }
 
+  async unsaveBusinessman(userId: string, businessOwnerId: string) {
+    await this.getUserOrThrow(userId);
+
+    const savedBusiness = await this.saveQuoteModel.findOne({
+      userId: this.toObjectId(userId, 'user id'),
+      businessOwnerId: this.toObjectId(businessOwnerId, 'business owner id'),
+    });
+
+    if (!savedBusiness) {
+      throw new HttpException('Saved business owner not found', 404);
+    }
+
+    await this.saveQuoteModel.findByIdAndDelete(savedBusiness._id);
+
+    return savedBusiness;
+  }
+
   async getSavedBusinessmen(userId: string, options: IOptions) {
     await this.getUserOrThrow(userId);
 
@@ -130,27 +152,33 @@ export class SaveQuoteService {
       userId: this.toObjectId(userId, 'user id'),
     });
 
-    const businessOwnerIds = savedBusinesses.map((item) => item.businessOwnerId);
+    const businessOwnerIds = savedBusinesses.map(
+      (item) => item.businessOwnerId,
+    );
 
-    const [businessOwners, businessServices, reviewSummaryMap] = await Promise.all([
-      this.userModel
-        .find({
-          _id: { $in: businessOwnerIds },
-          role: 'businessOwner',
-          status: 'active',
-        })
-        .lean(),
-      this.serviceModel
-        .find({
-          ownerId: { $in: businessOwnerIds },
-        })
-        .sort({ createdAt: -1 })
-        .lean(),
-      this.getBusinessReviewSummaries(businessOwnerIds as Types.ObjectId[]),
-    ]);
+    const [businessOwners, businessServices, reviewSummaryMap] =
+      await Promise.all([
+        this.userModel
+          .find({
+            _id: { $in: businessOwnerIds },
+            role: 'businessOwner',
+            status: 'active',
+          })
+          .lean(),
+        this.serviceModel
+          .find({
+            ownerId: { $in: businessOwnerIds },
+          })
+          .sort({ createdAt: -1 })
+          .lean(),
+        this.getBusinessReviewSummaries(businessOwnerIds as Types.ObjectId[]),
+      ]);
 
     const businessOwnerMap = new Map(
-      businessOwners.map((businessOwner) => [businessOwner._id.toString(), businessOwner]),
+      businessOwners.map((businessOwner) => [
+        businessOwner._id.toString(),
+        businessOwner,
+      ]),
     );
 
     const serviceMap = new Map<string, any>();
