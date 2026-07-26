@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -12,6 +14,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -27,7 +30,9 @@ export class SaveQuoteController {
   constructor(private readonly saveQuoteService: SaveQuoteService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Save a business owner to the logged in user dashboard' })
+  @ApiOperation({
+    summary: 'Save a business owner to the logged in user dashboard',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiBody({ type: CreateSaveQuoteDto })
@@ -48,7 +53,9 @@ export class SaveQuoteController {
   }
 
   @Get('my-saved')
-  @ApiOperation({ summary: 'Get all saved business owners for the logged in user' })
+  @ApiOperation({
+    summary: 'Get all saved business owners for the logged in user',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiQuery({
@@ -75,6 +82,34 @@ export class SaveQuoteController {
       message: 'Saved business owners fetched successfully',
       meta: result.meta,
       data: result.data,
+    };
+  }
+
+  @Delete(':businessOwnerId')
+  @ApiOperation({
+    summary: 'Unsave a business owner from the logged in user dashboard',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
+  @ApiParam({
+    name: 'businessOwnerId',
+    required: true,
+    type: String,
+    description: 'Business owner user id to unsave',
+  })
+  @HttpCode(HttpStatus.OK)
+  async unsaveBusinessman(
+    @Req() req: Request,
+    @Param('businessOwnerId') businessOwnerId: string,
+  ) {
+    const result = await this.saveQuoteService.unsaveBusinessman(
+      req.user!.id,
+      businessOwnerId,
+    );
+
+    return {
+      message: 'Business owner unsaved successfully',
+      data: result,
     };
   }
 }
