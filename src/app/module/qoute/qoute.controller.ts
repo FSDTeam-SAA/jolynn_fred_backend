@@ -45,7 +45,9 @@ export class QouteController {
   }
 
   @Post('my')
-  @ApiOperation({ summary: 'Submit a qoute request for the logged in user dashboard' })
+  @ApiOperation({
+    summary: 'Submit a qoute request for the logged in user dashboard',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user'))
   @ApiBody({ type: CreateQouteDto })
@@ -122,7 +124,9 @@ export class QouteController {
   }
 
   @Get('my')
-  @ApiOperation({ summary: 'Get all qoute requests created by the logged in user' })
+  @ApiOperation({
+    summary: 'Get all qoute requests created by the logged in user',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user'))
   @ApiQuery({
@@ -179,7 +183,9 @@ export class QouteController {
   }
 
   @Get('my-business')
-  @ApiOperation({ summary: 'Get qoute requests received by the logged in business owner' })
+  @ApiOperation({
+    summary: 'Get qoute requests received by the logged in business owner',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('businessOwner'))
   @ApiQuery({
@@ -261,7 +267,9 @@ export class QouteController {
   }
 
   @Get('my/:id')
-  @ApiOperation({ summary: 'Get a single qoute request created by the logged in user' })
+  @ApiOperation({
+    summary: 'Get a single qoute request created by the logged in user',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user'))
   @ApiParam({
@@ -272,7 +280,10 @@ export class QouteController {
   })
   @HttpCode(HttpStatus.OK)
   async getMyUserSingleQoute(@Param('id') id: string, @Req() req: Request) {
-    const result = await this.qouteService.getMyUserSingleQoute(id, req.user!.id);
+    const result = await this.qouteService.getMyUserSingleQoute(
+      id,
+      req.user!.id,
+    );
 
     return {
       message: 'Qoute request fetched successfully',
@@ -326,7 +337,8 @@ export class QouteController {
 
   @Put('my-business/:id')
   @ApiOperation({
-    summary: 'Update qoute request status/details for the logged in business owner',
+    summary:
+      'Update qoute request status/details for the logged in business owner',
   })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('businessOwner'))
@@ -375,8 +387,35 @@ export class QouteController {
     };
   }
 
+  @Delete('my-business/:id')
+  @ApiOperation({
+    summary: 'Delete a qoute request received by the logged in business owner',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('businessOwner'))
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    description: 'Qoute id',
+  })
+  @HttpCode(HttpStatus.OK)
+  async deleteMyBusinessQoute(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.qouteService.deleteMyBusinessQoute(
+      id,
+      req.user!.id,
+    );
+
+    return {
+      message: 'Qoute request deleted successfully',
+      data: result,
+    };
+  }
+
   @Delete('my/:id')
-  @ApiOperation({ summary: 'Delete a qoute request created by the logged in user' })
+  @ApiOperation({
+    summary: 'Delete a qoute request created by the logged in user',
+  })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user'))
   @ApiParam({
