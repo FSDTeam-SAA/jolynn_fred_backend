@@ -28,7 +28,9 @@ export class QouteService {
     private readonly userModel: Model<UserDocument>,
   ) {}
 
-  private normalizePayload<T extends CreateQouteDto | UpdateQouteDto>(payload: T) {
+  private normalizePayload<T extends CreateQouteDto | UpdateQouteDto>(
+    payload: T,
+  ) {
     return Object.fromEntries(
       Object.entries(payload).filter(
         ([, value]) => value !== undefined && value !== '',
@@ -63,7 +65,9 @@ export class QouteService {
   }
 
   private async getUserOrThrow(userId: string) {
-    const user = await this.userModel.findById(this.toObjectId(userId, 'user id'));
+    const user = await this.userModel.findById(
+      this.toObjectId(userId, 'user id'),
+    );
 
     if (!user) {
       throw new HttpException('User not found', 404);
@@ -73,7 +77,9 @@ export class QouteService {
   }
 
   private async getQouteOrThrow(id: string) {
-    const qoute = await this.qouteModel.findById(this.toObjectId(id, 'qoute id'));
+    const qoute = await this.qouteModel.findById(
+      this.toObjectId(id, 'qoute id'),
+    );
 
     if (!qoute) {
       throw new HttpException('Qoute request not found', 404);
@@ -118,9 +124,7 @@ export class QouteService {
       email: payload.email.toLowerCase(),
       businessOwnerId: businessOwner._id,
       businessOwnerName: this.buildDisplayName(businessOwner),
-      ...(userId
-        ? { userId: this.toObjectId(userId, 'user id') }
-        : {}),
+      ...(userId ? { userId: this.toObjectId(userId, 'user id') } : {}),
     });
   }
 
@@ -253,6 +257,13 @@ export class QouteService {
 
   async deleteQoute(id: string) {
     const qoute = await this.getQouteOrThrow(id);
+    await this.qouteModel.findByIdAndDelete(qoute._id);
+    return qoute;
+  }
+
+  async deleteMyBusinessQoute(id: string, businessOwnerId: string) {
+    await this.getBusinessOwnerOrThrow(businessOwnerId);
+    const qoute = await this.getOwnedQouteOrThrow(id, businessOwnerId);
     await this.qouteModel.findByIdAndDelete(qoute._id);
     return qoute;
   }
