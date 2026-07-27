@@ -175,6 +175,8 @@ async registerBusinessOwner(
       'businessOwner',
     );
 
+    console.log('New business owner registered:', config.email.admin, newBusinessOwner);
+
     if (config.email.admin) {
       sendMailer(
         config.email.admin,
