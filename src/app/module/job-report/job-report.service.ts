@@ -7,7 +7,8 @@ import { HelpWanted, HelpWantedDocument } from 'src/app/module/help-wanted/entit
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
-
+import sendMailer from 'src/app/helpers/sendMailer';
+import config from 'src/app/config';
 const jobReportSearchAbleFields = ['message'];
 
 const populateFields = [
@@ -30,7 +31,7 @@ export class JobReportService {
     private readonly helpWantedModel: Model<HelpWantedDocument>,
   ) {}
 
-  async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
+async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
     const post = await this.helpWantedModel.findById(
       createJobReportDto.helpWantedId,
     );
@@ -42,9 +43,30 @@ export class JobReportService {
       ...createJobReportDto,
       userId,
     });
+
+    if (config.email.admin) {
+      sendMailer(
+        config.email.admin,
+        'New Job Post Report Submitted',
+        `<p>A job post has been reported.</p>
+         <p><strong>Reported Post:</strong> ${post.username} (${post.email})</p>
+         <p><strong>Message:</strong> ${createJobReportDto.message}</p>`,
+      ).catch((err) => console.error('Failed to send admin job report email:', err));
+    }
+
+    if (post.email) {
+      sendMailer(
+        post.email,
+        'Your Job Post Has Been Reported',
+        `<p>Hi ${post.username},</p>
+         <p>Your job post has been reported by another user.</p>
+         <p><strong>Message:</strong> ${createJobReportDto.message}</p>
+         <p>Our team will review this report.</p>`,
+      ).catch((err) => console.error('Failed to send reported user email:', err));
+    }
+
     return jobReport;
   }
-
   async getAllJobReport(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(

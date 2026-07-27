@@ -8,7 +8,7 @@ import { User, UserDocument } from '../user/entities/user.entity';
 import { CreateQouteDto } from './dto/create-qoute.dto';
 import { UpdateQouteDto } from './dto/update-qoute.dto';
 import { Qoute, QouteDocument } from './entities/qoute.entity';
-
+import sendMailer from 'src/app/helpers/sendMailer';
 const qouteSearchAbleFields = [
   'name',
   'email',
@@ -114,18 +114,32 @@ export class QouteService {
     return qoute;
   }
 
-  private async createQouteRecord(
+private async createQouteRecord(
     payload: CreateQouteDto,
     businessOwner: UserDocument,
     userId?: string,
   ) {
-    return this.qouteModel.create({
+    const qoute = await this.qouteModel.create({
       ...payload,
       email: payload.email.toLowerCase(),
       businessOwnerId: businessOwner._id,
       businessOwnerName: this.buildDisplayName(businessOwner),
       ...(userId ? { userId: this.toObjectId(userId, 'user id') } : {}),
     });
+
+    if (businessOwner.email) {
+      sendMailer(
+        businessOwner.email,
+        'New Quote Request Received',
+        `<p>Hi ${this.buildDisplayName(businessOwner)},</p>
+         <p>You have a new quote request for <strong>${payload.serviceNeeded}</strong>.</p>
+         <p><strong>From:</strong> ${payload.name} (${payload.email}, ${payload.phoneNumber})</p>
+         <p><strong>Details:</strong> ${payload.projectDetails}</p>
+         <p>Please contact them as soon as possible to discuss further.</p>`,
+      ).catch((err) => console.error('Failed to send quote email:', err));
+    }
+
+    return qoute;
   }
 
   private async getPaginatedQoutes(
