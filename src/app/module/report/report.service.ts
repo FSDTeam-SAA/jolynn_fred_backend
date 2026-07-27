@@ -11,7 +11,8 @@ import {
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
-
+import sendMailer from 'src/app/helpers/sendMailer';
+import config from 'src/app/config';
 const reportSearchAbleFields = ['message'];
 
 const populateFields = [
@@ -33,7 +34,7 @@ export class ReportService {
     private readonly serviceModel: Model<BusinessServiceDocument>,
   ) {}
 
-  async createReport(userId: string, createReportDto: CreateReportDto) {
+async createReport(userId: string, createReportDto: CreateReportDto) {
     const owner = await this.userModel.findOne({
       _id: createReportDto.ownerId,
       role: 'businessOwner',
@@ -47,6 +48,29 @@ export class ReportService {
       ownerId: createReportDto.ownerId,
       message: createReportDto.message,
     });
+
+    const emailBody = `<p>A new report has been submitted.</p>
+       <p><strong>Reported Business Owner:</strong> ${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})</p>
+       <p><strong>Message:</strong> ${createReportDto.message}</p>`;
+
+    if (config.email.admin) {
+      sendMailer(
+        config.email.admin,
+        'New Report Submitted',
+        emailBody,
+      ).catch((err) => console.error('Failed to send admin report email:', err));
+    }
+
+    if (owner.email) {
+      sendMailer(
+        owner.email,
+        'You Have Been Reported',
+        `<p>Hi ${owner.firstName || ''},</p>
+         <p>A user has submitted a report against your business account.</p>
+         <p><strong>Message:</strong> ${createReportDto.message}</p>
+         <p>Our team will review this and may reach out to you.</p>`,
+      ).catch((err) => console.error('Failed to send owner report email:', err));
+    }
 
     return report;
   }
