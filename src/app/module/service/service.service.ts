@@ -506,10 +506,7 @@ export class ServiceService {
     const matchingServices = serviceRegex
       ? await this.serviceModel
           .find({
-            $or: [
-              { title: { $regex: serviceRegex } },
-              { description: { $regex: serviceRegex } },
-            ],
+            title: { $regex: serviceRegex },
           })
           .select('ownerId title description logo createdAt')
       : [];
