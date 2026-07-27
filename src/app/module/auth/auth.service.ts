@@ -145,7 +145,7 @@ export class AuthService {
     );
   }
 
-  async registerBusinessOwner(
+async registerBusinessOwner(
     registerBusinessOwnerDto: RegisterBusinessOwnerDto,
   ) {
     this.validatePasswordConfirmation(
@@ -154,31 +154,18 @@ export class AuthService {
     );
     this.validateTermsAcceptance(registerBusinessOwnerDto.agreementAccepted);
 
-    const serviceCategory =
-      await this.serviceCategoryService.resolveCategorySelection(
-        registerBusinessOwnerDto.category,
-        registerBusinessOwnerDto.requestedCategory,
-        'business_registration',
-      );
-    const categoryName =
-      serviceCategory?.name ?? registerBusinessOwnerDto.category;
-
-    return this.createAccount(
+    const newBusinessOwner = await this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
-        lastName: registerBusinessOwnerDto.ownerName
-          .split(' ')
-          .slice(1)
-          .join(' '),
-        username: registerBusinessOwnerDto.username,
+        lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
+        username: registerBusinessOwnerDto.username.toLowerCase(),
         email: registerBusinessOwnerDto.personalEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,
         businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: categoryName,
-        serviceCategoryId: serviceCategory?._id,
+        category: registerBusinessOwnerDto.category,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
@@ -187,6 +174,20 @@ export class AuthService {
       },
       'businessOwner',
     );
+
+    if (config.email.admin) {
+      sendMailer(
+        config.email.admin,
+        'New Business Owner Registration - Approval Needed',
+        `<p>A new business owner has registered and is waiting for approval.</p>
+         <p><strong>Business Name:</strong> ${registerBusinessOwnerDto.businessName}</p>
+         <p><strong>Owner Name:</strong> ${registerBusinessOwnerDto.ownerName}</p>
+         <p><strong>Email:</strong> ${registerBusinessOwnerDto.personalEmail}</p>
+         <p>Please log in to the admin dashboard to approve or reject this request.</p>`,
+      ).catch((err) => console.error('Failed to send admin registration email:', err));
+    }
+
+    return newBusinessOwner;
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
