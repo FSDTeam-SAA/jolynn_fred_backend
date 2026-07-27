@@ -64,7 +64,7 @@ const sendMailer = async (
 
   try {
     const info = await transporter.sendMail({
-      from: `"VELARI" <${sender}>`,
+      from: `"Jolynn" <${sender}>`,
       to: email,
       subject,
       html,
