@@ -10,17 +10,22 @@ import {
   Post,
   Put,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 import pick from 'src/app/helpers/pick';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
@@ -39,16 +44,20 @@ export class ServiceCategoryController {
   @Post()
   @ApiOperation({ summary: 'Create service category (admin only)' })
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
   @UseGuards(AuthGuard('admin'))
+  @UseInterceptors(FileInterceptor('logo', fileUpload.uploadConfig))
   @ApiBody({ type: CreateServiceCategoryDto })
   @HttpCode(HttpStatus.CREATED)
   async createServiceCategory(
     @Body() createServiceCategoryDto: CreateServiceCategoryDto,
     @Req() req: Request,
+    @UploadedFile() logoFile?: Express.Multer.File,
   ) {
     const result = await this.serviceCategoryService.createServiceCategory(
       createServiceCategoryDto,
       req.user?.id,
+      logoFile,
     );
 
     return {
@@ -232,7 +241,9 @@ export class ServiceCategoryController {
   @Put(':id')
   @ApiOperation({ summary: 'Update service category by id (admin only)' })
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
   @UseGuards(AuthGuard('admin'))
+  @UseInterceptors(FileInterceptor('logo', fileUpload.uploadConfig))
   @ApiBody({ type: UpdateServiceCategoryDto })
   @ApiParam({
     name: 'id',
@@ -245,10 +256,12 @@ export class ServiceCategoryController {
   async updateServiceCategory(
     @Param('id') id: string,
     @Body() updateServiceCategoryDto: UpdateServiceCategoryDto,
+    @UploadedFile() logoFile?: Express.Multer.File,
   ) {
     const result = await this.serviceCategoryService.updateServiceCategory(
       id,
       updateServiceCategoryDto,
+      logoFile,
     );
 
     return {

@@ -2,6 +2,7 @@ import { HttpException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import { IFilterParams } from 'src/app/helpers/pick';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
@@ -103,6 +104,7 @@ export class ServiceCategoryService {
   async createServiceCategory(
     createServiceCategoryDto: CreateServiceCategoryDto,
     adminId?: string,
+    logoFile?: Express.Multer.File,
   ) {
     const name = this.toDisplayName(createServiceCategoryDto.name);
     const normalizedName = this.normalizeCategoryName(name);
@@ -112,20 +114,37 @@ export class ServiceCategoryService {
       throw new HttpException('Service category already exists', 400);
     }
 
+    const payload: Record<string, unknown> = {
+      ...createServiceCategoryDto,
+      name,
+      normalizedName,
+      slug: await this.createUniqueSlug(name),
+      status: 'approved',
+      source: 'admin',
+      approvedByAdminId: this.toObjectId(adminId),
+      approvedAt: new Date(),
+      isActive: createServiceCategoryDto.isActive ?? true,
+      sortOrder: createServiceCategoryDto.sortOrder ?? 0,
+    };
+    delete payload.logo;
+
+    let uploadedLogo: { url: string; public_id: string } | undefined;
+
     try {
-      return await this.serviceCategoryModel.create({
-        ...createServiceCategoryDto,
-        name,
-        normalizedName,
-        slug: await this.createUniqueSlug(name),
-        status: 'approved',
-        source: 'admin',
-        approvedByAdminId: this.toObjectId(adminId),
-        approvedAt: new Date(),
-        isActive: createServiceCategoryDto.isActive ?? true,
-        sortOrder: createServiceCategoryDto.sortOrder ?? 0,
-      });
+      if (logoFile) {
+        uploadedLogo = await fileUpload.uploadToCloudinary(logoFile);
+        payload.logo = {
+          url: uploadedLogo.url,
+          publicId: uploadedLogo.public_id,
+        };
+      }
+
+      return await this.serviceCategoryModel.create(payload);
     } catch (error) {
+      if (uploadedLogo?.public_id) {
+        await fileUpload.deleteFromCloudinary(uploadedLogo.public_id);
+      }
+
       if ((error as { code?: number }).code === 11000) {
         throw new HttpException('Service category already exists', 400);
       }
@@ -284,11 +303,13 @@ export class ServiceCategoryService {
   async updateServiceCategory(
     id: string,
     updateServiceCategoryDto: UpdateServiceCategoryDto,
+    logoFile?: Express.Multer.File,
   ) {
     const category = await this.getSingleServiceCategory(id);
     const updatePayload: Record<string, unknown> = {
       ...updateServiceCategoryDto,
     };
+    delete updatePayload.logo;
 
     if (updateServiceCategoryDto.name) {
       const name = this.toDisplayName(updateServiceCategoryDto.name);
@@ -307,13 +328,35 @@ export class ServiceCategoryService {
       updatePayload.slug = await this.createUniqueSlug(name, id);
     }
 
-    const updatedCategory = await this.serviceCategoryModel.findByIdAndUpdate(
-      category.id,
-      updatePayload,
-      { new: true },
-    );
+    let uploadedLogo: { url: string; public_id: string } | undefined;
 
-    return updatedCategory;
+    try {
+      if (logoFile) {
+        uploadedLogo = await fileUpload.uploadToCloudinary(logoFile);
+        updatePayload.logo = {
+          url: uploadedLogo.url,
+          publicId: uploadedLogo.public_id,
+        };
+      }
+
+      const updatedCategory = await this.serviceCategoryModel.findByIdAndUpdate(
+        category.id,
+        updatePayload,
+        { new: true, runValidators: true },
+      );
+
+      if (uploadedLogo && category.logo?.publicId) {
+        await fileUpload.deleteFromCloudinary(category.logo.publicId);
+      }
+
+      return updatedCategory;
+    } catch (error) {
+      if (uploadedLogo?.public_id) {
+        await fileUpload.deleteFromCloudinary(uploadedLogo.public_id);
+      }
+
+      throw error;
+    }
   }
 
   async updateServiceCategoryStatus(
@@ -367,6 +410,10 @@ export class ServiceCategoryService {
     const result = await this.serviceCategoryModel.findByIdAndDelete(
       category.id,
     );
+
+    if (category.logo?.publicId) {
+      await fileUpload.deleteFromCloudinary(category.logo.publicId);
+    }
 
     return result;
   }
