@@ -15,6 +15,7 @@ import {
   ForgotPasswordDto,
   LoginAuthDto,
   RegisterBusinessOwnerDto,
+  RegisterExistingUserBusinessOwnerDto,
   RegisterUserDto,
   ResetPasswordDto,
   VerifyEmailDto,
@@ -46,7 +47,8 @@ export class AuthController {
     const result = await this.authService.registerUser(registerUserDto);
 
     return {
-      message: 'User registered successfully',
+      message:
+        'Your account has been created successfully. Please check your email for confirmation and use the login link to access your account.',
       data: result,
     };
   }
@@ -63,7 +65,35 @@ export class AuthController {
     );
 
     return {
-      message: 'Business owner registered successfully',
+      message:
+        'Your business account has been created successfully. Please check your email for confirmation and use the login link to access your account.',
+      data: result,
+    };
+  }
+
+  @Post('register/business-owner/existing-user')
+  @ApiOperation({
+    summary: 'Create a business owner profile from an existing user account',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiBody({ type: RegisterExistingUserBusinessOwnerDto })
+  @HttpCode(HttpStatus.CREATED)
+  async registerBusinessOwnerForExistingUser(
+    @Req() req: Request,
+    @Body()
+    registerBusinessOwnerDto: RegisterExistingUserBusinessOwnerDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.registerBusinessOwnerForExistingUser(
+      req.user!.id,
+      registerBusinessOwnerDto,
+      res,
+    );
+
+    return {
+      message:
+        'Your business account has been created successfully. Please check your email for confirmation and use the login link to access your account.',
       data: result,
     };
   }

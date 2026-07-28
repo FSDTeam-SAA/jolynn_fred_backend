@@ -22,8 +22,10 @@
 // };
 
 // export default sendMailer;
-import nodemailer from 'nodemailer';
+import nodemailer, { Transporter } from 'nodemailer';
 import config from '../config';
+
+let transporter: Transporter | undefined;
 
 type MailAttachment = {
   filename: string;
@@ -48,7 +50,10 @@ const sendMailer = async (
     );
   }
 
-  const transporter = nodemailer.createTransport({
+  transporter ??= nodemailer.createTransport({
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
     host: config.email.host,
     port,
     secure: port === 465,
@@ -64,7 +69,7 @@ const sendMailer = async (
 
   try {
     const info = await transporter.sendMail({
-      from: `"Jolynn" <${sender}>`,
+      from: `"SideQuote" <${sender}>`,
       to: email,
       subject,
       html,
