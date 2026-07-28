@@ -9,6 +9,7 @@ import { CreateQouteDto } from './dto/create-qoute.dto';
 import { UpdateQouteDto } from './dto/update-qoute.dto';
 import { Qoute, QouteDocument } from './entities/qoute.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 const qouteSearchAbleFields = [
   'name',
   'email',
@@ -127,15 +128,25 @@ private async createQouteRecord(
       ...(userId ? { userId: this.toObjectId(userId, 'user id') } : {}),
     });
 
-    if (businessOwner.email) {
+  if (businessOwner.email) {
       sendMailer(
         businessOwner.email,
         'New Quote Request Received',
-        `<p>Hi ${this.buildDisplayName(businessOwner)},</p>
-         <p>You have a new quote request for <strong>${payload.serviceNeeded}</strong>.</p>
-         <p><strong>From:</strong> ${payload.name} (${payload.email}, ${payload.phoneNumber})</p>
-         <p><strong>Details:</strong> ${payload.projectDetails}</p>
-         <p>Please contact them as soon as possible to discuss further.</p>`,
+        createNotificationEmailTemplate({
+          heading: 'New Quote Request',
+          subheading: 'You have received a new quote request.',
+          greetingName: this.buildDisplayName(businessOwner),
+          introText: `A customer is interested in your service: ${payload.serviceNeeded}. Please review the details below and reach out as soon as possible.`,
+          details: [
+            { label: 'Requested By', value: payload.name },
+            { label: 'Email', value: payload.email },
+            { label: 'Phone', value: payload.phoneNumber },
+            { label: 'Service Needed', value: payload.serviceNeeded },
+            { label: 'Project Details', value: payload.projectDetails },
+          ],
+          noteTitle: 'Next Step',
+          noteText: 'Please contact the customer directly to discuss pricing and availability.',
+        }),
       ).catch((err) => console.error('Failed to send quote email:', err));
     }
 
