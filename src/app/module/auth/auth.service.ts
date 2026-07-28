@@ -3,6 +3,7 @@ import {
   CreateAuthDto,
   LoginAuthDto,
   RegisterBusinessOwnerDto,
+  RegisterExistingUserBusinessOwnerDto,
   RegisterUserDto,
 } from './dto/create-auth.dto';
 import { User, UserDocument } from '../user/entities/user.entity';
@@ -13,14 +14,16 @@ import * as bcrypt from 'bcrypt';
 import * as jwt from '@nestjs/jwt';
 import config from '../../config';
 import sendMailer from 'src/app/helpers/sendMailer';
-import { createForgotPasswordEmailTemplate } from 'src/app/helpers/template';
+import {
+  createForgotPasswordEmailTemplate,
+  createRegistrationConfirmationEmailTemplate,
+} from 'src/app/helpers/template';
 import { type UserRole } from 'src/app/constants/auth.constants';
 import {
   isReservedUsername,
   normalizeUsername,
 } from 'src/app/helpers/username';
 import { ServiceCategoryService } from '../service-category/service-category.service';
-import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 @Injectable()
 export class AuthService {
   constructor(
@@ -49,6 +52,49 @@ export class AuthService {
       secure: config.env === 'production',
       sameSite: 'strict' as const,
     };
+  }
+
+  private buildLoginUrl() {
+    const frontendUrl = (
+      config.frontendUrl || 'https://sidequote.cloud'
+    ).replace(/\/+$/, '');
+
+    return `${frontendUrl}/login`;
+  }
+
+  private async sendRegistrationConfirmation(
+    email: string,
+    displayName: string,
+    accountType: 'user' | 'businessOwner',
+  ) {
+    try {
+      await sendMailer(
+        email,
+        `Welcome to SideQuote - Your ${accountType === 'businessOwner' ? 'business ' : ''}account is ready`,
+        createRegistrationConfirmationEmailTemplate({
+          displayName,
+          loginUrl: this.buildLoginUrl(),
+          accountType,
+        }),
+      );
+    } catch (error) {
+      console.error('Failed to send registration confirmation email:', error);
+    }
+  }
+
+  private createAuthenticatedSession(user: UserDocument, res: Response) {
+    const accessToken = this.jwtService.sign(this.createTokenPayload(user), {
+      secret: config.jwt.accessTokenSecret,
+      expiresIn: config.jwt.accessTokenExpires as any,
+    } as jwt.JwtSignOptions);
+    const refreshToken = this.jwtService.sign(this.createTokenPayload(user), {
+      secret: config.jwt.refreshTokenSecret,
+      expiresIn: config.jwt.refreshTokenExpires as any,
+    } as jwt.JwtSignOptions);
+
+    res.cookie('refreshToken', refreshToken, this.buildCookieOptions());
+
+    return { accessToken, user: this.sanitizeUser(user) };
   }
 
   private async ensureUniqueCredentials(email: string, username?: string) {
@@ -131,7 +177,7 @@ export class AuthService {
     );
     this.validateTermsAcceptance(registerUserDto.agreementAccepted);
 
-    return this.createAccount(
+    const newUser = await this.createAccount(
       {
         firstName: registerUserDto.firstName,
         lastName: registerUserDto.lastName,
@@ -140,12 +186,21 @@ export class AuthService {
         phoneNumber: registerUserDto.phoneNumber,
         password: registerUserDto.password,
         agreementAccepted: registerUserDto.agreementAccepted,
+        status: 'active',
       },
       'user',
     );
+
+    await this.sendRegistrationConfirmation(
+      registerUserDto.email.toLowerCase(),
+      `${registerUserDto.firstName} ${registerUserDto.lastName}`.trim(),
+      'user',
+    );
+
+    return newUser;
   }
 
-async registerBusinessOwner(
+  async registerBusinessOwner(
     registerBusinessOwnerDto: RegisterBusinessOwnerDto,
   ) {
     this.validatePasswordConfirmation(
@@ -157,7 +212,10 @@ async registerBusinessOwner(
     const newBusinessOwner = await this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
-        lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
+        lastName: registerBusinessOwnerDto.ownerName
+          .split(' ')
+          .slice(1)
+          .join(' '),
         username: registerBusinessOwnerDto.username.toLowerCase(),
         email: registerBusinessOwnerDto.personalEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,
@@ -170,33 +228,77 @@ async registerBusinessOwner(
         city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
         password: registerBusinessOwnerDto.password,
-        status: 'pending',
+        status: 'active',
       },
       'businessOwner',
     );
 
-    console.log('New business owner registered:', config.email.admin, newBusinessOwner);
-
-if (config.email.admin) {
-      sendMailer(
-        config.email.admin,
-        'New Business Owner Registration - Approval Needed',
-        createNotificationEmailTemplate({
-          heading: 'New Business Registration',
-          subheading: 'A new business owner is waiting for your approval.',
-          introText: 'A new business owner has just registered on the platform. Please review the details below and approve or reject this request from the admin dashboard.',
-          details: [
-            { label: 'Business Name', value: registerBusinessOwnerDto.businessName },
-            { label: 'Owner Name', value: registerBusinessOwnerDto.ownerName },
-            { label: 'Email', value: registerBusinessOwnerDto.personalEmail },
-          ],
-          noteTitle: 'Action Required',
-          noteText: 'Log in to the admin dashboard to approve or reject this registration.',
-        }),
-      ).catch((err) => console.error('Failed to send admin registration email:', err));
-    }
+    await this.sendRegistrationConfirmation(
+      registerBusinessOwnerDto.personalEmail.toLowerCase(),
+      registerBusinessOwnerDto.ownerName,
+      'businessOwner',
+    );
 
     return newBusinessOwner;
+  }
+
+  async registerBusinessOwnerForExistingUser(
+    userId: string,
+    registerBusinessOwnerDto: RegisterExistingUserBusinessOwnerDto,
+    res: Response,
+  ) {
+    const existingUser = await this.userModel.findById(userId);
+
+    if (!existingUser) {
+      throw new HttpException('User not found', 404);
+    }
+
+    if (existingUser.role === 'businessOwner') {
+      throw new HttpException('User already has a business owner account', 400);
+    }
+
+    if (existingUser.status === 'rejected') {
+      throw new HttpException('Your account has been rejected by admin', 403);
+    }
+
+    if (existingUser.status === 'suspended') {
+      throw new HttpException('Your account has been suspended', 403);
+    }
+
+    const businessDetails = Object.fromEntries(
+      Object.entries({
+        businessName: registerBusinessOwnerDto.businessName,
+        businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
+        businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
+        address: registerBusinessOwnerDto.address,
+        serviceArea: registerBusinessOwnerDto.serviceArea,
+        category: registerBusinessOwnerDto.category,
+        state: registerBusinessOwnerDto.state,
+        city: registerBusinessOwnerDto.city,
+        role: 'businessOwner',
+        status: 'active',
+      }).filter(([, value]) => value !== undefined),
+    );
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      existingUser._id,
+      businessDetails,
+      { new: true, runValidators: true },
+    );
+
+    if (!updatedUser) {
+      throw new HttpException('User not found', 404);
+    }
+
+    await this.sendRegistrationConfirmation(
+      updatedUser.email,
+      [updatedUser.firstName, updatedUser.lastName].filter(Boolean).join(' ') ||
+        updatedUser.username ||
+        updatedUser.email,
+      'businessOwner',
+    );
+
+    return this.createAuthenticatedSession(updatedUser, res);
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
@@ -225,13 +327,6 @@ if (config.email.admin) {
       throw new HttpException('Incorrect password', 401);
     }
 
-    if (user.status === 'pending') {
-      throw new HttpException(
-        'Your registration is pending admin approval',
-        403,
-      );
-    }
-
     if (user.status === 'rejected') {
       throw new HttpException(
         'Your registration request was rejected by admin',
@@ -243,17 +338,7 @@ if (config.email.admin) {
       throw new HttpException('Your account has been suspended', 403);
     }
 
-    const accessToken = this.jwtService.sign(this.createTokenPayload(user), {
-      secret: config.jwt.accessTokenSecret,
-      expiresIn: config.jwt.accessTokenExpires as any,
-    } as jwt.JwtSignOptions);
-    const refreshToken = this.jwtService.sign(this.createTokenPayload(user), {
-      secret: config.jwt.refreshTokenSecret,
-      expiresIn: config.jwt.refreshTokenExpires as any,
-    } as jwt.JwtSignOptions);
-    res.cookie('refreshToken', refreshToken, this.buildCookieOptions());
-
-    return { accessToken, user: this.sanitizeUser(user) };
+    return this.createAuthenticatedSession(user, res);
   }
 
   async forgotPassword(email: string) {

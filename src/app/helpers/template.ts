@@ -9,10 +9,22 @@ type NotificationEmailParams = {
   footerText?: string;
 };
 
-
 type PasswordResetTemplateParams = {
   otp: string | number;
   expiryMinutes?: number;
+};
+
+type RegistrationConfirmationTemplateParams = {
+  displayName: string;
+  loginUrl: string;
+  accountType: 'user' | 'businessOwner';
+};
+
+type NewsletterEmailTemplateParams = {
+  displayName: string;
+  subject: string;
+  content: string;
+  platformUrl: string;
 };
 
 type PaymentSuccessTemplateParams = {
@@ -37,6 +49,175 @@ const brand = {
   ink: '#272a25',
   muted: '#6d7468',
   border: '#e7dfd3',
+};
+
+const sideQuoteBrand = {
+  name: 'SideQuote',
+  primary: '#30377e',
+  secondary: '#078bd6',
+  pale: '#e1f1f2',
+  panel: '#ffffff',
+  ink: '#171b4b',
+  muted: '#5f6b7a',
+  border: '#dce7f2',
+};
+
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+      })[character]!,
+  );
+
+export const createRegistrationConfirmationEmailTemplate = ({
+  displayName,
+  loginUrl,
+  accountType,
+}: RegistrationConfirmationTemplateParams) => {
+  const safeDisplayName = escapeHtml(displayName || 'there');
+  const safeLoginUrl = escapeHtml(loginUrl);
+  const accountLabel =
+    accountType === 'businessOwner' ? 'Business account' : 'User account';
+
+  return `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body style="margin:0;padding:0;background:${sideQuoteBrand.pale};font-family:Arial,Helvetica,sans-serif;color:${sideQuoteBrand.ink};">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:${sideQuoteBrand.pale};margin:0;padding:36px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
+            <tr>
+              <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:38px 34px 34px;text-align:center;">
+                <div style="display:inline-block;width:54px;height:54px;line-height:54px;background:#ffffff;border-radius:50%;margin-bottom:18px;color:${sideQuoteBrand.secondary};font-family:Georgia,serif;font-size:36px;font-weight:700;">&ldquo;</div>
+                <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.25;font-weight:800;">Welcome to ${sideQuoteBrand.name}</h1>
+                <p style="margin:12px 0 0;color:#eaf7ff;font-size:16px;line-height:1.6;">Your account is ready. Let&rsquo;s get you signed in.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:38px 38px 12px;">
+                <p style="margin:0 0 16px;color:${sideQuoteBrand.ink};font-size:17px;line-height:1.7;font-weight:700;">Hello ${safeDisplayName},</p>
+                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:15px;line-height:1.8;">
+                  Thank you for joining ${sideQuoteBrand.name}. Your registration has been completed successfully, and you can now log in to explore services, connect with the community, and manage your profile.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:22px 38px 4px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f9fd;border:1px solid ${sideQuoteBrand.border};border-radius:12px;">
+                  <tr>
+                    <td style="padding:18px 20px;">
+                      <p style="margin:0 0 6px;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.4;text-transform:uppercase;letter-spacing:1.2px;font-weight:700;">Account type</p>
+                      <p style="margin:0;color:${sideQuoteBrand.primary};font-size:16px;line-height:1.5;font-weight:800;">${accountLabel}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:30px 38px 34px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="${sideQuoteBrand.primary}" style="border-radius:10px;background:${sideQuoteBrand.primary};background-image:linear-gradient(90deg,${sideQuoteBrand.primary},${sideQuoteBrand.secondary});">
+                      <a href="${safeLoginUrl}" target="_blank" style="display:inline-block;padding:15px 30px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.2;font-weight:800;">Log in to your account &rarr;</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:20px 0 6px;color:${sideQuoteBrand.muted};font-size:13px;line-height:1.6;">If the button does not work, copy and paste this link into your browser:</p>
+                <p style="margin:0;word-break:break-all;font-size:13px;line-height:1.6;"><a href="${safeLoginUrl}" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">${safeLoginUrl}</a></p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:24px 34px;text-align:center;">
+                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">If you did not create this account, please contact our support team.</p>
+                <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+};
+
+export const createNewsletterEmailTemplate = ({
+  displayName,
+  subject,
+  content,
+  platformUrl,
+}: NewsletterEmailTemplateParams) => {
+  const safeDisplayName = escapeHtml(displayName || 'SideQuote member');
+  const safeSubject = escapeHtml(subject);
+  const safeContent = escapeHtml(content).replace(/\r?\n/g, '<br />');
+  const safePlatformUrl = escapeHtml(platformUrl);
+
+  return `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${safeSubject}</title>
+  </head>
+  <body style="margin:0;padding:0;background:${sideQuoteBrand.pale};font-family:Arial,Helvetica,sans-serif;color:${sideQuoteBrand.ink};">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:${sideQuoteBrand.pale};margin:0;padding:36px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
+            <tr>
+              <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:34px;text-align:center;">
+                <div style="display:inline-block;width:48px;height:48px;line-height:48px;background:#ffffff;border-radius:50%;margin-bottom:16px;color:${sideQuoteBrand.secondary};font-family:Georgia,serif;font-size:32px;font-weight:700;">&ldquo;</div>
+                <p style="margin:0 0 10px;color:#dff4ff;font-size:13px;line-height:1.4;text-transform:uppercase;letter-spacing:1.8px;font-weight:800;">${sideQuoteBrand.name} Newsletter</p>
+                <h1 style="margin:0;color:#ffffff;font-size:29px;line-height:1.3;font-weight:800;">${safeSubject}</h1>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:38px 40px 12px;">
+                <p style="margin:0 0 18px;color:${sideQuoteBrand.ink};font-size:17px;line-height:1.7;font-weight:700;">Hello ${safeDisplayName},</p>
+                <div style="color:${sideQuoteBrand.muted};font-size:15px;line-height:1.85;">${safeContent}</div>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:28px 40px 38px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="${sideQuoteBrand.primary}" style="border-radius:10px;background:${sideQuoteBrand.primary};background-image:linear-gradient(90deg,${sideQuoteBrand.primary},${sideQuoteBrand.secondary});">
+                      <a href="${safePlatformUrl}" target="_blank" style="display:inline-block;padding:14px 28px;color:#ffffff;text-decoration:none;font-size:15px;line-height:1.2;font-weight:800;">Visit ${sideQuoteBrand.name} &rarr;</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:24px 34px;text-align:center;">
+                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">You received this newsletter because you have an active ${sideQuoteBrand.name} account.</p>
+                <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 };
 
 export const createForgotPasswordEmailTemplate = ({

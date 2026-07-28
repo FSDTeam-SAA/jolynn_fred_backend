@@ -22,6 +22,7 @@ import { SaveQuoteModule } from './app/module/save-quote/save-quote.module';
 import { JobReportModule } from './app/module/job-report/job-report.module';
 import { ServiceCategoryModule } from './app/module/service-category/service-category.module';
 import { CategoryModule } from './app/module/category/category.module';
+import { NewsletterModule } from './app/module/newsletter/newsletter.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -44,6 +45,7 @@ import { CategoryModule } from './app/module/category/category.module';
     JobReportModule,
     ServiceCategoryModule,
     CategoryModule,
+    NewsletterModule,
   ],
 
   controllers: [AppController],
