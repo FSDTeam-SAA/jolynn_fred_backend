@@ -11,7 +11,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { USER_ROLES } from 'src/app/constants/auth.constants';
 import { USERNAME_REGEX } from 'src/app/helpers/username';
 
@@ -170,6 +170,18 @@ export class RegisterBusinessOwnerDto {
   @IsBoolean()
   agreementAccepted: boolean;
 }
+
+export class RegisterExistingUserBusinessOwnerDto extends OmitType(
+  RegisterBusinessOwnerDto,
+  [
+    'ownerName',
+    'username',
+    'personalEmail',
+    'password',
+    'confirmPassword',
+    'agreementAccepted',
+  ] as const,
+) {}
 
 export class CreateAuthDto extends RegisterUserDto {}
 
