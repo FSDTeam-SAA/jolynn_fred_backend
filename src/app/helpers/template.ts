@@ -1,3 +1,15 @@
+type NotificationEmailParams = {
+  heading: string;
+  subheading?: string;
+  greetingName?: string;
+  introText: string;
+  details?: { label: string; value: string }[];
+  noteTitle?: string;
+  noteText?: string;
+  footerText?: string;
+};
+
+
 type PasswordResetTemplateParams = {
   otp: string | number;
   expiryMinutes?: number;
@@ -16,7 +28,7 @@ type PaymentSuccessTemplateParams = {
 };
 
 const brand = {
-  name: 'VELARI',
+  name: 'Jolynn',
   primary: '#626d5a',
   primaryDark: '#4f5949',
   cream: '#f5f0e8',
@@ -199,6 +211,98 @@ export const createPaymentSuccessEmailTemplate = ({
               <td style="background:#ffffff;border-top:1px solid ${brand.border};padding:22px 34px;text-align:center;">
                 <p style="margin:0;color:${brand.muted};font-size:12px;line-height:1.7;">If you did not authorize this payment, contact our support team immediately.</p>
                 <p style="margin:8px 0 0;color:${brand.primary};font-size:12px;line-height:1.7;font-weight:700;">${brand.name} Billing Team</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+};
+export const createNotificationEmailTemplate = ({
+  heading,
+  subheading,
+  greetingName,
+  introText,
+  details = [],
+  noteTitle,
+  noteText,
+  footerText,
+}: NotificationEmailParams) => {
+  const detailsRows = details
+    .map(
+      (item) => `
+                      <p style="margin:0 0 12px;color:${brand.muted};font-size:14px;line-height:1.8;font-weight:700;">${item.label}</p>
+                      <p style="margin:0 0 16px;color:${brand.ink};font-size:16px;line-height:1.7;">${item.value}</p>`,
+    )
+    .join('');
+
+  return `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${heading}</title>
+  </head>
+  <body style="margin:0;padding:0;background:${brand.cream};font-family:Arial,Helvetica,sans-serif;color:${brand.ink};">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${brand.cream};margin:0;padding:32px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${brand.panel};border:1px solid ${brand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(39,42,37,0.10);">
+            <tr>
+              <td style="background:${brand.primary};padding:34px 34px 30px;text-align:center;">
+                <div style="display:inline-block;background:${brand.cream};border-radius:999px;padding:10px 18px;margin-bottom:18px;">
+                  <span style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:${brand.gold};font-weight:700;">${brand.name}</span>
+                </div>
+                <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:700;">${heading}</h1>
+                ${subheading ? `<p style="margin:10px 0 0;color:#ece8df;font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:36px 34px 10px;">
+                ${greetingName ? `<p style="margin:0 0 16px;color:${brand.ink};font-size:16px;line-height:1.7;">Hello ${greetingName},</p>` : ''}
+                <p style="margin:0;color:${brand.muted};font-size:15px;line-height:1.8;">${introText}</p>
+              </td>
+            </tr>
+
+            ${
+              details.length
+                ? `<tr>
+              <td style="padding:26px 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid ${brand.border};border-radius:14px;">
+                  <tr>
+                    <td style="padding:24px 26px;">${detailsRows}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>`
+                : ''
+            }
+
+            ${
+              noteTitle || noteText
+                ? `<tr>
+              <td style="padding:0 34px 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8f6f1;border-left:4px solid ${brand.gold};border-radius:10px;">
+                  <tr>
+                    <td style="padding:18px 18px;">
+                      ${noteTitle ? `<p style="margin:0;color:${brand.ink};font-size:14px;line-height:1.7;font-weight:700;">${noteTitle}</p>` : ''}
+                      ${noteText ? `<p style="margin:6px 0 0;color:${brand.muted};font-size:14px;line-height:1.7;">${noteText}</p>` : ''}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>`
+                : ''
+            }
+
+            <tr>
+              <td style="background:#ffffff;border-top:1px solid ${brand.border};padding:22px 34px;text-align:center;">
+                <p style="margin:0;color:${brand.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
+                <p style="margin:8px 0 0;color:${brand.primary};font-size:12px;line-height:1.7;font-weight:700;">${brand.name} Team</p>
               </td>
             </tr>
           </table>

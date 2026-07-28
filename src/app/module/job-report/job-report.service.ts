@@ -7,7 +7,9 @@ import { HelpWanted, HelpWantedDocument } from 'src/app/module/help-wanted/entit
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+
 import sendMailer from 'src/app/helpers/sendMailer';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
 const jobReportSearchAbleFields = ['message'];
 
@@ -48,9 +50,16 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
       sendMailer(
         config.email.admin,
         'New Job Post Report Submitted',
-        `<p>A job post has been reported.</p>
-         <p><strong>Reported Post:</strong> ${post.username} (${post.email})</p>
-         <p><strong>Message:</strong> ${createJobReportDto.message}</p>`,
+        createNotificationEmailTemplate({
+          heading: 'New Job Post Report',
+          subheading: 'A job post has been reported.',
+          introText: 'A job post on the platform has been reported and needs your review.',
+          details: [
+            { label: 'Reported Post By', value: post.username },
+            { label: 'Post Email', value: post.email },
+            { label: 'Message', value: createJobReportDto.message },
+          ],
+        }),
       ).catch((err) => console.error('Failed to send admin job report email:', err));
     }
 
@@ -58,10 +67,14 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
       sendMailer(
         post.email,
         'Your Job Post Has Been Reported',
-        `<p>Hi ${post.username},</p>
-         <p>Your job post has been reported by another user.</p>
-         <p><strong>Message:</strong> ${createJobReportDto.message}</p>
-         <p>Our team will review this report.</p>`,
+        createNotificationEmailTemplate({
+          heading: 'Your Post Was Reported',
+          greetingName: post.username,
+          introText: 'Your job post has been reported by another user. Please review the details below.',
+          details: [{ label: 'Message', value: createJobReportDto.message }],
+          noteTitle: 'What happens next?',
+          noteText: 'Our team will review this report shortly.',
+        }),
       ).catch((err) => console.error('Failed to send reported user email:', err));
     }
 
