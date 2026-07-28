@@ -20,7 +20,7 @@ import {
   normalizeUsername,
 } from 'src/app/helpers/username';
 import { ServiceCategoryService } from '../service-category/service-category.service';
-
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 @Injectable()
 export class AuthService {
   constructor(
@@ -177,15 +177,22 @@ async registerBusinessOwner(
 
     console.log('New business owner registered:', config.email.admin, newBusinessOwner);
 
-    if (config.email.admin) {
+if (config.email.admin) {
       sendMailer(
         config.email.admin,
         'New Business Owner Registration - Approval Needed',
-        `<p>A new business owner has registered and is waiting for approval.</p>
-         <p><strong>Business Name:</strong> ${registerBusinessOwnerDto.businessName}</p>
-         <p><strong>Owner Name:</strong> ${registerBusinessOwnerDto.ownerName}</p>
-         <p><strong>Email:</strong> ${registerBusinessOwnerDto.personalEmail}</p>
-         <p>Please log in to the admin dashboard to approve or reject this request.</p>`,
+        createNotificationEmailTemplate({
+          heading: 'New Business Registration',
+          subheading: 'A new business owner is waiting for your approval.',
+          introText: 'A new business owner has just registered on the platform. Please review the details below and approve or reject this request from the admin dashboard.',
+          details: [
+            { label: 'Business Name', value: registerBusinessOwnerDto.businessName },
+            { label: 'Owner Name', value: registerBusinessOwnerDto.ownerName },
+            { label: 'Email', value: registerBusinessOwnerDto.personalEmail },
+          ],
+          noteTitle: 'Action Required',
+          noteText: 'Log in to the admin dashboard to approve or reject this registration.',
+        }),
       ).catch((err) => console.error('Failed to send admin registration email:', err));
     }
 

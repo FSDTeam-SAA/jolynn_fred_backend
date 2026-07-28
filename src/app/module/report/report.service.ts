@@ -11,7 +11,9 @@ import {
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+
 import sendMailer from 'src/app/helpers/sendMailer';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
 const reportSearchAbleFields = ['message'];
 
@@ -53,11 +55,20 @@ async createReport(userId: string, createReportDto: CreateReportDto) {
        <p><strong>Reported Business Owner:</strong> ${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})</p>
        <p><strong>Message:</strong> ${createReportDto.message}</p>`;
 
-    if (config.email.admin) {
+   if (config.email.admin) {
       sendMailer(
         config.email.admin,
         'New Report Submitted',
-        emailBody,
+        createNotificationEmailTemplate({
+          heading: 'New Report Submitted',
+          subheading: 'A user has reported a business owner.',
+          introText: 'A new report has been submitted and needs your review.',
+          details: [
+            { label: 'Reported Business Owner', value: `${owner.firstName || ''} ${owner.lastName || ''}` },
+            { label: 'Owner Email', value: owner.email },
+            { label: 'Message', value: createReportDto.message },
+          ],
+        }),
       ).catch((err) => console.error('Failed to send admin report email:', err));
     }
 
@@ -65,10 +76,14 @@ async createReport(userId: string, createReportDto: CreateReportDto) {
       sendMailer(
         owner.email,
         'You Have Been Reported',
-        `<p>Hi ${owner.firstName || ''},</p>
-         <p>A user has submitted a report against your business account.</p>
-         <p><strong>Message:</strong> ${createReportDto.message}</p>
-         <p>Our team will review this and may reach out to you.</p>`,
+        createNotificationEmailTemplate({
+          heading: 'A Report Was Filed Against You',
+          greetingName: owner.firstName || '',
+          introText: 'A user has submitted a report against your business account. Please review the details below.',
+          details: [{ label: 'Message', value: createReportDto.message }],
+          noteTitle: 'What happens next?',
+          noteText: 'Our team will review this report and may reach out to you for more information.',
+        }),
       ).catch((err) => console.error('Failed to send owner report email:', err));
     }
 
