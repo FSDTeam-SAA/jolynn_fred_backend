@@ -20,6 +20,18 @@ export const SERVICE_CATEGORY_SOURCES = [
 
 export type ServiceCategorySource = (typeof SERVICE_CATEGORY_SOURCES)[number];
 
+@Schema({ _id: false })
+export class ServiceCategoryLogo {
+  @Prop()
+  url?: string;
+
+  @Prop()
+  publicId?: string;
+}
+
+const ServiceCategoryLogoSchema =
+  SchemaFactory.createForClass(ServiceCategoryLogo);
+
 @Schema({ timestamps: true })
 export class ServiceCategory {
   @Prop({
@@ -46,6 +58,9 @@ export class ServiceCategory {
 
   @Prop({ trim: true })
   description?: string;
+
+  @Prop({ type: ServiceCategoryLogoSchema, default: undefined })
+  logo?: ServiceCategoryLogo;
 
   @Prop({
     enum: SERVICE_CATEGORY_STATUSES,
