@@ -27,6 +27,14 @@ export class CreateServiceCategoryDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    description: 'Optional service category logo image',
+  })
+  @IsOptional()
+  logo?: string;
+
   @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
