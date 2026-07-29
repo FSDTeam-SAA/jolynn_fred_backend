@@ -98,11 +98,11 @@ export class RegisterBusinessOwnerDto {
   })
   username: string;
 
-  @ApiProperty({ example: 'owner@example.com' })
-  @Transform(normalizeString)
+@ApiPropertyOptional({ example: 'owner@example.com' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
   @IsEmail({}, { message: 'Valid personal email is required' })
-  @IsNotEmpty()
-  personalEmail: string;
+  personalEmail?: string;
 
   @ApiPropertyOptional({ example: 'contact@acme.com' })
   @IsOptional()
@@ -116,11 +116,11 @@ export class RegisterBusinessOwnerDto {
   @IsUrl({}, { message: 'Valid website URL is required' })
   businessWebsiteUrl?: string;
 
-  @ApiProperty({ example: '221B Baker Street' })
-  @Transform(normalizeString)
+ @ApiPropertyOptional({ example: '221B Baker Street' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
   @IsString()
-  @IsNotEmpty()
-  address: string;
+  address?: string;
 
   @ApiPropertyOptional({ example: '15 miles around New York' })
   @IsOptional()
