@@ -200,7 +200,7 @@ export class AuthService {
     return newUser;
   }
 
-  async registerBusinessOwner(
+ async registerBusinessOwner(
     registerBusinessOwnerDto: RegisterBusinessOwnerDto,
   ) {
     this.validatePasswordConfirmation(
@@ -209,15 +209,23 @@ export class AuthService {
     );
     this.validateTermsAcceptance(registerBusinessOwnerDto.agreementAccepted);
 
+    const loginEmail =
+      registerBusinessOwnerDto.personalEmail ||
+      registerBusinessOwnerDto.businessEmail;
+
+    if (!loginEmail) {
+      throw new HttpException(
+        'Either personal email or business email is required',
+        400,
+      );
+    }
+
     const newBusinessOwner = await this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
-        lastName: registerBusinessOwnerDto.ownerName
-          .split(' ')
-          .slice(1)
-          .join(' '),
+        lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
         username: registerBusinessOwnerDto.username.toLowerCase(),
-        email: registerBusinessOwnerDto.personalEmail.toLowerCase(),
+        email: loginEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,
         businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
@@ -228,13 +236,13 @@ export class AuthService {
         city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
         password: registerBusinessOwnerDto.password,
-        status: 'active',
+        status: 'pending',
       },
       'businessOwner',
     );
 
-    await this.sendRegistrationConfirmation(
-      registerBusinessOwnerDto.personalEmail.toLowerCase(),
+await this.sendRegistrationConfirmation(
+      loginEmail.toLowerCase(),
       registerBusinessOwnerDto.ownerName,
       'businessOwner',
     );
