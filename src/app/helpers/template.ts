@@ -414,8 +414,8 @@ export const createNotificationEmailTemplate = ({
   const detailsRows = details
     .map(
       (item) => `
-                      <p style="margin:0 0 12px;color:${brand.muted};font-size:14px;line-height:1.8;font-weight:700;">${item.label}</p>
-                      <p style="margin:0 0 16px;color:${brand.ink};font-size:16px;line-height:1.7;">${item.value}</p>`,
+                      <p style="margin:0 0 12px;color:${sideQuoteBrand.muted};font-size:14px;line-height:1.8;font-weight:700;">${item.label}</p>
+                      <p style="margin:0 0 16px;color:${sideQuoteBrand.ink};font-size:16px;line-height:1.7;">${item.value}</p>`,
     )
     .join('');
 
@@ -427,25 +427,23 @@ export const createNotificationEmailTemplate = ({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${heading}</title>
   </head>
-  <body style="margin:0;padding:0;background:${brand.cream};font-family:Arial,Helvetica,sans-serif;color:${brand.ink};">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${brand.cream};margin:0;padding:32px 14px;">
+  <body style="margin:0;padding:0;background:${sideQuoteBrand.pale};font-family:Arial,Helvetica,sans-serif;color:${sideQuoteBrand.ink};">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:${sideQuoteBrand.pale};margin:0;padding:36px 14px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${brand.panel};border:1px solid ${brand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(39,42,37,0.10);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
-              <td style="background:${brand.primary};padding:34px 34px 30px;text-align:center;">
-                <div style="display:inline-block;background:${brand.cream};border-radius:999px;padding:10px 18px;margin-bottom:18px;">
-                  <span style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:${brand.gold};font-weight:700;">${brand.name}</span>
-                </div>
-                <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:700;">${heading}</h1>
-                ${subheading ? `<p style="margin:10px 0 0;color:#ece8df;font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
+              <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:34px 34px 30px;text-align:center;">
+                <div style="display:inline-block;width:48px;height:48px;line-height:48px;background:#ffffff;border-radius:50%;margin-bottom:16px;color:${sideQuoteBrand.secondary};font-family:Georgia,serif;font-size:32px;font-weight:700;">&ldquo;</div>
+                <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:800;">${heading}</h1>
+                ${subheading ? `<p style="margin:10px 0 0;color:#eaf7ff;font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
               </td>
             </tr>
 
             <tr>
               <td style="padding:36px 34px 10px;">
-                ${greetingName ? `<p style="margin:0 0 16px;color:${brand.ink};font-size:16px;line-height:1.7;">Hello ${greetingName},</p>` : ''}
-                <p style="margin:0;color:${brand.muted};font-size:15px;line-height:1.8;">${introText}</p>
+                ${greetingName ? `<p style="margin:0 0 16px;color:${sideQuoteBrand.ink};font-size:16px;line-height:1.7;font-weight:700;">Hello ${greetingName},</p>` : ''}
+                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:15px;line-height:1.8;">${introText}</p>
               </td>
             </tr>
 
@@ -453,7 +451,7 @@ export const createNotificationEmailTemplate = ({
               details.length
                 ? `<tr>
               <td style="padding:26px 34px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid ${brand.border};border-radius:14px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f9fd;border:1px solid ${sideQuoteBrand.border};border-radius:14px;">
                   <tr>
                     <td style="padding:24px 26px;">${detailsRows}</td>
                   </tr>
@@ -467,11 +465,11 @@ export const createNotificationEmailTemplate = ({
               noteTitle || noteText
                 ? `<tr>
               <td style="padding:0 34px 34px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8f6f1;border-left:4px solid ${brand.gold};border-radius:10px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f9fd;border-left:4px solid ${sideQuoteBrand.secondary};border-radius:10px;">
                   <tr>
                     <td style="padding:18px 18px;">
-                      ${noteTitle ? `<p style="margin:0;color:${brand.ink};font-size:14px;line-height:1.7;font-weight:700;">${noteTitle}</p>` : ''}
-                      ${noteText ? `<p style="margin:6px 0 0;color:${brand.muted};font-size:14px;line-height:1.7;">${noteText}</p>` : ''}
+                      ${noteTitle ? `<p style="margin:0;color:${sideQuoteBrand.ink};font-size:14px;line-height:1.7;font-weight:700;">${noteTitle}</p>` : ''}
+                      ${noteText ? `<p style="margin:6px 0 0;color:${sideQuoteBrand.muted};font-size:14px;line-height:1.7;">${noteText}</p>` : ''}
                     </td>
                   </tr>
                 </table>
@@ -481,9 +479,9 @@ export const createNotificationEmailTemplate = ({
             }
 
             <tr>
-              <td style="background:#ffffff;border-top:1px solid ${brand.border};padding:22px 34px;text-align:center;">
-                <p style="margin:0;color:${brand.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
-                <p style="margin:8px 0 0;color:${brand.primary};font-size:12px;line-height:1.7;font-weight:700;">${brand.name} Team</p>
+              <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:22px 34px;text-align:center;">
+                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
+                <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
               </td>
             </tr>
           </table>
