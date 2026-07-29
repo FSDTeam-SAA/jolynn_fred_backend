@@ -128,9 +128,11 @@ private async createQouteRecord(
       ...(userId ? { userId: this.toObjectId(userId, 'user id') } : {}),
     });
 
-  if (businessOwner.email) {
+     const notifyEmail = businessOwner.businessEmail || businessOwner.email;
+
+    if (notifyEmail) {
       sendMailer(
-        businessOwner.email,
+        notifyEmail,
         'New Quote Request Received',
         createNotificationEmailTemplate({
           heading: 'New Quote Request',
