@@ -108,6 +108,24 @@ export class ServiceController {
     };
   }
 
+  @Post(':id/view')
+  @ApiOperation({ summary: 'Record a public service view' })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    description: 'Service id',
+  })
+  @HttpCode(HttpStatus.OK)
+  async recordPublicServiceView(@Param('id') id: string) {
+    const result = await this.serviceService.recordPublicServiceView(id);
+
+    return {
+      message: 'Service view recorded successfully',
+      data: result,
+    };
+  }
+
   @Get('my-services')
   @ApiOperation({ summary: 'Get services owned by the logged in business' })
   @ApiBearerAuth('access-token')
@@ -220,8 +238,7 @@ export class ServiceController {
     required: false,
     type: Number,
     example: 4,
-    description:
-      'Filter businesses with rating greater than or equal to this value',
+    description: 'Filter businesses with rating greater than or equal to this value',
   })
   @ApiQuery({
     name: 'page',
@@ -420,7 +437,8 @@ export class ServiceController {
     required: false,
     type: Number,
     example: 4,
-    description: 'Filter businesses with rating greater than or equal to this value',
+    description:
+      'Filter businesses with rating greater than or equal to this value',
   })
   @ApiQuery({
     name: 'page',

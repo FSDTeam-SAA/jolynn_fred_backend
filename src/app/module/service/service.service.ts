@@ -181,7 +181,8 @@ export class ServiceService {
       .find(whereConditions)
       .skip(skip)
       .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
+      .sort({ [sortBy]: sortOrder } as any)
+      .lean();
 
     return {
       meta: {
@@ -189,7 +190,10 @@ export class ServiceService {
         limit,
         total,
       },
-      data: services,
+      data: services.map((service) => ({
+        ...service,
+        viewCount: service.viewCount ?? 0,
+      })),
     };
   }
 
@@ -431,6 +435,26 @@ export class ServiceService {
     return this.getOwnedServiceOrThrow(serviceId, ownerId);
   }
 
+  async recordPublicServiceView(serviceId: string) {
+    if (!Types.ObjectId.isValid(serviceId)) {
+      throw new HttpException('Service not found', 404);
+    }
+
+    const service = await this.serviceModel
+      .findByIdAndUpdate(serviceId, { $inc: { viewCount: 1 } }, { new: true })
+      .select('_id viewCount')
+      .lean();
+
+    if (!service) {
+      throw new HttpException('Service not found', 404);
+    }
+
+    return {
+      _id: service._id,
+      viewCount: service.viewCount ?? 0,
+    };
+  }
+
   async getPublicServicesByOwner(
     ownerId: string,
     params: IFilterParams,
@@ -475,6 +499,7 @@ export class ServiceService {
 
       return {
         ...service,
+        viewCount: service.viewCount ?? 0,
         businessOwnerName: owner ? this.buildDisplayName(owner as any) : null,
         businessOwnerLocation: owner
           ? {
