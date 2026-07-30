@@ -120,6 +120,25 @@ export class SponsorController {
     };
   }
 
+  @Post(':id/view')
+  @ApiOperation({ summary: 'Record a sponsor view (public)' })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    example: '',
+    description: 'Sponsor id',
+  })
+  @HttpCode(HttpStatus.CREATED)
+  async recordSponsorVisit(@Param('id') id: string) {
+    const result = await this.sponsorService.recordSponsorVisit(id);
+
+    return {
+      message: 'Sponsor view recorded successfully',
+      data: result,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get single sponsor by id (public)' })
   @ApiParam({
