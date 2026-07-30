@@ -3,7 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { DashboardService } from './dashboard.service';
 import { DashboardController } from './dashboard.controller';
 import { User, UserSchema } from 'src/app/module/user/entities/user.entity';
-import { Report, ReportSchema } from 'src/app/module/report/entities/report.entity';
+import {
+  Report,
+  ReportSchema,
+} from 'src/app/module/report/entities/report.entity';
 import {
   BusinessService,
   BusinessServiceSchema,
@@ -12,8 +15,15 @@ import {
   Gallary,
   GallarySchema,
 } from 'src/app/module/gallary/entities/gallary.entity';
-import { Review, ReviewSchema } from 'src/app/module/reviews/entities/review.entity';
+import {
+  Review,
+  ReviewSchema,
+} from 'src/app/module/reviews/entities/review.entity';
 import { Qoute, QouteSchema } from 'src/app/module/qoute/entities/qoute.entity';
+import {
+  SponsorVisit,
+  SponsorVisitSchema,
+} from 'src/app/module/sponsor/entities/sponsor-visit.entity';
 
 @Module({
   imports: [
@@ -24,6 +34,7 @@ import { Qoute, QouteSchema } from 'src/app/module/qoute/entities/qoute.entity';
       { name: Gallary.name, schema: GallarySchema },
       { name: Review.name, schema: ReviewSchema },
       { name: Qoute.name, schema: QouteSchema },
+      { name: SponsorVisit.name, schema: SponsorVisitSchema },
     ]),
   ],
   controllers: [DashboardController],
