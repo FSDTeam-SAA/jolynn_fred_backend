@@ -11,6 +11,7 @@ import {
   ServiceCategory,
   ServiceCategorySource,
 } from './entities/service-category.entity';
+import { BusinessService } from '../service/entities/service.entity';
 
 const serviceCategorySearchAbleFields = [
   'name',
@@ -30,6 +31,8 @@ export class ServiceCategoryService {
   constructor(
     @InjectModel(ServiceCategory.name)
     private readonly serviceCategoryModel: Model<ServiceCategory>,
+    @InjectModel(BusinessService.name)
+    private readonly businessServiceModel: Model<BusinessService>,
   ) {}
 
   private normalizeCategoryName(name: string) {
@@ -244,7 +247,39 @@ export class ServiceCategoryService {
       .find(whereConditions)
       .skip(skip)
       .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
+      .sort({ [sortBy]: sortOrder } as any)
+      .lean();
+
+    const categoryIds = categories.map((category) => category._id);
+    const ownerCounts = categoryIds.length
+      ? await this.businessServiceModel.aggregate<{
+          _id: Types.ObjectId;
+          businessOwnerCount: number;
+        }>([
+          {
+            $match: {
+              serviceCategoryId: { $in: categoryIds },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                serviceCategoryId: '$serviceCategoryId',
+                ownerId: '$ownerId',
+              },
+            },
+          },
+          {
+            $group: {
+              _id: '$_id.serviceCategoryId',
+              businessOwnerCount: { $sum: 1 },
+            },
+          },
+        ])
+      : [];
+    const ownerCountByCategoryId = new Map(
+      ownerCounts.map((item) => [item._id.toString(), item.businessOwnerCount]),
+    );
 
     return {
       meta: {
@@ -252,7 +287,11 @@ export class ServiceCategoryService {
         limit,
         total,
       },
-      data: categories,
+      data: categories.map((category) => ({
+        ...category,
+        businessOwnerCount:
+          ownerCountByCategoryId.get(category._id.toString()) ?? 0,
+      })),
     };
   }
 
@@ -278,7 +317,8 @@ export class ServiceCategoryService {
       .find(whereConditions)
       .skip(skip)
       .limit(limit)
-      .sort({ [sortBy]: sortOrder } as any);
+      .sort({ [sortBy]: sortOrder } as any)
+      .lean();
 
     return {
       meta: {
@@ -286,7 +326,38 @@ export class ServiceCategoryService {
         limit,
         total,
       },
-      data: categories,
+      data: categories.map((category) => ({
+        ...category,
+        viewCount: category.viewCount ?? 0,
+      })),
+    };
+  }
+
+  async recordPublicServiceCategoryView(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new HttpException('Service category not found', 404);
+    }
+
+    const category = await this.serviceCategoryModel
+      .findOneAndUpdate(
+        {
+          _id: id,
+          status: 'approved',
+          isActive: true,
+        },
+        { $inc: { viewCount: 1 } },
+        { new: true },
+      )
+      .select('_id viewCount')
+      .lean();
+
+    if (!category) {
+      throw new HttpException('Service category not found', 404);
+    }
+
+    return {
+      _id: category._id,
+      viewCount: category.viewCount ?? 0,
     };
   }
 
