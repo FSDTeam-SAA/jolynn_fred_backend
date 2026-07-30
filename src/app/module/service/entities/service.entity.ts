@@ -41,6 +41,9 @@ export class BusinessService {
 
   @Prop({ type: ServiceLogoSchema, default: {} })
   logo?: ServiceLogo;
+
+  @Prop({ default: 0, min: 0 })
+  viewCount: number;
 }
 
 export const BusinessServiceSchema =
