@@ -99,6 +99,9 @@ export class ServiceCategory {
 
   @Prop({ default: 0 })
   sortOrder: number;
+
+  @Prop({ default: 0, min: 0 })
+  viewCount: number;
 }
 
 export const ServiceCategorySchema =

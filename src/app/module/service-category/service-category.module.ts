@@ -6,11 +6,16 @@ import {
   ServiceCategorySchema,
 } from './entities/service-category.entity';
 import { ServiceCategoryService } from './service-category.service';
+import {
+  BusinessService,
+  BusinessServiceSchema,
+} from '../service/entities/service.entity';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: ServiceCategory.name, schema: ServiceCategorySchema },
+      { name: BusinessService.name, schema: BusinessServiceSchema },
     ]),
   ],
   controllers: [ServiceCategoryController],

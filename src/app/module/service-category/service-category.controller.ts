@@ -138,6 +138,26 @@ export class ServiceCategoryController {
     };
   }
 
+  @Post('public/:id/view')
+  @ApiOperation({ summary: 'Record a public service category view' })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: String,
+    example: '',
+    description: 'Service category id',
+  })
+  @HttpCode(HttpStatus.OK)
+  async recordPublicServiceCategoryView(@Param('id') id: string) {
+    const result =
+      await this.serviceCategoryService.recordPublicServiceCategoryView(id);
+
+    return {
+      message: 'Service category view recorded successfully',
+      data: result,
+    };
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all service categories (admin only)' })
   @ApiBearerAuth('access-token')
