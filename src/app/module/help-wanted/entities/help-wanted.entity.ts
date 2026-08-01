@@ -36,6 +36,12 @@ export class HelpWanted {
   })
   category: string;
 
+  @Prop({
+    required: [true, 'Budget range is required'],
+    trim: true,
+  })
+  budgetRange: string;
+
   @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
   serviceCategoryId?: Types.ObjectId;
 

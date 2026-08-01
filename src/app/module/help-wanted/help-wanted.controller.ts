@@ -83,6 +83,13 @@ export class HelpWantedController {
       'Search by username, email, zipcode, category, phone or message',
   })
   @ApiQuery({
+    name: 'budgetRange',
+    required: false,
+    type: String,
+    example: '$500 - $1,000',
+    description: 'Filter by exact budget range',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -112,7 +119,7 @@ export class HelpWantedController {
   })
   @HttpCode(HttpStatus.OK)
   async getAllHelpWanted(@Req() req: Request) {
-    const params = pick(req.query, ['searchTerm']);
+    const params = pick(req.query, ['searchTerm', 'budgetRange']);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
     const result = await this.helpWantedService.getAllHelpWanted(
       params,
@@ -131,6 +138,13 @@ export class HelpWantedController {
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
   @ApiQuery({ name: 'searchTerm', required: false, type: String, example: '' })
+  @ApiQuery({
+    name: 'budgetRange',
+    required: false,
+    type: String,
+    example: '$500 - $1,000',
+    description: 'Filter by exact budget range',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({
@@ -147,7 +161,7 @@ export class HelpWantedController {
   })
   @HttpCode(HttpStatus.OK)
   async getMyHelpWanted(@Req() req: Request) {
-    const params = pick(req.query, ['searchTerm']);
+    const params = pick(req.query, ['searchTerm', 'budgetRange']);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
     const result = await this.helpWantedService.getMyHelpWanted(
       req.user!.id,

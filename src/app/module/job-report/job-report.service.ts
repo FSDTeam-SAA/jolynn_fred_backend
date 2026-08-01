@@ -16,7 +16,7 @@ const jobReportSearchAbleFields = ['message'];
 const populateFields = [
   {
     path: 'helpWantedId',
-    select: 'username email zipcode category phone message',
+    select: 'username email zipcode category budgetRange phone message',
   },
   {
     path: 'userId',

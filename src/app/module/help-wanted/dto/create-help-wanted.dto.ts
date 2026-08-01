@@ -33,6 +33,15 @@ export class CreateHelpWantedDto {
   @IsNotEmpty()
   category: string;
 
+  @ApiProperty({
+    example: '$500 - $1,000',
+    description: 'Expected budget range for the requested service',
+  })
+  @Transform(normalizeString)
+  @IsString()
+  @IsNotEmpty()
+  budgetRange: string;
+
   @ApiPropertyOptional({
     example: 'Solar Installation',
     description: 'Required when category is Other',
