@@ -98,7 +98,7 @@ export class RegisterBusinessOwnerDto {
   })
   username: string;
 
-@ApiPropertyOptional({ example: 'owner@example.com' })
+  @ApiPropertyOptional({ example: 'owner@example.com' })
   @IsOptional()
   @Transform(emptyStringToUndefined)
   @IsEmail({}, { message: 'Valid personal email is required' })
@@ -116,7 +116,7 @@ export class RegisterBusinessOwnerDto {
   @IsUrl({}, { message: 'Valid website URL is required' })
   businessWebsiteUrl?: string;
 
- @ApiPropertyOptional({ example: '221B Baker Street' })
+  @ApiPropertyOptional({ example: '221B Baker Street' })
   @IsOptional()
   @Transform(emptyStringToUndefined)
   @IsString()
@@ -213,6 +213,14 @@ export class LoginAuthDto {
 }
 
 export class ForgotPasswordDto {
+  @ApiProperty({ example: 'john@example.com' })
+  @Transform(normalizeString)
+  @IsEmail({}, { message: 'Valid email is required' })
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResendVerificationEmailDto {
   @ApiProperty({ example: 'john@example.com' })
   @Transform(normalizeString)
   @IsEmail({}, { message: 'Valid email is required' })

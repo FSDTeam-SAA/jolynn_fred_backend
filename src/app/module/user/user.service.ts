@@ -135,6 +135,33 @@ export class UserService {
     };
   }
 
+  private async recordViewedService(
+    serviceId: string | undefined,
+    ownerId: Types.ObjectId,
+  ) {
+    if (!serviceId) {
+      return null;
+    }
+
+    const service = await this.serviceModel
+      .findOneAndUpdate(
+        {
+          _id: this.toObjectId(serviceId, 'service id'),
+          ownerId,
+        },
+        { $inc: { viewCount: 1 } },
+        { new: true },
+      )
+      .select('_id viewCount')
+      .lean();
+
+    if (!service) {
+      throw new HttpException('Service not found for this business owner', 404);
+    }
+
+    return service;
+  }
+
   private async getPublicBusinessOwnerOrThrow(ownerId: string) {
     const businessOwnerId = this.toObjectId(ownerId, 'business owner id');
     const businessOwner = await this.userModel
@@ -335,9 +362,13 @@ export class UserService {
     return user;
   }
 
-  async getPublicBusinessOverview(ownerId: string) {
+  async getPublicBusinessOverview(ownerId: string, serviceId?: string) {
     const businessOwner = await this.getPublicBusinessOwnerOrThrow(ownerId);
     const businessOwnerId = this.toObjectId(ownerId, 'business owner id');
+    const viewedService = await this.recordViewedService(
+      serviceId,
+      businessOwnerId,
+    );
     const reviewSummary = await this.getBusinessReviewSummary(businessOwnerId);
 
     return {
@@ -367,6 +398,7 @@ export class UserService {
       rating: reviewSummary.averageRating,
       totalReviews: reviewSummary.totalReviews,
       reviewSummary,
+      viewedService,
       createdAt: businessOwner.get('createdAt'),
       updatedAt: businessOwner.get('updatedAt'),
     };
@@ -451,7 +483,10 @@ export class UserService {
     return result;
   }
 
-  async getPublicBusinessProfileByUsername(username: string) {
+  async getPublicBusinessProfileByUsername(
+    username: string,
+    serviceId?: string,
+  ) {
     const normalizedUsername = this.normalizeAndValidateUsername(username);
 
     const businessOwner = await this.userModel.findOne({
@@ -468,11 +503,15 @@ export class UserService {
       businessOwner.id,
       'business owner id',
     );
+    const viewedService = await this.recordViewedService(
+      serviceId,
+      businessOwnerId,
+    );
 
     const [services, galleryItems, reviewSummary] = await Promise.all([
       this.serviceModel
         .find({ ownerId: businessOwnerId })
-        .select('title description logo createdAt')
+        .select('title description logo viewCount createdAt')
         .sort({ createdAt: -1 }),
       this.gallaryModel
         .find({ userId: businessOwnerId })
@@ -531,6 +570,7 @@ export class UserService {
       },
       services,
       gallery: galleryItems,
+      viewedService,
     };
   }
 }
