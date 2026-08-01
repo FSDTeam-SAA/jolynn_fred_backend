@@ -11,6 +11,7 @@ import {
   UploadedFiles,
   Req,
   Param,
+  Query,
   Put,
   Delete,
 } from '@nestjs/common';
@@ -306,10 +307,20 @@ export class UserController {
     example: 'acme_plumbing',
     description: 'Public business profile username',
   })
+  @ApiQuery({
+    name: 'serviceId',
+    required: false,
+    type: String,
+    description: 'Matched service id whose view count should be incremented',
+  })
   @HttpCode(HttpStatus.OK)
-  async getPublicBusinessProfile(@Param('username') username: string) {
+  async getPublicBusinessProfile(
+    @Param('username') username: string,
+    @Query('serviceId') serviceId?: string,
+  ) {
     const result = await this.userService.getPublicBusinessProfileByUsername(
       username,
+      serviceId,
     );
 
     return {
@@ -355,9 +366,21 @@ export class UserController {
     example: '',
     description: 'Business owner user id',
   })
+  @ApiQuery({
+    name: 'serviceId',
+    required: false,
+    type: String,
+    description: 'Matched service id whose view count should be incremented',
+  })
   @HttpCode(HttpStatus.OK)
-  async getPublicBusinessOverview(@Param('ownerId') ownerId: string) {
-    const result = await this.userService.getPublicBusinessOverview(ownerId);
+  async getPublicBusinessOverview(
+    @Param('ownerId') ownerId: string,
+    @Query('serviceId') serviceId?: string,
+  ) {
+    const result = await this.userService.getPublicBusinessOverview(
+      ownerId,
+      serviceId,
+    );
 
     return {
       message: 'Business profile fetched successfully',

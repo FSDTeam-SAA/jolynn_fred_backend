@@ -4,6 +4,8 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Get,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -18,6 +20,7 @@ import {
   RegisterExistingUserBusinessOwnerDto,
   RegisterUserDto,
   ResetPasswordDto,
+  ResendVerificationEmailDto,
   VerifyEmailDto,
 } from './dto/create-auth.dto';
 import type { Request, Response } from 'express';
@@ -27,17 +30,6 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  // @Post('register')
-  // @HttpCode(HttpStatus.CREATED)
-  // async register(@Body() CreateAuthDto: CreateAuthDto) {
-  //   const result = await this.authService.register(CreateAuthDto);
-
-  //   return {
-  //     message: 'User registered successfully',
-  //     data: result,
-  //   };
-  // }
 
   @Post('register/user')
   @ApiOperation({ summary: 'Register a standard user account' })
@@ -112,6 +104,20 @@ export class AuthController {
     };
   }
 
+  @Get('verify-email')
+  async verifyRegistrationEmail(
+    @Query('token') token: string,
+    @Res() res: Response,
+  ) {
+    const loginUrl = `${(process.env.FRONTEND_URL || 'https://sidequote.cloud').replace(/\/+$/, '')}/login`;
+    try {
+      await this.authService.verifyRegistrationEmail(token);
+      return res.redirect(`${loginUrl}?verified=true`);
+    } catch {
+      return res.redirect(`${loginUrl}?verified=false`);
+    }
+  }
+
   @Post('forgot-password')
   @ApiOperation({ summary: 'Send password reset OTP to email' })
   @ApiBody({ type: ForgotPasswordDto })
@@ -123,6 +129,19 @@ export class AuthController {
       message: 'Email sent successfully',
       data: result,
     };
+  }
+
+  @Post('resend-verification-email')
+  @ApiOperation({ summary: 'Resend the account email verification link' })
+  @ApiBody({ type: ResendVerificationEmailDto })
+  @HttpCode(HttpStatus.OK)
+  async resendVerificationEmail(
+    @Body() resendVerificationEmailDto: ResendVerificationEmailDto,
+  ) {
+    const result = await this.authService.resendVerificationEmail(
+      resendVerificationEmailDto.email,
+    );
+    return { message: 'Verification email sent successfully', data: result };
   }
 
   @Post('verify')
