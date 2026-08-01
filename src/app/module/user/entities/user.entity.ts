@@ -107,6 +107,15 @@ export class User {
   @Prop({ default: false })
   agreementAccepted: boolean;
 
+  @Prop({ default: false })
+  emailVerified: boolean;
+
+  @Prop({ select: false })
+  emailVerificationTokenHash?: string;
+
+  @Prop({ select: false })
+  emailVerificationExpiresAt?: Date;
+
   @Prop()
   stripeAccountId: string;
 

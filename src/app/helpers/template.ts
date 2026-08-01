@@ -17,6 +17,7 @@ type PasswordResetTemplateParams = {
 type RegistrationConfirmationTemplateParams = {
   displayName: string;
   loginUrl: string;
+  verificationUrl?: string;
   accountType: 'user' | 'businessOwner';
 };
 
@@ -78,10 +79,18 @@ const escapeHtml = (value: string) =>
 export const createRegistrationConfirmationEmailTemplate = ({
   displayName,
   loginUrl,
+  verificationUrl,
   accountType,
 }: RegistrationConfirmationTemplateParams) => {
   const safeDisplayName = escapeHtml(displayName || 'there');
   const safeLoginUrl = escapeHtml(loginUrl);
+  const safeVerificationUrl = verificationUrl
+    ? escapeHtml(verificationUrl)
+    : undefined;
+  const actionUrl = safeVerificationUrl || safeLoginUrl;
+  const actionLabel = verificationUrl
+    ? 'Confirm your email &rarr;'
+    : 'Log in to your account &rarr;';
   const accountLabel =
     accountType === 'businessOwner' ? 'Business account' : 'User account';
 
@@ -109,7 +118,7 @@ export const createRegistrationConfirmationEmailTemplate = ({
               <td style="padding:38px 38px 12px;">
                 <p style="margin:0 0 16px;color:${sideQuoteBrand.ink};font-size:17px;line-height:1.7;font-weight:700;">Hello ${safeDisplayName},</p>
                 <p style="margin:0;color:${sideQuoteBrand.muted};font-size:15px;line-height:1.8;">
-                  Thank you for joining ${sideQuoteBrand.name}. Your registration has been completed successfully, and you can now log in to explore services, connect with the community, and manage your profile.
+                  Thank you for joining ${sideQuoteBrand.name}. ${verificationUrl ? 'Please confirm your email address before logging in.' : 'Your account is ready. You can now log in to explore services, connect with the community, and manage your profile.'}
                 </p>
               </td>
             </tr>
@@ -132,12 +141,13 @@ export const createRegistrationConfirmationEmailTemplate = ({
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                   <tr>
                     <td align="center" bgcolor="${sideQuoteBrand.primary}" style="border-radius:10px;background:${sideQuoteBrand.primary};background-image:linear-gradient(90deg,${sideQuoteBrand.primary},${sideQuoteBrand.secondary});">
-                      <a href="${safeLoginUrl}" target="_blank" style="display:inline-block;padding:15px 30px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.2;font-weight:800;">Log in to your account &rarr;</a>
+                      <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 30px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.2;font-weight:800;">${actionLabel}</a>
                     </td>
                   </tr>
                 </table>
                 <p style="margin:20px 0 6px;color:${sideQuoteBrand.muted};font-size:13px;line-height:1.6;">If the button does not work, copy and paste this link into your browser:</p>
-                <p style="margin:0;word-break:break-all;font-size:13px;line-height:1.6;"><a href="${safeLoginUrl}" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">${safeLoginUrl}</a></p>
+                <p style="margin:0;word-break:break-all;font-size:13px;line-height:1.6;"><a href="${actionUrl}" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">${actionUrl}</a></p>
+                ${verificationUrl ? `<p style="margin:14px 0 0;color:${sideQuoteBrand.muted};font-size:13px;line-height:1.6;">This verification link will expire in 24 hours.</p>` : ''}
               </td>
             </tr>
 

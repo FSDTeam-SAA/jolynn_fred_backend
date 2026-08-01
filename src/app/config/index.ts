@@ -48,4 +48,6 @@ export default {
     webhookBaseUrl: process.env.TWILIO_WEBHOOK_BASE_URL,
   },
   frontendUrl: process.env.FRONTEND_URL,
+  backendUrl:
+    process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`,
 };
