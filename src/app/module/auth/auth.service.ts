@@ -22,8 +22,11 @@ import { type UserRole } from 'src/app/constants/auth.constants';
 import {
   isReservedUsername,
   normalizeUsername,
+  USERNAME_REGEX,
 } from 'src/app/helpers/username';
+
 import { ServiceCategoryService } from '../service-category/service-category.service';
+import { isEmail } from 'class-validator';
 @Injectable()
 export class AuthService {
   constructor(
@@ -310,19 +313,32 @@ await this.sendRegistrationConfirmation(
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
-    const identifier = loginDto.email;
-    if (!identifier) {
-      throw new HttpException('Email or username is required', 400);
-    }
+  const identifier = (loginDto.identifier || loginDto.email)?.trim().toLowerCase();
 
-    const user = await this.userModel
-      .findOne({
-        $or: [
-          { email: identifier.toLowerCase() },
-          { username: identifier.toLowerCase() },
-        ],
-      })
-      .select('+password');
+  if (!identifier) {
+    throw new HttpException('Email or username is required', 400);
+  }
+
+  const isEmailLogin = identifier.includes('@');
+
+  if (isEmailLogin && !isEmail(identifier)) {
+    throw new HttpException('Valid email is required', 400);
+  }
+
+  if (!isEmailLogin && !USERNAME_REGEX.test(identifier)) {
+    throw new HttpException(
+      'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
+      400,
+    );
+  }
+
+  const user = await this.userModel
+    .findOne(
+      isEmailLogin
+        ? { email: identifier }
+        : { username: identifier },
+    )
+    .select('+password');
     if (!user) {
       throw new HttpException('User not found', 404);
     }
