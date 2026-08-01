@@ -14,6 +14,7 @@ const helpWantedSearchAbleFields = [
   'email',
   'zipcode',
   'category',
+  'budgetRange',
   'phone',
   'message',
 ];
