@@ -1,6 +1,5 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import {
-  CreateAuthDto,
   LoginAuthDto,
   RegisterBusinessOwnerDto,
   RegisterExistingUserBusinessOwnerDto,
@@ -12,6 +11,7 @@ import { Model } from 'mongoose';
 import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import * as jwt from '@nestjs/jwt';
+import { createHash, randomBytes } from 'crypto';
 import config from '../../config';
 import sendMailer from 'src/app/helpers/sendMailer';
 import {
@@ -65,10 +65,38 @@ export class AuthService {
     return `${frontendUrl}/login`;
   }
 
+  private buildEmailVerificationUrl(token: string) {
+    const backendUrl = (config.backendUrl || '').replace(/\/+$/, '');
+    return `${backendUrl}/auth/verify-email?token=${encodeURIComponent(token)}`;
+  }
+
+  private async createEmailVerificationToken(user: UserDocument) {
+    const token = randomBytes(32).toString('hex');
+    user.emailVerificationTokenHash = createHash('sha256')
+      .update(token)
+      .digest('hex');
+    user.emailVerificationExpiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    );
+    await user.save();
+    return token;
+  }
+
+  private async createEmailVerificationTokenForUser(userId: unknown) {
+    const user = await this.userModel
+      .findById(userId)
+      .select('+emailVerificationTokenHash +emailVerificationExpiresAt');
+    if (!user) {
+      throw new HttpException('User not found', 404);
+    }
+    return this.createEmailVerificationToken(user);
+  }
+
   private async sendRegistrationConfirmation(
     email: string,
     displayName: string,
     accountType: 'user' | 'businessOwner',
+    verificationUrl?: string,
   ) {
     try {
       await sendMailer(
@@ -77,6 +105,7 @@ export class AuthService {
         createRegistrationConfirmationEmailTemplate({
           displayName,
           loginUrl: this.buildLoginUrl(),
+          verificationUrl,
           accountType,
         }),
       );
@@ -164,6 +193,7 @@ export class AuthService {
       ...payload,
       username: normalizedUsername,
       role,
+      emailVerified: false,
     });
 
     return this.sanitizeUser(newUser);
@@ -194,16 +224,21 @@ export class AuthService {
       'user',
     );
 
+    const verificationToken = await this.createEmailVerificationTokenForUser(
+      newUser._id,
+    );
+
     await this.sendRegistrationConfirmation(
       registerUserDto.email.toLowerCase(),
       `${registerUserDto.firstName} ${registerUserDto.lastName}`.trim(),
       'user',
+      this.buildEmailVerificationUrl(verificationToken),
     );
 
     return newUser;
   }
 
- async registerBusinessOwner(
+  async registerBusinessOwner(
     registerBusinessOwnerDto: RegisterBusinessOwnerDto,
   ) {
     this.validatePasswordConfirmation(
@@ -226,7 +261,10 @@ export class AuthService {
     const newBusinessOwner = await this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
-        lastName: registerBusinessOwnerDto.ownerName.split(' ').slice(1).join(' '),
+        lastName: registerBusinessOwnerDto.ownerName
+          .split(' ')
+          .slice(1)
+          .join(' '),
         username: registerBusinessOwnerDto.username.toLowerCase(),
         email: loginEmail.toLowerCase(),
         businessName: registerBusinessOwnerDto.businessName,
@@ -244,10 +282,15 @@ export class AuthService {
       'businessOwner',
     );
 
-await this.sendRegistrationConfirmation(
+    const verificationToken = await this.createEmailVerificationTokenForUser(
+      newBusinessOwner._id,
+    );
+
+    await this.sendRegistrationConfirmation(
       loginEmail.toLowerCase(),
       registerBusinessOwnerDto.ownerName,
       'businessOwner',
+      this.buildEmailVerificationUrl(verificationToken),
     );
 
     return newBusinessOwner;
@@ -274,6 +317,13 @@ await this.sendRegistrationConfirmation(
 
     if (existingUser.status === 'suspended') {
       throw new HttpException('Your account has been suspended', 403);
+    }
+
+    if (!existingUser.emailVerified) {
+      throw new HttpException(
+        'Please verify your email address before creating a business account',
+        403,
+      );
     }
 
     const businessDetails = Object.fromEntries(
@@ -362,7 +412,58 @@ await this.sendRegistrationConfirmation(
       throw new HttpException('Your account has been suspended', 403);
     }
 
+    if (!user.emailVerified) {
+      throw new HttpException(
+        'Please verify your email address before logging in',
+        403,
+      );
+    }
+
     return this.createAuthenticatedSession(user, res);
+  }
+
+  async verifyRegistrationEmail(token: string) {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const user = await this.userModel
+      .findOne({
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpiresAt: { $gt: new Date() },
+      })
+      .select('+emailVerificationTokenHash +emailVerificationExpiresAt');
+
+    if (!user) {
+      throw new HttpException('Invalid or expired verification link', 400);
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationTokenHash = undefined;
+    user.emailVerificationExpiresAt = undefined;
+    await user.save();
+  }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.userModel.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      throw new HttpException('User not found', 404);
+    }
+
+    if (user.emailVerified) {
+      return { message: 'Email is already verified' };
+    }
+
+    const verificationToken = await this.createEmailVerificationTokenForUser(
+      user._id,
+    );
+    await this.sendRegistrationConfirmation(
+      user.email,
+      [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+        user.username ||
+        user.email,
+      user.role === 'businessOwner' ? 'businessOwner' : 'user',
+      this.buildEmailVerificationUrl(verificationToken),
+    );
+
+    return { message: 'Check your email for the verification link' };
   }
 
   async forgotPassword(email: string) {
