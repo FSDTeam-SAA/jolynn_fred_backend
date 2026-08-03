@@ -10,6 +10,10 @@ import {
 } from './entities/service.entity';
 import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
 import { ServiceCategoryModule } from '../service-category/service-category.module';
+import {
+  ServiceCategory,
+  ServiceCategorySchema,
+} from '../service-category/entities/service-category.entity';
 
 @Module({
   imports: [
@@ -18,6 +22,7 @@ import { ServiceCategoryModule } from '../service-category/service-category.modu
       { name: BusinessService.name, schema: BusinessServiceSchema },
       { name: User.name, schema: UserSchema },
       { name: Review.name, schema: ReviewSchema },
+      { name: ServiceCategory.name, schema: ServiceCategorySchema },
     ]),
   ],
   controllers: [ServiceController],
