@@ -194,7 +194,8 @@ export class ServiceController {
     required: false,
     type: String,
     example: 'plumbing',
-    description: 'Case-insensitive partial search by service title',
+    description:
+      'Case-insensitive partial search by service title, service description, or service category description',
   })
   @ApiQuery({
     name: 'state',

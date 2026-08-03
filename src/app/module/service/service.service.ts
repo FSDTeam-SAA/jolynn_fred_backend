@@ -14,6 +14,7 @@ import {
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { ServiceCategoryService } from '../service-category/service-category.service';
+import { ServiceCategory } from '../service-category/entities/service-category.entity';
 
 const serviceSearchAbleFields = ['title', 'description'];
 const businessOwnerSearchAbleFields = [
@@ -33,6 +34,8 @@ export class ServiceService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(Review.name)
     private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel(ServiceCategory.name)
+    private readonly serviceCategoryModel: Model<ServiceCategory>,
     private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
 
@@ -321,6 +324,8 @@ export class ServiceService {
       return {
         businessOwnerId: owner.id,
         businessName: owner.businessName || owner.username || owner.email,
+        email: owner.email,
+        businessEmail: owner.businessEmail,
         category: owner.category,
         city: owner.city,
         state: owner.state,
@@ -528,10 +533,21 @@ export class ServiceService {
     options: IOptions,
   ) {
     const serviceRegex = this.buildContainsRegex(params.service);
+    const matchingCategoryIds = serviceRegex
+      ? await this.serviceCategoryModel
+          .find({ description: { $regex: serviceRegex } })
+          .distinct('_id')
+      : [];
     const matchingServices = serviceRegex
       ? await this.serviceModel
           .find({
-            title: { $regex: serviceRegex },
+            $or: [
+              { title: { $regex: serviceRegex } },
+              { description: { $regex: serviceRegex } },
+              ...(matchingCategoryIds.length
+                ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
+                : []),
+            ],
           })
           .select('ownerId title description logo createdAt')
       : [];
