@@ -89,21 +89,34 @@ async createReport(userId: string, createReportDto: CreateReportDto) {
 
     return report;
   }
+private getOwnerIdString(ownerId: any): string | null {
+    if (!ownerId) return null;
+    return typeof ownerId === 'object' && ownerId._id
+      ? ownerId._id.toString()
+      : ownerId.toString();
+  }
 
   private async attachServices(reports: ReportDocument[]) {
     const ownerIds = [
-      ...new Set(reports.map((report) => report.ownerId.toString())),
+      ...new Set(
+        reports
+          .map((report) => this.getOwnerIdString(report.ownerId))
+          .filter((id): id is string => id !== null),
+      ),
     ];
 
-    const services = await this.serviceModel.find({
-      ownerId: { $in: ownerIds },
-    });
+    const services = ownerIds.length
+      ? await this.serviceModel.find({ ownerId: { $in: ownerIds } })
+      : [];
 
     return reports.map((report) => {
       const reportObj = report.toObject() as any;
-      reportObj.services = services.filter(
-        (service) => service.ownerId.toString() === report.ownerId.toString(),
-      );
+      const reportOwnerId = this.getOwnerIdString(report.ownerId);
+      reportObj.services = reportOwnerId
+        ? services.filter(
+            (service) => service.ownerId.toString() === reportOwnerId,
+          )
+        : [];
       return reportObj;
     });
   }
