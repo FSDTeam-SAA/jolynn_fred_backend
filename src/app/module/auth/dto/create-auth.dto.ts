@@ -188,22 +188,23 @@ export class CreateAuthDto extends RegisterUserDto {}
 export class LoginAuthDto {
   @ApiPropertyOptional({
     example: 'john@example.com',
-    description: 'Backward-compatible login using email',
+    description: 'Login using email or username',
   })
   @ValidateIf((object) => !object.identifier)
   @Transform(emptyStringToUndefined)
-  @IsEmail({}, { message: 'Valid email is required' })
+  @IsString()
+  @IsNotEmpty()
   email?: string;
 
-  // @ApiPropertyOptional({
-  //   example: 'john_doe',
-  //   description: 'Preferred login using email or username',
-  // })
-  // @ValidateIf((object) => !object.email)
-  // @Transform(emptyStringToUndefined)
-  // @IsString()
-  // @IsNotEmpty()
-  // identifier?: string;
+  @ApiPropertyOptional({
+    example: 'john_doe',
+    description: 'Preferred login using email or username',
+  })
+  @ValidateIf((object) => !object.email)
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsNotEmpty()
+  identifier?: string;
 
   @ApiProperty({ example: 'secret123' })
   @IsString()
