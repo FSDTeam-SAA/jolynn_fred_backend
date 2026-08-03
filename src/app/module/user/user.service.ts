@@ -12,6 +12,10 @@ import {
   BusinessService,
   BusinessServiceDocument,
 } from '../service/entities/service.entity';
+import {
+  ServiceCategory,
+  ServiceCategoryDocument,
+} from '../service-category/entities/service-category.entity';
 import { Review, ReviewDocument } from '../reviews/entities/review.entity';
 import { Gallary, GallaryDocument } from '../gallary/entities/gallary.entity';
 import {
@@ -49,6 +53,8 @@ export class UserService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(BusinessService.name)
     private readonly serviceModel: Model<BusinessServiceDocument>,
+    @InjectModel(ServiceCategory.name)
+    private readonly serviceCategoryModel: Model<ServiceCategoryDocument>,
     @InjectModel(Review.name)
     private readonly reviewModel: Model<ReviewDocument>,
     @InjectModel(Gallary.name)
@@ -152,14 +158,37 @@ export class UserService {
         { $inc: { viewCount: 1 } },
         { new: true },
       )
-      .select('_id viewCount')
+      .select('_id serviceCategoryId viewCount')
       .lean();
 
     if (!service) {
       throw new HttpException('Service not found for this business owner', 404);
     }
 
-    return service;
+    let categoryViewCount: number | undefined;
+
+    if (service.serviceCategoryId) {
+      const category = await this.serviceCategoryModel
+        .findOneAndUpdate(
+          {
+            _id: service.serviceCategoryId,
+            status: 'approved',
+            isActive: true,
+          },
+          { $inc: { viewCount: 1 } },
+          { new: true },
+        )
+        .select('_id viewCount')
+        .lean();
+
+      categoryViewCount = category?.viewCount;
+    }
+
+    return {
+      _id: service._id,
+      viewCount: service.viewCount ?? 0,
+      categoryViewCount,
+    };
   }
 
   private async getPublicBusinessOwnerOrThrow(ownerId: string) {
