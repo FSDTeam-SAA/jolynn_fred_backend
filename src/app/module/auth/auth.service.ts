@@ -258,6 +258,13 @@ export class AuthService {
       );
     }
 
+    const serviceCategory =
+      await this.serviceCategoryService.resolveCategorySelection(
+        registerBusinessOwnerDto.category,
+        registerBusinessOwnerDto.requestedCategory,
+        'business_registration',
+      );
+
     const newBusinessOwner = await this.createAccount(
       {
         firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
@@ -272,12 +279,15 @@ export class AuthService {
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: registerBusinessOwnerDto.category,
+        category: serviceCategory.name,
+        serviceCategoryId: serviceCategory._id,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
         password: registerBusinessOwnerDto.password,
-        status: 'pending',
+        // Business owners are available immediately after registration.
+        // Email verification is still required before login.
+        status: 'active',
       },
       'businessOwner',
     );
@@ -326,6 +336,14 @@ export class AuthService {
       );
     }
 
+    const serviceCategory =
+      await this.serviceCategoryService.resolveCategorySelection(
+        registerBusinessOwnerDto.category,
+        registerBusinessOwnerDto.requestedCategory,
+        'business_registration',
+        userId,
+      );
+
     const businessDetails = Object.fromEntries(
       Object.entries({
         businessName: registerBusinessOwnerDto.businessName,
@@ -333,7 +351,8 @@ export class AuthService {
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: registerBusinessOwnerDto.category,
+        category: serviceCategory.name,
+        serviceCategoryId: serviceCategory._id,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
         role: 'businessOwner',
