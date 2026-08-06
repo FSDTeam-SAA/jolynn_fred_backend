@@ -80,7 +80,7 @@ export class HelpWantedController {
     type: String,
     example: '',
     description:
-      'Search by username, email, zipcode, category, phone or message',
+      'Case-insensitive partial search across all help-wanted fields, related service-category fields, and the poster profile',
   })
   @ApiQuery({
     name: 'budgetRange',

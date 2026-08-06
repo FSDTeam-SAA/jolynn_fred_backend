@@ -195,7 +195,7 @@ export class ServiceController {
     type: String,
     example: 'plumbing',
     description:
-      'Case-insensitive partial search by service title, service description, or service category description',
+      'Case-insensitive partial search by service title, description, or service category fields',
   })
   @ApiQuery({
     name: 'state',
@@ -217,7 +217,7 @@ export class ServiceController {
     type: String,
     example: '',
     description:
-      'Optional extra search inside business name, category, and location fields',
+      'Global case-insensitive partial search across public business-profile, service, and service-category fields',
   })
   @ApiQuery({
     name: 'category',
