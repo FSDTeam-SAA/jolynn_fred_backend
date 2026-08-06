@@ -18,11 +18,43 @@ import { ServiceCategory } from '../service-category/entities/service-category.e
 
 const serviceSearchAbleFields = ['title', 'description'];
 const businessOwnerSearchAbleFields = [
+  'firstName',
+  'lastName',
+  'email',
+  'username',
+  'gender',
+  'phoneNumber',
   'businessName',
+  'businessEmail',
+  'businessWebsiteUrl',
+  'serviceArea',
   'category',
   'city',
   'state',
   'country',
+  'address',
+  'postcode',
+  'bio',
+  'tag',
+];
+
+const serviceGlobalSearchableFields = [
+  'title',
+  'description',
+  'logo.url',
+  'logo.publicId',
+];
+
+const serviceCategorySearchableFields = [
+  'name',
+  'slug',
+  'normalizedName',
+  'description',
+  'logo.url',
+  'logo.publicId',
+  'status',
+  'source',
+  'rejectionReason',
 ];
 
 @Injectable()
@@ -234,6 +266,7 @@ export class ServiceService {
   private buildBusinessOwnerWhereConditions(
     ownerIds: string[] | null,
     params: IFilterParams,
+    searchableCategoryIds: Types.ObjectId[] = [],
   ) {
     const { searchTerm, businessName, category, city, state, location } =
       params;
@@ -255,11 +288,19 @@ export class ServiceService {
 
     const searchRegex = this.buildContainsRegex(searchTerm);
     if (searchRegex) {
-      andConditions.push({
-        $or: businessOwnerSearchAbleFields.map((field) => ({
+      const profileSearchConditions = businessOwnerSearchAbleFields.map(
+        (field) => ({
           [field]: { $regex: searchRegex },
-        })),
-      });
+        }),
+      );
+
+      if (searchableCategoryIds.length) {
+        profileSearchConditions.push({
+          serviceCategoryId: { $in: searchableCategoryIds },
+        } as any);
+      }
+
+      andConditions.push({ $or: profileSearchConditions });
     }
 
     const businessNameRegex = this.buildExactRegex(businessName);
@@ -532,18 +573,27 @@ export class ServiceService {
     params: IFilterParams,
     options: IOptions,
   ) {
+    const globalSearchRegex = this.buildContainsRegex(params.searchTerm);
     const serviceRegex = this.buildContainsRegex(params.service);
-    const matchingCategoryIds = serviceRegex
+    const categorySearchRegex = serviceRegex || globalSearchRegex;
+    const matchingCategoryIds = categorySearchRegex
       ? await this.serviceCategoryModel
-          .find({ description: { $regex: serviceRegex } })
+          .find({
+            $or: serviceCategorySearchableFields.map((field) => ({
+              [field]: { $regex: categorySearchRegex },
+            })),
+          })
           .distinct('_id')
       : [];
-    const matchingServices = serviceRegex
+    const matchingServices = serviceRegex || globalSearchRegex
       ? await this.serviceModel
           .find({
             $or: [
-              { title: { $regex: serviceRegex } },
-              { description: { $regex: serviceRegex } },
+              ...(serviceRegex || globalSearchRegex
+                ? serviceGlobalSearchableFields.map((field) => ({
+                    [field]: { $regex: serviceRegex || globalSearchRegex },
+                  }))
+                : []),
               ...(matchingCategoryIds.length
                 ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
                 : []),
@@ -552,7 +602,7 @@ export class ServiceService {
           .select('ownerId title description logo createdAt')
       : [];
 
-    const ownerIds = serviceRegex
+    const serviceOwnerIds = serviceRegex
       ? [
           ...new Set(
             matchingServices.map((service) => service.ownerId.toString()),
@@ -560,17 +610,52 @@ export class ServiceService {
         ]
       : null;
 
-    if (serviceRegex && !ownerIds?.length) {
+    const matchingProfileOwners = globalSearchRegex
+      ? await this.userModel
+          .find({
+            role: 'businessOwner',
+            status: 'active',
+            $or: [
+              ...businessOwnerSearchAbleFields.map((field) => ({
+                [field]: { $regex: globalSearchRegex },
+              })),
+              ...(matchingCategoryIds.length
+                ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
+                : []),
+            ],
+          })
+          .select('_id')
+      : [];
+
+    const globalOwnerIds = globalSearchRegex
+      ? [
+          ...new Set([
+            ...matchingServices.map((service) => service.ownerId.toString()),
+            ...matchingProfileOwners.map((owner) => owner.id),
+          ]),
+        ]
+      : null;
+
+    let ownerIds: string[] | null = null;
+    if (serviceOwnerIds && globalOwnerIds) {
+      const globalOwnerIdSet = new Set(globalOwnerIds);
+      ownerIds = serviceOwnerIds.filter((id) => globalOwnerIdSet.has(id));
+    } else {
+      ownerIds = serviceOwnerIds || globalOwnerIds;
+    }
+
+    if ((serviceRegex || globalSearchRegex) && !ownerIds?.length) {
       return this.sortAndPaginateBusinessOwnerCards([], options);
     }
 
     const whereConditions = this.buildBusinessOwnerWhereConditions(
       ownerIds,
       params,
+      matchingCategoryIds,
     );
     const businessOwners = await this.userModel.find(whereConditions);
     const servicesByOwnerId = new Map<string, BusinessServiceDocument>();
-    const servicesForCards = serviceRegex
+    const servicesForCards = serviceRegex || matchingServices.length
       ? matchingServices
       : await this.serviceModel
           .find({

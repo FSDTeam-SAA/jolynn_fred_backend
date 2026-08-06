@@ -8,6 +8,8 @@ import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
 import { ServiceCategoryService } from '../service-category/service-category.service';
+import { ServiceCategory } from '../service-category/entities/service-category.entity';
+import { User, UserDocument } from '../user/entities/user.entity';
 
 const helpWantedSearchAbleFields = [
   'username',
@@ -19,13 +21,104 @@ const helpWantedSearchAbleFields = [
   'message',
 ];
 
+const serviceCategorySearchableFields = [
+  'name',
+  'slug',
+  'normalizedName',
+  'description',
+  'logo.url',
+  'logo.publicId',
+  'status',
+  'source',
+  'rejectionReason',
+];
+
+const posterSearchableFields = [
+  'firstName',
+  'lastName',
+  'email',
+  'username',
+  'gender',
+  'phoneNumber',
+  'businessName',
+  'businessEmail',
+  'businessWebsiteUrl',
+  'serviceArea',
+  'category',
+  'country',
+  'city',
+  'state',
+  'address',
+  'postcode',
+  'bio',
+  'tag',
+];
+
 @Injectable()
 export class HelpWantedService {
   constructor(
     @InjectModel(HelpWanted.name)
     private readonly helpWantedModel: Model<HelpWantedDocument>,
+    @InjectModel(ServiceCategory.name)
+    private readonly serviceCategoryModel: Model<ServiceCategory>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
     private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
+
+  private buildContainsRegex(value?: string) {
+    if (!value?.trim()) {
+      return null;
+    }
+
+    const escapedValue = value.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(escapedValue, 'i');
+  }
+
+  private async buildSearchConditions(params: IFilterParams) {
+    const searchRegex = this.buildContainsRegex(params.searchTerm);
+    if (!searchRegex) {
+      return buildWhereConditions(params, helpWantedSearchAbleFields);
+    }
+
+    const [matchingCategoryIds, matchingPosterIds] = await Promise.all([
+      this.serviceCategoryModel
+        .find({
+          $or: serviceCategorySearchableFields.map((field) => ({
+            [field]: { $regex: searchRegex },
+          })),
+        })
+        .distinct('_id'),
+      this.userModel
+        .find({
+          $or: posterSearchableFields.map((field) => ({
+            [field]: { $regex: searchRegex },
+          })),
+        })
+        .select('_id'),
+    ]);
+
+    const searchableFields = helpWantedSearchAbleFields.map((field) => ({
+      [field]: { $regex: searchRegex },
+    }));
+
+    if (matchingCategoryIds.length) {
+      searchableFields.push({
+        serviceCategoryId: { $in: matchingCategoryIds },
+      } as any);
+    }
+
+    if (matchingPosterIds.length) {
+      searchableFields.push({
+        userId: {
+          $in: matchingPosterIds.map((poster) => poster._id),
+        },
+      } as any);
+    }
+
+    const { searchTerm: _searchTerm, ...filters } = params;
+    return buildWhereConditions(filters, [], { $or: searchableFields });
+  }
 
   async createHelpWanted(
     createHelpWantedDto: CreateHelpWantedDto,
@@ -50,10 +143,7 @@ export class HelpWantedService {
 
   async getAllHelpWanted(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
-    const whereConditions = buildWhereConditions(
-      params,
-      helpWantedSearchAbleFields,
-    );
+    const whereConditions = await this.buildSearchConditions(params);
 
     const total = await this.helpWantedModel.countDocuments(whereConditions);
     const helpWanteds = await this.helpWantedModel
@@ -83,7 +173,7 @@ export class HelpWantedService {
   ) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = {
-      ...buildWhereConditions(params, helpWantedSearchAbleFields),
+      ...(await this.buildSearchConditions(params)),
       userId,
     };
 
