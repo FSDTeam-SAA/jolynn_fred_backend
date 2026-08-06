@@ -87,7 +87,7 @@ export class HelpWantedController {
     required: false,
     type: String,
     example: '$500 - $1,000',
-    description: 'Filter by exact budget range',
+    description: 'Filter by overlapping budget range',
   })
   @ApiQuery({
     name: 'page',
@@ -143,7 +143,7 @@ export class HelpWantedController {
     required: false,
     type: String,
     example: '$500 - $1,000',
-    description: 'Filter by exact budget range',
+    description: 'Filter by overlapping budget range',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
