@@ -75,10 +75,76 @@ export class HelpWantedService {
     return new RegExp(escapedValue, 'i');
   }
 
+  private buildBudgetRangeCondition(budgetRange?: unknown) {
+    if (typeof budgetRange !== 'string') {
+      return undefined;
+    }
+
+    const rangeValues = budgetRange
+      .match(/[0-9,]+(?:\.[0-9]+)?/g)
+      ?.map((value) => Number(value.replace(/,/g, '')));
+
+    if (!rangeValues || rangeValues.length < 2 || rangeValues.some(Number.isNaN)) {
+      return undefined;
+    }
+
+    const [requestedMin, requestedMax] = [rangeValues[0], rangeValues[1]].sort(
+      (a, b) => a - b,
+    );
+
+    return {
+      $expr: {
+        $let: {
+          vars: {
+            budgetValues: {
+              $map: {
+                input: {
+                  $regexFindAll: {
+                    input: { $ifNull: ['$budgetRange', ''] },
+                    regex: /[0-9,]+(?:\.[0-9]+)?/g,
+                  },
+                },
+                as: 'value',
+                in: {
+                  $convert: {
+                    input: {
+                      $replaceAll: {
+                        input: '$$value.match',
+                        find: ',',
+                        replacement: '',
+                      },
+                    },
+                    to: 'double',
+                    onError: null,
+                    onNull: null,
+                  },
+                },
+              },
+            },
+          },
+          in: {
+            $and: [
+              { $lte: [{ $arrayElemAt: ['$$budgetValues', 0] }, requestedMax] },
+              { $gte: [{ $arrayElemAt: ['$$budgetValues', 1] }, requestedMin] },
+            ],
+          },
+        },
+      },
+    };
+  }
+
   private async buildSearchConditions(params: IFilterParams) {
+    const budgetCondition = this.buildBudgetRangeCondition(params.budgetRange);
+    const filters = budgetCondition
+      ? (({ budgetRange: _budgetRange, ...rest }) => rest)(params)
+      : params;
     const searchRegex = this.buildContainsRegex(params.searchTerm);
     if (!searchRegex) {
-      return buildWhereConditions(params, helpWantedSearchAbleFields);
+      return buildWhereConditions(
+        filters,
+        helpWantedSearchAbleFields,
+        budgetCondition ?? {},
+      );
     }
 
     const [matchingCategoryIds, matchingPosterIds] = await Promise.all([
@@ -116,8 +182,11 @@ export class HelpWantedService {
       } as any);
     }
 
-    const { searchTerm: _searchTerm, ...filters } = params;
-    return buildWhereConditions(filters, [], { $or: searchableFields });
+    const { searchTerm: _searchTerm, ...searchFilters } = filters;
+    return buildWhereConditions(searchFilters, [], {
+      ...(budgetCondition ?? {}),
+      $or: searchableFields,
+    });
   }
 
   async createHelpWanted(
