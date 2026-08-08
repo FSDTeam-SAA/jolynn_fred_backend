@@ -12,6 +12,10 @@ import {
   BusinessServiceSchema,
 } from 'src/app/module/service/entities/service.entity';
 import {
+  ServiceCategory,
+  ServiceCategorySchema,
+} from 'src/app/module/service-category/entities/service-category.entity';
+import {
   Gallary,
   GallarySchema,
 } from 'src/app/module/gallary/entities/gallary.entity';
@@ -31,6 +35,10 @@ import {
       { name: User.name, schema: UserSchema },
       { name: Report.name, schema: ReportSchema },
       { name: BusinessService.name, schema: BusinessServiceSchema },
+      {
+        name: ServiceCategory.name,
+        schema: ServiceCategorySchema,
+      },
       { name: Gallary.name, schema: GallarySchema },
       { name: Review.name, schema: ReviewSchema },
       { name: Qoute.name, schema: QouteSchema },
