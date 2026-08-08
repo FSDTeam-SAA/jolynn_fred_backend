@@ -7,6 +7,10 @@ import {
   ReportDocument,
 } from 'src/app/module/report/entities/report.entity';
 import {
+  ServiceCategory,
+  ServiceCategoryDocument,
+} from 'src/app/module/service-category/entities/service-category.entity';
+import {
   BusinessService,
   BusinessServiceDocument,
 } from 'src/app/module/service/entities/service.entity';
@@ -59,6 +63,8 @@ export class DashboardService {
     private readonly reportModel: Model<ReportDocument>,
     @InjectModel(BusinessService.name)
     private readonly serviceModel: Model<BusinessServiceDocument>,
+    @InjectModel(ServiceCategory.name)
+    private readonly serviceCategoryModel: Model<ServiceCategoryDocument>,
     @InjectModel(Gallary.name)
     private readonly gallaryModel: Model<GallaryDocument>,
     @InjectModel(Review.name)
@@ -78,22 +84,26 @@ export class DashboardService {
   }
 
   async getCards() {
-    const [totalBusinesses, pendingApprovals, activeUsers, totalReports] =
-      await Promise.all([
-        this.userModel.countDocuments({ role: 'businessOwner' }),
-        this.userModel.countDocuments({
-          role: 'businessOwner',
-          status: 'pending',
-        }),
-        this.userModel.countDocuments({ status: 'active' }),
-        this.reportModel.countDocuments(),
-      ]);
+    const [
+      totalBusinesses,
+      pendingApprovals,
+      activeUsers,
+      totalServiceCategory,
+    ] = await Promise.all([
+      this.userModel.countDocuments({ role: 'businessOwner' }),
+      this.userModel.countDocuments({
+        role: 'businessOwner',
+        status: 'pending',
+      }),
+      this.userModel.countDocuments({ status: 'active' }),
+      this.serviceCategoryModel.countDocuments(),
+    ]);
 
     return {
       totalBusinesses,
       pendingApprovals,
       activeUsers,
-      totalReports,
+      totalServiceCategory,
     };
   }
 
