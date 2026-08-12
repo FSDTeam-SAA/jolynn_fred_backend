@@ -12,6 +12,11 @@ import {
   ServiceCategorySource,
 } from './entities/service-category.entity';
 import { BusinessService } from '../service/entities/service.entity';
+import {
+  HelpWanted,
+  HelpWantedDocument,
+} from '../help-wanted/entities/help-wanted.entity';
+import { User, UserDocument } from '../user/entities/user.entity';
 
 const serviceCategorySearchAbleFields = [
   'name',
@@ -33,6 +38,10 @@ export class ServiceCategoryService {
     private readonly serviceCategoryModel: Model<ServiceCategory>,
     @InjectModel(BusinessService.name)
     private readonly businessServiceModel: Model<BusinessService>,
+    @InjectModel(HelpWanted.name)
+    private readonly helpWantedModel: Model<HelpWantedDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   private normalizeCategoryName(name: string) {
@@ -469,11 +478,53 @@ export class ServiceCategoryService {
             },
           };
 
-    return this.serviceCategoryModel.findByIdAndUpdate(
+    const updatedCategory = await this.serviceCategoryModel.findByIdAndUpdate(
       category.id,
       updatePayload,
       { new: true },
     );
+
+    if (status === 'approved' && updatedCategory) {
+      await this.helpWantedModel.updateMany(
+        {
+          serviceCategoryId: updatedCategory._id,
+          status: 'pending',
+        },
+        {
+          $set: {
+            category: updatedCategory.name,
+            status: 'active',
+            requestedCategory: null,
+          },
+        },
+      );
+      await this.businessServiceModel.updateMany(
+        { serviceCategoryId: updatedCategory._id, status: 'pending' },
+        {
+          $set: {
+            title: updatedCategory.name,
+            status: 'active',
+            requestedCategory: null,
+          },
+        },
+      );
+      await this.userModel.updateMany(
+        {
+          serviceCategoryId: updatedCategory._id,
+          role: 'businessOwner',
+          status: 'pending',
+        },
+        {
+          $set: {
+            category: updatedCategory.name,
+            status: 'active',
+            requestedCategory: null,
+          },
+        },
+      );
+    }
+
+    return updatedCategory;
   }
 
   async deleteServiceCategory(id: string) {

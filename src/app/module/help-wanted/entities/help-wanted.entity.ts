@@ -37,6 +37,13 @@ export class HelpWanted {
   category: string;
 
   @Prop({
+    type: String,
+    trim: true,
+    default: null,
+  })
+  requestedCategory?: string | null;
+
+  @Prop({
     required: [true, 'Budget range is required'],
     trim: true,
   })
@@ -56,6 +63,13 @@ export class HelpWanted {
     trim: true,
   })
   message: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: 'active',
+  })
+  status: 'active' | 'pending';
 }
 
 export const HelpWantedSchema = SchemaFactory.createForClass(HelpWanted);
