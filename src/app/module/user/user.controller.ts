@@ -434,7 +434,8 @@ export class UserController {
 
   @Delete(':id')
   @ApiOperation({
-    summary: 'Delete user by id',
+    summary:
+      'Delete a user or remove a business profile while preserving the user account',
   })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('admin'))
@@ -450,8 +451,10 @@ export class UserController {
     const result = await this.userService.deleteUser(id);
 
     return {
-      message: 'User deleted successfully',
-      data: result,
+      message: result.businessProfileDeleted
+        ? 'Business profile and related business data deleted successfully. User profile remains active.'
+        : 'User deleted successfully',
+      data: result.user,
     };
   }
 }

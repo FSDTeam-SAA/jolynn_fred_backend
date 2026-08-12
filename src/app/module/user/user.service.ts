@@ -23,6 +23,12 @@ import {
   normalizeUsername,
   USERNAME_REGEX,
 } from 'src/app/helpers/username';
+import { Qoute, QouteDocument } from '../qoute/entities/qoute.entity';
+import {
+  SaveQuote,
+  SaveQuoteDocument,
+} from '../save-quote/entities/save-quote.entity';
+import { Report, ReportDocument } from '../report/entities/report.entity';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -59,6 +65,12 @@ export class UserService {
     private readonly reviewModel: Model<ReviewDocument>,
     @InjectModel(Gallary.name)
     private readonly gallaryModel: Model<GallaryDocument>,
+    @InjectModel(Qoute.name)
+    private readonly qouteModel: Model<QouteDocument>,
+    @InjectModel(SaveQuote.name)
+    private readonly saveQuoteModel: Model<SaveQuoteDocument>,
+    @InjectModel(Report.name)
+    private readonly reportModel: Model<ReportDocument>,
   ) {}
 
   private toObjectId(id: string, label = 'user id') {
@@ -470,8 +482,57 @@ export class UserService {
     if (!user) {
       throw new HttpException('User not found', 404);
     }
-    const result = await this.userModel.findByIdAndDelete(id);
-    return result;
+    if (user.role !== 'businessOwner') {
+      const result = await this.userModel.findByIdAndDelete(id);
+      return { user: result, businessProfileDeleted: false };
+    }
+
+    const businessOwnerId = this.toObjectId(id, 'business owner id');
+    const [services, galleries] = await Promise.all([
+      this.serviceModel.find({ ownerId: businessOwnerId }).select('logo'),
+      this.gallaryModel.find({ userId: businessOwnerId }).select('images'),
+    ]);
+
+    const cloudinaryPublicIds = [
+      ...services.map((service) => service.logo?.publicId),
+      ...galleries.flatMap((gallery) =>
+        gallery.images.map((image) => image.publicId),
+      ),
+    ].filter((publicId): publicId is string => Boolean(publicId));
+
+    await Promise.all(
+      cloudinaryPublicIds.map((publicId) =>
+        fileUpload.deleteFromCloudinary(publicId),
+      ),
+    );
+
+    await Promise.all([
+      this.serviceModel.deleteMany({ ownerId: businessOwnerId }),
+      this.gallaryModel.deleteMany({ userId: businessOwnerId }),
+      this.reviewModel.deleteMany({ businessId: businessOwnerId }),
+      this.qouteModel.deleteMany({ businessOwnerId: businessOwnerId }),
+      this.saveQuoteModel.deleteMany({ businessOwnerId: businessOwnerId }),
+      this.reportModel.deleteMany({ ownerId: businessOwnerId }),
+    ]);
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      businessOwnerId,
+      {
+        $set: { role: 'user', status: 'active' },
+        $unset: {
+          businessName: 1,
+          businessEmail: 1,
+          businessWebsiteUrl: 1,
+          serviceArea: 1,
+          category: 1,
+          serviceCategoryId: 1,
+          stripeAccountId: 1,
+        },
+      },
+      { new: true, runValidators: true },
+    );
+
+    return { user: updatedUser, businessProfileDeleted: true };
   }
 
   async getProfile(id: string) {

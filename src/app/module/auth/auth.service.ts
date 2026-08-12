@@ -7,7 +7,7 @@ import {
 } from './dto/create-auth.dto';
 import { User, UserDocument } from '../user/entities/user.entity';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import * as jwt from '@nestjs/jwt';
@@ -24,16 +24,80 @@ import {
   normalizeUsername,
   USERNAME_REGEX,
 } from 'src/app/helpers/username';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 
 import { ServiceCategoryService } from '../service-category/service-category.service';
+import {
+  BusinessService,
+  BusinessServiceDocument,
+} from '../service/entities/service.entity';
 import { isEmail } from 'class-validator';
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(BusinessService.name)
+    private readonly businessServiceModel: Model<BusinessServiceDocument>,
     private readonly jwtService: jwt.JwtService,
     private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
+
+  private isOtherCategory(category?: string) {
+    return ['other', 'others', '__other__'].includes(
+      category?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '',
+    );
+  }
+
+  private notifyAdminAboutCategoryApproval(details: {
+    category: string;
+    name: string;
+    email: string;
+    type: string;
+  }) {
+    if (!config.email.admin) return;
+    sendMailer(
+      config.email.admin,
+      'Business Category Approval Required',
+      createNotificationEmailTemplate({
+        heading: 'Business Category Approval Needed',
+        subheading: 'A business profile is waiting for category approval.',
+        introText: `A user created a business profile using a new category. Please review and approve the category before publishing this business profile on the platform.`,
+        details: [
+          { label: 'Requested Category', value: details.category },
+          { label: 'Business Owner', value: details.name },
+          { label: 'Email', value: details.email },
+          { label: 'Request Type', value: details.type },
+        ],
+        noteTitle: 'Action required',
+        noteText:
+          'Approve or reject the requested category from the admin dashboard.',
+      }),
+    ).catch((error) =>
+      console.error('Failed to send business category approval email:', error),
+    );
+  }
+
+  private async createBusinessProfileService(
+    ownerId: Types.ObjectId,
+    category: string,
+    requestedCategory: string | undefined,
+    serviceCategory: { _id: Types.ObjectId; name: string; status: string },
+  ) {
+    const isPendingCategory = serviceCategory.status === 'pending';
+    const isOtherPendingCategory =
+      this.isOtherCategory(category) && isPendingCategory;
+
+    return this.businessServiceModel.create({
+      ownerId,
+      title: isOtherPendingCategory ? category : serviceCategory.name,
+      requestedCategory: isOtherPendingCategory ? requestedCategory : null,
+      serviceCategoryId: serviceCategory._id,
+      description: isOtherPendingCategory
+        ? `Service requested for ${requestedCategory}`
+        : `${serviceCategory.name} service`,
+      status: isPendingCategory ? 'pending' : 'active',
+    });
+  }
 
   private sanitizeUser(user: UserDocument) {
     const rawUser = user.toObject() as unknown as {
@@ -264,6 +328,10 @@ export class AuthService {
         registerBusinessOwnerDto.requestedCategory,
         'business_registration',
       );
+    const isPendingCategory = serviceCategory.status === 'pending';
+    const isOtherCategory =
+      this.isOtherCategory(registerBusinessOwnerDto.category) &&
+      isPendingCategory;
 
     const newBusinessOwner = await this.createAccount(
       {
@@ -279,7 +347,12 @@ export class AuthService {
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: serviceCategory.name,
+        category: isOtherCategory
+          ? registerBusinessOwnerDto.category
+          : serviceCategory.name,
+        requestedCategory: isOtherCategory
+          ? registerBusinessOwnerDto.requestedCategory
+          : null,
         serviceCategoryId: serviceCategory._id,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
@@ -287,9 +360,25 @@ export class AuthService {
         password: registerBusinessOwnerDto.password,
         // Business owners are available immediately after registration.
         // Email verification is still required before login.
-        status: 'active',
+        status: isPendingCategory ? 'pending' : 'active',
       },
       'businessOwner',
+    );
+
+    if (isOtherCategory && isPendingCategory) {
+      this.notifyAdminAboutCategoryApproval({
+        category: registerBusinessOwnerDto.requestedCategory!,
+        name: registerBusinessOwnerDto.ownerName,
+        email: loginEmail,
+        type: 'New business registration',
+      });
+    }
+
+    await this.createBusinessProfileService(
+      new Types.ObjectId(String(newBusinessOwner._id)),
+      registerBusinessOwnerDto.category,
+      registerBusinessOwnerDto.requestedCategory,
+      serviceCategory,
     );
 
     const verificationToken = await this.createEmailVerificationTokenForUser(
@@ -343,6 +432,10 @@ export class AuthService {
         'business_registration',
         userId,
       );
+    const isPendingCategory = serviceCategory.status === 'pending';
+    const isOtherCategory =
+      this.isOtherCategory(registerBusinessOwnerDto.category) &&
+      isPendingCategory;
 
     const businessDetails = Object.fromEntries(
       Object.entries({
@@ -351,12 +444,17 @@ export class AuthService {
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: serviceCategory.name,
+        category: isOtherCategory
+          ? registerBusinessOwnerDto.category
+          : serviceCategory.name,
+        requestedCategory: isOtherCategory
+          ? registerBusinessOwnerDto.requestedCategory
+          : null,
         serviceCategoryId: serviceCategory._id,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
         role: 'businessOwner',
-        status: 'active',
+        status: isPendingCategory ? 'pending' : 'active',
       }).filter(([, value]) => value !== undefined),
     );
 
@@ -370,6 +468,27 @@ export class AuthService {
       throw new HttpException('User not found', 404);
     }
 
+    if (isOtherCategory && isPendingCategory) {
+      this.notifyAdminAboutCategoryApproval({
+        category: registerBusinessOwnerDto.requestedCategory!,
+        name:
+          [updatedUser.firstName, updatedUser.lastName]
+            .filter(Boolean)
+            .join(' ') ||
+          updatedUser.username ||
+          updatedUser.email,
+        email: updatedUser.email,
+        type: 'Business profile creation',
+      });
+    }
+
+    await this.createBusinessProfileService(
+      updatedUser._id,
+      registerBusinessOwnerDto.category,
+      registerBusinessOwnerDto.requestedCategory,
+      serviceCategory,
+    );
+
     await this.sendRegistrationConfirmation(
       updatedUser.email,
       [updatedUser.firstName, updatedUser.lastName].filter(Boolean).join(' ') ||
@@ -382,32 +501,30 @@ export class AuthService {
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
-  const identifier = (loginDto.identifier || loginDto.email)?.trim().toLowerCase();
+    const identifier = (loginDto.identifier || loginDto.email)
+      ?.trim()
+      .toLowerCase();
 
-  if (!identifier) {
-    throw new HttpException('Email or username is required', 400);
-  }
+    if (!identifier) {
+      throw new HttpException('Email or username is required', 400);
+    }
 
-  const isEmailLogin = identifier.includes('@');
+    const isEmailLogin = identifier.includes('@');
 
-  if (isEmailLogin && !isEmail(identifier)) {
-    throw new HttpException('Valid email is required', 400);
-  }
+    if (isEmailLogin && !isEmail(identifier)) {
+      throw new HttpException('Valid email is required', 400);
+    }
 
-  if (!isEmailLogin && !USERNAME_REGEX.test(identifier)) {
-    throw new HttpException(
-      'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
-      400,
-    );
-  }
+    if (!isEmailLogin && !USERNAME_REGEX.test(identifier)) {
+      throw new HttpException(
+        'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
+        400,
+      );
+    }
 
-  const user = await this.userModel
-    .findOne(
-      isEmailLogin
-        ? { email: identifier }
-        : { username: identifier },
-    )
-    .select('+password');
+    const user = await this.userModel
+      .findOne(isEmailLogin ? { email: identifier } : { username: identifier })
+      .select('+password');
     if (!user) {
       throw new HttpException('User not found', 404);
     }

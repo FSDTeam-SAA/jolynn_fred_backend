@@ -33,6 +33,12 @@ export class BusinessService {
   @Prop({ type: Types.ObjectId, ref: 'ServiceCategory', index: true })
   serviceCategoryId: Types.ObjectId;
 
+  @Prop({ type: String, trim: true, default: null })
+  requestedCategory?: string | null;
+
+  @Prop({ type: String, trim: true, default: 'active' })
+  status: 'active' | 'pending';
+
   @Prop({
     required: [true, 'Service description is required'],
     trim: true,

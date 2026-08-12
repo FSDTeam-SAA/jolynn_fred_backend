@@ -13,6 +13,12 @@ import {
   ServiceCategory,
   ServiceCategorySchema,
 } from '../service-category/entities/service-category.entity';
+import { Qoute, QouteSchema } from '../qoute/entities/qoute.entity';
+import {
+  SaveQuote,
+  SaveQuoteSchema,
+} from '../save-quote/entities/save-quote.entity';
+import { Report, ReportSchema } from '../report/entities/report.entity';
 
 @Module({
   imports: [
@@ -22,6 +28,9 @@ import {
       { name: Review.name, schema: ReviewSchema },
       { name: Gallary.name, schema: GallarySchema },
       { name: ServiceCategory.name, schema: ServiceCategorySchema },
+      { name: Qoute.name, schema: QouteSchema },
+      { name: SaveQuote.name, schema: SaveQuoteSchema },
+      { name: Report.name, schema: ReportSchema },
     ]),
   ],
   controllers: [UserController],

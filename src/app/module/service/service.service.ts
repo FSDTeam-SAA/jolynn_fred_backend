@@ -15,6 +15,9 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { ServiceCategoryService } from '../service-category/service-category.service';
 import { ServiceCategory } from '../service-category/entities/service-category.entity';
+import sendMailer from 'src/app/helpers/sendMailer';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
+import config from 'src/app/config';
 
 const serviceSearchAbleFields = ['title', 'description'];
 const businessOwnerSearchAbleFields = [
@@ -201,13 +204,25 @@ export class ServiceService {
     ownerId: string,
     params: IFilterParams,
     options: IOptions,
+    publicOnly = false,
   ) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const approvedCategoryIds = publicOnly
+      ? await this.serviceCategoryModel
+          .find({ status: 'approved', isActive: true })
+          .distinct('_id')
+      : [];
     const whereConditions = buildWhereConditions(
       params,
       serviceSearchAbleFields,
       {
         ownerId: this.toObjectId(ownerId, 'business owner id'),
+        ...(publicOnly
+          ? {
+              status: 'active',
+              serviceCategoryId: { $in: approvedCategoryIds },
+            }
+          : {}),
       },
     );
 
@@ -447,7 +462,13 @@ export class ServiceService {
         'service_creation',
         ownerId,
       );
-    const title = serviceCategory.name;
+    const isPendingCategory = serviceCategory.status === 'pending';
+    const isOtherCategory =
+      isPendingCategory &&
+      ['other', 'others', '__other__'].includes(
+        payload.title.trim().replace(/\s+/g, ' ').toLowerCase(),
+      );
+    const title = isOtherCategory ? payload.title : serviceCategory.name;
 
     await this.ensureUniqueTitle(ownerId, title);
 
@@ -455,6 +476,8 @@ export class ServiceService {
       ownerId: this.toObjectId(ownerId, 'business owner id'),
       title,
       serviceCategoryId: serviceCategory._id,
+      requestedCategory: isOtherCategory ? payload.requestedCategory : null,
+      status: isPendingCategory ? 'pending' : 'active',
       description: payload.description,
     };
 
@@ -466,6 +489,29 @@ export class ServiceService {
       };
     }
 
+    if (isOtherCategory && isPendingCategory && config.email.admin) {
+      sendMailer(
+        config.email.admin,
+        'Service Category Approval Required',
+        createNotificationEmailTemplate({
+          heading: 'Service Category Approval Needed',
+          subheading: 'A new service is waiting for category approval.',
+          introText:
+            'A business owner added a service using a new category. Please review and approve the requested category before publishing this service on the platform.',
+          details: [
+            { label: 'Requested Category', value: payload.requestedCategory! },
+            { label: 'Service Owner', value: ownerId },
+            { label: 'Service Description', value: payload.description },
+          ],
+          noteTitle: 'Action required',
+          noteText:
+            'Approve or reject the requested category from the admin dashboard.',
+        }),
+      ).catch((error) =>
+        console.error('Failed to send service category approval email:', error),
+      );
+    }
+
     return this.serviceModel.create(servicePayload);
   }
 
@@ -474,7 +520,7 @@ export class ServiceService {
     params: IFilterParams,
     options: IOptions,
   ) {
-    return this.getServicesByOwner(ownerId, params, options);
+    return this.getServicesByOwner(ownerId, params, options, true);
   }
 
   async getOwnServiceById(serviceId: string, ownerId: string) {
@@ -513,9 +559,13 @@ export class ServiceService {
 
   async getAllPublicServices(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const approvedCategoryIds = await this.serviceCategoryModel
+      .find({ status: 'approved', isActive: true })
+      .distinct('_id');
     const whereConditions = buildWhereConditions(
       params,
       serviceSearchAbleFields,
+      { status: 'active', serviceCategoryId: { $in: approvedCategoryIds } },
     );
 
     const total = await this.serviceModel.countDocuments(whereConditions);
@@ -585,22 +635,24 @@ export class ServiceService {
           })
           .distinct('_id')
       : [];
-    const matchingServices = serviceRegex || globalSearchRegex
-      ? await this.serviceModel
-          .find({
-            $or: [
-              ...(serviceRegex || globalSearchRegex
-                ? serviceGlobalSearchableFields.map((field) => ({
-                    [field]: { $regex: serviceRegex || globalSearchRegex },
-                  }))
-                : []),
-              ...(matchingCategoryIds.length
-                ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
-                : []),
-            ],
-          })
-          .select('ownerId title description logo createdAt')
-      : [];
+    const matchingServices =
+      serviceRegex || globalSearchRegex
+        ? await this.serviceModel
+            .find({
+              status: 'active',
+              $or: [
+                ...(serviceRegex || globalSearchRegex
+                  ? serviceGlobalSearchableFields.map((field) => ({
+                      [field]: { $regex: serviceRegex || globalSearchRegex },
+                    }))
+                  : []),
+                ...(matchingCategoryIds.length
+                  ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
+                  : []),
+              ],
+            })
+            .select('ownerId title description logo createdAt')
+        : [];
 
     const serviceOwnerIds = serviceRegex
       ? [
@@ -655,18 +707,20 @@ export class ServiceService {
     );
     const businessOwners = await this.userModel.find(whereConditions);
     const servicesByOwnerId = new Map<string, BusinessServiceDocument>();
-    const servicesForCards = serviceRegex || matchingServices.length
-      ? matchingServices
-      : await this.serviceModel
-          .find({
-            ownerId: {
-              $in: businessOwners.map((owner) =>
-                this.toObjectId(owner.id, 'business owner id'),
-              ),
-            },
-          })
-          .sort({ createdAt: -1 })
-          .select('ownerId title description logo createdAt');
+    const servicesForCards =
+      serviceRegex || matchingServices.length
+        ? matchingServices
+        : await this.serviceModel
+            .find({
+              status: 'active',
+              ownerId: {
+                $in: businessOwners.map((owner) =>
+                  this.toObjectId(owner.id, 'business owner id'),
+                ),
+              },
+            })
+            .sort({ createdAt: -1 })
+            .select('ownerId title description logo createdAt');
 
     for (const service of servicesForCards) {
       const ownerId = service.ownerId.toString();
@@ -705,6 +759,7 @@ export class ServiceService {
     const matchingServices = await this.serviceModel
       .find({
         title: selectedService.title,
+        status: 'active',
       })
       .select('ownerId title description logo createdAt');
 
