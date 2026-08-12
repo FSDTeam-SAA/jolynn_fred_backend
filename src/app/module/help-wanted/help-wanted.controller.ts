@@ -90,6 +90,43 @@ export class HelpWantedController {
     description: 'Filter by overlapping budget range',
   })
   @ApiQuery({
+    name: 'category',
+    required: false,
+    type: String,
+    example: 'Plumbing',
+    description: 'Case-insensitive exact category filter',
+  })
+  @ApiQuery({
+    name: 'city',
+    required: false,
+    type: String,
+    example: 'Austin',
+    description: "Case-insensitive exact city filter from the poster's profile",
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    type: String,
+    example: 'Texas',
+    description:
+      "Case-insensitive exact state filter from the poster's profile",
+  })
+  @ApiQuery({
+    name: 'location',
+    required: false,
+    type: String,
+    example: 'Austin',
+    description:
+      'Case-insensitive partial location search across zipcode, city, state, country, address, and service area',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    example: 'active',
+    description: 'Case-insensitive exact status filter',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -119,7 +156,15 @@ export class HelpWantedController {
   })
   @HttpCode(HttpStatus.OK)
   async getAllHelpWanted(@Req() req: Request) {
-    const params = pick(req.query, ['searchTerm', 'budgetRange']);
+    const params = pick(req.query, [
+      'searchTerm',
+      'budgetRange',
+      'category',
+      'city',
+      'state',
+      'location',
+      'status',
+    ]);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
     const result = await this.helpWantedService.getAllHelpWanted(
       params,
