@@ -68,6 +68,9 @@ export class User {
   @Prop({ trim: true })
   category?: string;
 
+  @Prop({ type: String, trim: true, default: null })
+  requestedCategory?: string | null;
+
   @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
   serviceCategoryId?: Types.ObjectId;
 

@@ -10,12 +10,19 @@ import {
   BusinessService,
   BusinessServiceSchema,
 } from '../service/entities/service.entity';
+import {
+  HelpWanted,
+  HelpWantedSchema,
+} from '../help-wanted/entities/help-wanted.entity';
+import { User, UserSchema } from '../user/entities/user.entity';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: ServiceCategory.name, schema: ServiceCategorySchema },
       { name: BusinessService.name, schema: BusinessServiceSchema },
+      { name: HelpWanted.name, schema: HelpWantedSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [ServiceCategoryController],
