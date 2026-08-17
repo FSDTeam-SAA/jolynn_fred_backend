@@ -18,6 +18,7 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { DeleteUserDto } from './dto/delete-user.dto';
 import {
   FileFieldsInterceptor,
   FileInterceptor,
@@ -372,6 +373,7 @@ export class UserController {
     type: String,
     description: 'Matched service id whose view count should be incremented',
   })
+  @ApiBody({ type: UpdateUserDto })
   @HttpCode(HttpStatus.OK)
   async getPublicBusinessOverview(
     @Param('ownerId') ownerId: string,
@@ -447,8 +449,12 @@ export class UserController {
     description: 'User id',
   })
   @HttpCode(HttpStatus.OK)
-  async deleteUser(@Param('id') id: string) {
-    const result = await this.userService.deleteUser(id);
+  @ApiBody({ type: DeleteUserDto })
+  async deleteUser(
+    @Param('id') id: string,
+    @Body() deleteUserDto: DeleteUserDto,
+  ) {
+    const result = await this.userService.deleteUser(id, deleteUserDto.reason);
 
     return {
       message: result.businessProfileDeleted

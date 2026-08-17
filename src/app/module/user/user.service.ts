@@ -29,6 +29,8 @@ import {
   SaveQuoteDocument,
 } from '../save-quote/entities/save-quote.entity';
 import { Report, ReportDocument } from '../report/entities/report.entity';
+import sendMailer from 'src/app/helpers/sendMailer';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -469,21 +471,84 @@ export class UserService {
 
     await this.ensureUniqueUserFields(updateUserDto, id);
 
+    const rejectionReason = updateUserDto.reason;
+    const shouldNotifyRejection =
+      updateUserDto.status === 'rejected' && user.status !== 'rejected';
+    delete updateUserDto.reason;
+
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,
       updateUserDto,
       { new: true },
     );
+
+    if (shouldNotifyRejection) {
+      this.sendAdminActionEmail(
+        user,
+        'account rejection',
+        rejectionReason,
+      );
+    }
+
     return updatedUser;
   }
 
-  async deleteUser(id: string) {
+  private sendAdminActionEmail(
+    user: UserDocument,
+    action: 'account deletion' | 'business profile deletion' | 'account rejection',
+    reason?: string,
+  ) {
+    const isAccountDeletion = action === 'account deletion';
+    const isRejection = action === 'account rejection';
+    const details = [
+      ...(user.businessName
+        ? [{ label: 'Business Name', value: user.businessName }]
+        : []),
+      ...(reason ? [{ label: 'Reason', value: reason }] : []),
+    ];
+
+    void sendMailer(
+      user.email,
+      isRejection
+        ? 'Your account application was rejected'
+        : isAccountDeletion
+          ? 'Your account has been deleted'
+          : 'Your business profile has been deleted',
+      createNotificationEmailTemplate({
+        heading: isRejection
+          ? 'Account Application Rejected'
+          : isAccountDeletion
+            ? 'Account Deleted'
+            : 'Business Profile Deleted',
+        subheading: isRejection
+          ? 'Your account application was not approved by the Jolynn team.'
+          : isAccountDeletion
+            ? 'Your account is no longer available on Jolynn.'
+            : 'Your business profile is no longer active on Jolynn.',
+        greetingName: user.firstName || user.businessName || 'there',
+        introText: isRejection
+          ? 'Your account application was rejected by an administrator or the support team.'
+          : isAccountDeletion
+            ? 'Your account was deleted by an administrator or the support team.'
+            : 'Your business profile and its related business data were deleted by an administrator or the support team. Your personal user account remains active.',
+        details,
+        noteTitle: 'Need help?',
+        noteText:
+          'Please contact our support team if you believe this action was taken in error.',
+      }),
+    ).catch((error) => {
+      console.error(`Failed to send ${action} email:`, error);
+    });
+  }
+
+  async deleteUser(id: string, reason?: string) {
     const user = await this.userModel.findById(id);
     if (!user) {
       throw new HttpException('User not found', 404);
     }
     if (user.role !== 'businessOwner') {
       const result = await this.userModel.findByIdAndDelete(id);
+      this.sendAdminActionEmail(user, 'account deletion', reason);
       return { user: result, businessProfileDeleted: false };
     }
 
@@ -531,6 +596,8 @@ export class UserService {
       },
       { new: true, runValidators: true },
     );
+
+    this.sendAdminActionEmail(user, 'business profile deletion', reason);
 
     return { user: updatedUser, businessProfileDeleted: true };
   }
