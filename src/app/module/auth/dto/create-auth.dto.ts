@@ -59,6 +59,12 @@ export class RegisterUserDto {
   @IsOptional()
   phoneNumber?: string;
 
+  @ApiPropertyOptional({ example: 'I am a professional plumber.' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  bio?: string;
+
   @ApiProperty({ example: 'secret123' })
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
@@ -127,6 +133,12 @@ export class RegisterBusinessOwnerDto {
   @Transform(emptyStringToUndefined)
   @IsString()
   serviceArea?: string;
+
+  @ApiPropertyOptional({ example: 'We provide professional plumbing services.' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  bio?: string;
 
   @ApiProperty({ example: 'Plumbing' })
   @Transform(normalizeString)
