@@ -307,8 +307,8 @@ export class ServiceCategoryService {
   async getPublicServiceCategories(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper({
       limit: 50,
-      sortBy: 'sortOrder',
-      sortOrder: 'asc',
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
       ...options,
     });
     const whereConditions = buildWhereConditions(

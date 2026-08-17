@@ -33,12 +33,14 @@ import { RequestServiceCategoryDto } from './dto/request-service-category.dto';
 import { UpdateServiceCategoryDto } from './dto/update-service-category.dto';
 import { UpdateServiceCategoryStatusDto } from './dto/update-service-category-status.dto';
 import { ServiceCategoryService } from './service-category.service';
+import { SearchDataService } from '../search-data/search-data.service';
 
 @ApiTags('Service Category')
 @Controller('service-categories')
 export class ServiceCategoryController {
   constructor(
     private readonly serviceCategoryService: ServiceCategoryService,
+    private readonly searchDataService: SearchDataService,
   ) {}
 
   @Post()
@@ -112,20 +114,21 @@ export class ServiceCategoryController {
     name: 'sortBy',
     required: false,
     type: String,
-    example: 'sortOrder',
+    example: 'createdAt',
     description: 'Sort field. Default is createdAt',
   })
   @ApiQuery({
     name: 'sortOrder',
     required: false,
     enum: ['asc', 'desc'],
-    example: 'asc',
+    example: 'desc',
     description: 'Sort order. Default is desc',
   })
   @HttpCode(HttpStatus.OK)
   async getPublicServiceCategories(@Req() req: Request) {
     const params = pick(req.query, ['searchTerm']);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    await this.searchDataService.recordKeyword(params.searchTerm as string);
     const result = await this.serviceCategoryService.getPublicServiceCategories(
       params,
       options,

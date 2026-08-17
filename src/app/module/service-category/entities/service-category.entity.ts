@@ -108,3 +108,4 @@ export const ServiceCategorySchema =
   SchemaFactory.createForClass(ServiceCategory);
 
 ServiceCategorySchema.index({ status: 1, isActive: 1, sortOrder: 1 });
+ServiceCategorySchema.index({ status: 1, isActive: 1, createdAt: -1 });
