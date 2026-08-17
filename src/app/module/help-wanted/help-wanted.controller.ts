@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { HelpWantedService } from './help-wanted.service';
+import { SearchDataService } from '../search-data/search-data.service';
 import { CreateHelpWantedDto } from './dto/create-help-wanted.dto';
 import { UpdateHelpWantedDto } from './dto/update-help-wanted.dto';
 import AuthGuard from 'src/app/middlewares/auth.guard';
@@ -33,6 +34,7 @@ export class HelpWantedController {
   constructor(
     private readonly helpWantedService: HelpWantedService,
     private readonly jwtService: JwtService,
+    private readonly searchDataService: SearchDataService,
   ) {}
 
   private tryGetUserId(req: Request): string | undefined {
@@ -166,6 +168,7 @@ export class HelpWantedController {
       'status',
     ]);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    await this.searchDataService.recordKeyword(params.searchTerm as string);
     const result = await this.helpWantedService.getAllHelpWanted(
       params,
       options,

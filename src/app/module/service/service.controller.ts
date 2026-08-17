@@ -29,13 +29,17 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 import { ActiveBusinessOwnerGuard } from 'src/app/middlewares/active-business-owner.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ServiceService } from './service.service';
+import { SearchDataService } from '../search-data/search-data.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
 @ApiTags('Service')
 @Controller('service')
 export class ServiceController {
-  constructor(private readonly serviceService: ServiceService) {}
+  constructor(
+    private readonly serviceService: ServiceService,
+    private readonly searchDataService: SearchDataService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new service for the logged in business' })
@@ -96,6 +100,9 @@ export class ServiceController {
   async getAllPublicServices(@Req() req: Request) {
     const params = pick(req.query, ['searchTerm', 'title']);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    await this.searchDataService.recordKeyword(
+      (params.searchTerm || params.title) as string,
+    );
     const result = await this.serviceService.getAllPublicServices(
       params,
       options,
@@ -277,6 +284,9 @@ export class ServiceController {
       'minimumRating',
     ]);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    await this.searchDataService.recordKeyword(
+      (params.searchTerm || params.service) as string,
+    );
     const result = await this.serviceService.searchBusinessOwnersByService(
       params,
       options,
