@@ -7,6 +7,13 @@ const emptyStringToUndefined = ({ value }: { value: unknown }) =>
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
 
+  @ApiPropertyOptional({
+    example: 'Business information did not meet our platform requirements.',
+    description: 'Reason sent by email when an account is rejected',
+  })
+  @Transform(emptyStringToUndefined)
+  reason?: string;
+
   @Transform(emptyStringToUndefined)
   firstName?: string;
 

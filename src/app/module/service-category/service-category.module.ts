@@ -15,9 +15,11 @@ import {
   HelpWantedSchema,
 } from '../help-wanted/entities/help-wanted.entity';
 import { User, UserSchema } from '../user/entities/user.entity';
+import { SearchDataModule } from '../search-data/search-data.module';
 
 @Module({
   imports: [
+    SearchDataModule,
     MongooseModule.forFeature([
       { name: ServiceCategory.name, schema: ServiceCategorySchema },
       { name: BusinessService.name, schema: BusinessServiceSchema },
