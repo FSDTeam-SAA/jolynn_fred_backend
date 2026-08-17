@@ -281,6 +281,7 @@ export class AuthService {
         username: registerUserDto.username,
         email: registerUserDto.email.toLowerCase(),
         phoneNumber: registerUserDto.phoneNumber,
+        bio: registerUserDto.bio,
         password: registerUserDto.password,
         agreementAccepted: registerUserDto.agreementAccepted,
         status: 'active',
@@ -345,6 +346,7 @@ export class AuthService {
         businessName: registerBusinessOwnerDto.businessName,
         businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
+        bio: registerBusinessOwnerDto.bio,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
         category: isOtherCategory
@@ -442,6 +444,7 @@ export class AuthService {
         businessName: registerBusinessOwnerDto.businessName,
         businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
+        bio: registerBusinessOwnerDto.bio,
         address: registerBusinessOwnerDto.address,
         serviceArea: registerBusinessOwnerDto.serviceArea,
         category: isOtherCategory
