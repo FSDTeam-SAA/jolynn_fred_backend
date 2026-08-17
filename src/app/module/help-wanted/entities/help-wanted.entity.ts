@@ -30,6 +30,16 @@ export class HelpWanted {
   })
   zipcode: string;
 
+    @Prop({
+    trim: true,
+  })
+  state?: string;
+
+  @Prop({
+    trim: true,
+  })
+  city?: string;
+
   @Prop({
     required: [true, 'Category is required'],
     trim: true,

@@ -27,6 +27,18 @@ export class CreateHelpWantedDto {
   @IsNotEmpty()
   zipcode: string;
 
+  @ApiPropertyOptional({ example: 'New York' })
+  @IsOptional()
+  @Transform(normalizeString)
+  @IsString()
+  state?: string;
+
+  @ApiPropertyOptional({ example: 'New York City' })
+  @IsOptional()
+  @Transform(normalizeString)
+  @IsString()
+  city?: string;
+
   @ApiProperty({ example: 'Plumbing' })
   @Transform(normalizeString)
   @IsString()
