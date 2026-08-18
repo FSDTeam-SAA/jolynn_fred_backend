@@ -103,7 +103,8 @@ export class HelpWantedController {
     required: false,
     type: String,
     example: 'Austin',
-    description: "Case-insensitive exact city filter from the poster's profile",
+    description:
+      'Case-insensitive partial regex city filter from the post or poster profile',
   })
   @ApiQuery({
     name: 'state',
@@ -111,7 +112,7 @@ export class HelpWantedController {
     type: String,
     example: 'Texas',
     description:
-      "Case-insensitive exact state filter from the poster's profile",
+      'Case-insensitive partial regex state filter from the post or poster profile',
   })
   @ApiQuery({
     name: 'location',

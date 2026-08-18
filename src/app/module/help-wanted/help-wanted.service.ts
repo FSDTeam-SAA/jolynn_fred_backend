@@ -18,6 +18,8 @@ const helpWantedSearchAbleFields = [
   'username',
   'email',
   'zipcode',
+  'city',
+  'state',
   'category',
   'budgetRange',
   'phone',
@@ -213,17 +215,48 @@ export class HelpWantedService {
       andConditions.push({ status: { $regex: statusRegex } });
     }
 
-    const posterFilter: Record<string, unknown> = {};
-    const cityRegex = this.buildExactRegex(city);
-    const stateRegex = this.buildExactRegex(state);
-    if (cityRegex) posterFilter.city = { $regex: cityRegex };
-    if (stateRegex) posterFilter.state = { $regex: stateRegex };
+    // Location can come from the public post itself or its linked poster.
+    // Public posts may not have a userId, so filtering only User misses them.
+    const cityRegex = this.buildContainsRegex(city);
+    const stateRegex = this.buildContainsRegex(state);
+    const [cityPosterIds, statePosterIds] = await Promise.all([
+      cityRegex
+        ? this.userModel
+            .find({ city: { $regex: cityRegex } })
+            .distinct('_id')
+        : Promise.resolve([]),
+      stateRegex
+        ? this.userModel
+            .find({ state: { $regex: stateRegex } })
+            .distinct('_id')
+        : Promise.resolve([]),
+    ]);
+
+    if (cityRegex) {
+      andConditions.push({
+        $or: [
+          { city: { $regex: cityRegex } },
+          { userId: { $in: cityPosterIds } },
+        ],
+      });
+    }
+
+    if (stateRegex) {
+      andConditions.push({
+        $or: [
+          { state: { $regex: stateRegex } },
+          { userId: { $in: statePosterIds } },
+        ],
+      });
+    }
 
     const locationRegex = this.buildContainsRegex(location);
     if (locationRegex) {
       andConditions.push({
         $or: [
           { zipcode: { $regex: locationRegex } },
+          { city: { $regex: locationRegex } },
+          { state: { $regex: locationRegex } },
           {
             userId: {
               $in: await this.userModel
@@ -236,14 +269,6 @@ export class HelpWantedService {
             },
           },
         ],
-      });
-    }
-
-    if (Object.keys(posterFilter).length) {
-      andConditions.push({
-        userId: {
-          $in: await this.userModel.find(posterFilter).distinct('_id'),
-        },
       });
     }
 
