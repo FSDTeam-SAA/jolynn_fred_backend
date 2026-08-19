@@ -219,6 +219,13 @@ export class ServiceController {
     description: 'Case-insensitive exact city filter',
   })
   @ApiQuery({
+    name: 'zipcode',
+    required: false,
+    type: String,
+    example: '10001',
+    description: 'Case-insensitive exact zipcode filter',
+  })
+  @ApiQuery({
     name: 'searchTerm',
     required: false,
     type: String,
@@ -278,6 +285,7 @@ export class ServiceController {
       'service',
       'state',
       'city',
+      'zipcode',
       'searchTerm',
       'category',
       'location',
