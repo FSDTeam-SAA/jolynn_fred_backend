@@ -63,10 +63,11 @@ export class HelpWanted {
   serviceCategoryId?: Types.ObjectId;
 
   @Prop({
-    required: [true, 'Phone is required'],
+    type: String,
     trim: true,
+    default: null,
   })
-  phone: string;
+  phone?: string | null;
 
   @Prop({
     required: [true, 'Message is required'],

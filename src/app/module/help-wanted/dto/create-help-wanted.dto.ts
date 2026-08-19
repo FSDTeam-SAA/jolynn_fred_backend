@@ -63,11 +63,11 @@ export class CreateHelpWantedDto {
   @IsString()
   requestedCategory?: string;
 
-  @ApiProperty({ example: '+12345678901' })
+  @ApiPropertyOptional({ example: '+12345678901' })
+  @IsOptional()
   @Transform(normalizeString)
   @IsString()
-  @IsNotEmpty()
-  phone: string;
+  phone?: string;
 
   @ApiProperty({ example: 'Please add plumbing service in my area...' })
   @Transform(normalizeString)

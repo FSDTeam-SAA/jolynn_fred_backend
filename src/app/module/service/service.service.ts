@@ -283,8 +283,15 @@ export class ServiceService {
     params: IFilterParams,
     searchableCategoryIds: Types.ObjectId[] = [],
   ) {
-    const { searchTerm, businessName, category, city, state, location } =
-      params;
+    const {
+      searchTerm,
+      businessName,
+      category,
+      city,
+      state,
+      zipcode,
+      location,
+    } = params;
 
     const andConditions: Record<string, unknown>[] = [
       {
@@ -343,6 +350,13 @@ export class ServiceService {
     if (stateRegex) {
       andConditions.push({
         state: { $regex: stateRegex },
+      });
+    }
+
+    const zipcodeRegex = this.buildExactRegex(zipcode);
+    if (zipcodeRegex) {
+      andConditions.push({
+        postcode: { $regex: zipcodeRegex },
       });
     }
 
