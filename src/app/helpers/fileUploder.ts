@@ -25,7 +25,7 @@ type CloudinaryUploadResult = {
 
 type ImageUploadOptions = {
   folder?: string;
-  resourceType?: 'image' | 'video';
+  resourceType?: 'image' | 'video' | 'raw' | 'auto';
   transformation?: Record<string, unknown>;
   publicId?: string;
 };
@@ -101,6 +101,38 @@ const uploadVideoToCloudinary = async (
     folder: 'healthcare_app/reviews',
     resourceType: 'video',
   });
+};
+
+const uploadMessageAttachmentToCloudinary = async (
+  file: Express.Multer.File,
+): Promise<{ url: string; public_id: string; name: string; mimetype: string; size: number }> => {
+  if (!file || !file.buffer?.length) {
+    throw new HttpException('No valid attachment provided', 400);
+  }
+
+  const allowedMimeTypes = new Set([
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+  ]);
+  if (!file.mimetype?.startsWith('image/') && !allowedMimeTypes.has(file.mimetype)) {
+    throw new HttpException('Only PDF, image, and document attachments are allowed', 400);
+  }
+
+  const uploaded = await uploadBufferToCloudinary(file.buffer, {
+    folder: 'healthcare_app/messages',
+    resourceType: 'auto',
+  });
+
+  return {
+    ...uploaded,
+    name: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size,
+  };
 };
 
 const uploadImageSourceToCloudinary = async (source: string) => {
@@ -196,6 +228,7 @@ const deleteVideoFromCloudinary = async (public_id: string): Promise<void> => {
 export const fileUpload = {
   uploadToCloudinary,
   uploadVideoToCloudinary,
+  uploadMessageAttachmentToCloudinary,
   uploadImageSourceToCloudinary,
   deleteFromCloudinary,
   deleteVideoFromCloudinary,
