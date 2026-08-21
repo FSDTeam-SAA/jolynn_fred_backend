@@ -17,9 +17,10 @@ export class Qoute {
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
+    required: [true, 'User id is required'],
     index: true,
   })
-  userId?: Types.ObjectId;
+  userId: Types.ObjectId;
 
   @Prop({
     type: Types.ObjectId,
@@ -71,6 +72,9 @@ export class Qoute {
     default: 'pending',
   })
   status: QouteStatus;
+
+  @Prop({ default: false, index: true })
+  isReplied: boolean;
 }
 
 export const QouteSchema = SchemaFactory.createForClass(Qoute);
