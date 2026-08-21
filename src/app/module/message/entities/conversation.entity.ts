@@ -3,7 +3,7 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type ConversationDocument = HydratedDocument<Conversation>;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, autoIndex: false })
 export class Conversation {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   userId: Types.ObjectId;
@@ -28,4 +28,7 @@ export class Conversation {
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
-ConversationSchema.index({ userId: 1, businessOwnerId: 1 });
+ConversationSchema.index(
+  { userId: 1, businessOwnerId: 1 },
+  { unique: true, name: 'unique_user_business_conversation' },
+);
