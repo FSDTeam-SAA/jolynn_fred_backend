@@ -25,6 +25,7 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 import pick from 'src/app/helpers/pick';
+import { ReplyContactDto } from './dto/reply-contact.dto';
 
 @ApiTags('Contact')
 @Controller('contact')
@@ -62,6 +63,13 @@ export class ContactController {
     description: 'Page number. Default is 1',
   })
   @ApiQuery({
+    name: 'isReplied',
+    required: false,
+    type: Boolean,
+    example: false,
+    description: 'Filter by replied status',
+  })
+  @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
@@ -84,7 +92,7 @@ export class ContactController {
   })
   @HttpCode(HttpStatus.OK)
   async getAllContact(@Req() req: Request) {
-    const params = pick(req.query, ['searchTerm']);
+    const params = pick(req.query, ['searchTerm', 'isReplied']);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
     const result = await this.contactService.getAllContact(params, options);
 
@@ -138,6 +146,30 @@ export class ContactController {
     );
     return {
       message: 'Contact updated successfully',
+      data: result,
+    };
+  }
+
+  @Post(':id/reply')
+  @ApiOperation({ summary: 'Reply to a contact request by email (admin only)' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('admin'))
+  @ApiParam({ name: 'id', type: String, description: 'Contact id' })
+  @ApiBody({ type: ReplyContactDto })
+  @HttpCode(HttpStatus.OK)
+  async replyToContact(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Body() replyContactDto: ReplyContactDto,
+  ) {
+    const result = await this.contactService.replyToContact(
+      id,
+      req.user!.id,
+      replyContactDto,
+    );
+
+    return {
+      message: 'Contact reply emailed successfully',
       data: result,
     };
   }

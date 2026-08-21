@@ -24,6 +24,7 @@ import pick from 'src/app/helpers/pick';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 import { CreateQouteDto } from './dto/create-qoute.dto';
 import { UpdateQouteDto } from './dto/update-qoute.dto';
+import { ReplyQouteDto } from './dto/reply-qoute.dto';
 import { QouteService } from './qoute.service';
 
 @ApiTags('Qoute')
@@ -32,11 +33,19 @@ export class QouteController {
   constructor(private readonly qouteService: QouteService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Submit a qoute request (public)' })
+  @ApiOperation({ summary: 'Submit a qoute request as a logged in user' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
   @ApiBody({ type: CreateQouteDto })
   @HttpCode(HttpStatus.CREATED)
-  async createQoute(@Body() createQouteDto: CreateQouteDto) {
-    const result = await this.qouteService.createQoute(createQouteDto);
+  async createQoute(
+    @Req() req: Request,
+    @Body() createQouteDto: CreateQouteDto,
+  ) {
+    const result = await this.qouteService.createMyQoute(
+      req.user!.id,
+      createQouteDto,
+    );
 
     return {
       message: 'Qoute request submitted successfully',
@@ -287,6 +296,95 @@ export class QouteController {
 
     return {
       message: 'Qoute request fetched successfully',
+      data: result,
+    };
+  }
+
+  @Get('my-business/:id/replies')
+  @ApiOperation({
+    summary: 'Get internal replies for a received qoute request',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('businessOwner'))
+  @ApiParam({ name: 'id', type: String, description: 'Qoute id' })
+  @HttpCode(HttpStatus.OK)
+  async getMyBusinessQouteReplies(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.qouteService.getMyBusinessQouteReplies(
+      id,
+      req.user!.id,
+    );
+
+    return {
+      message: 'Qoute replies fetched successfully',
+      data: result,
+    };
+  }
+
+  @Get('my/:id/replies')
+  @ApiOperation({ summary: 'Get internal replies for your qoute request' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiParam({ name: 'id', type: String, description: 'Qoute id' })
+  @HttpCode(HttpStatus.OK)
+  async getMyUserQouteReplies(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.qouteService.getMyUserQouteReplies(
+      id,
+      req.user!.id,
+    );
+
+    return {
+      message: 'Qoute replies fetched successfully',
+      data: result,
+    };
+  }
+
+  @Post('my-business/:id/reply')
+  @ApiOperation({ summary: 'Reply to a received qoute request' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('businessOwner'))
+  @ApiParam({ name: 'id', type: String, description: 'Qoute id' })
+  @ApiBody({ type: ReplyQouteDto })
+  @HttpCode(HttpStatus.CREATED)
+  async replyAsBusinessOwner(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Body() replyQouteDto: ReplyQouteDto,
+  ) {
+    const result = await this.qouteService.replyAsBusinessOwner(
+      id,
+      req.user!.id,
+      replyQouteDto,
+    );
+
+    return {
+      message: 'Qoute reply submitted successfully',
+      data: result,
+    };
+  }
+
+  @Post('my/:id/reply')
+  @ApiOperation({ summary: 'Reply to the business owner about your qoute' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user'))
+  @ApiParam({ name: 'id', type: String, description: 'Qoute id' })
+  @ApiBody({ type: ReplyQouteDto })
+  @HttpCode(HttpStatus.CREATED)
+  async replyAsUser(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Body() replyQouteDto: ReplyQouteDto,
+  ) {
+    const result = await this.qouteService.replyAsUser(
+      id,
+      req.user!.id,
+      replyQouteDto,
+    );
+
+    return {
+      message: 'Qoute reply submitted successfully',
       data: result,
     };
   }
