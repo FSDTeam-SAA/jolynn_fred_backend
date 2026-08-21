@@ -10,6 +10,12 @@ import { UpdateQouteDto } from './dto/update-qoute.dto';
 import { Qoute, QouteDocument } from './entities/qoute.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
+import { ReplyQouteDto } from './dto/reply-qoute.dto';
+import {
+  QouteReply,
+  QouteReplyDocument,
+  type QouteReplySenderRole,
+} from './entities/qoute-reply.entity';
 const qouteSearchAbleFields = [
   'name',
   'email',
@@ -25,6 +31,8 @@ export class QouteService {
   constructor(
     @InjectModel(Qoute.name)
     private readonly qouteModel: Model<QouteDocument>,
+    @InjectModel(QouteReply.name)
+    private readonly qouteReplyModel: Model<QouteReplyDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
   ) {}
@@ -115,20 +123,20 @@ export class QouteService {
     return qoute;
   }
 
-private async createQouteRecord(
+  private async createQouteRecord(
     payload: CreateQouteDto,
     businessOwner: UserDocument,
-    userId?: string,
+    userId: string,
   ) {
     const qoute = await this.qouteModel.create({
       ...payload,
       email: payload.email.toLowerCase(),
       businessOwnerId: businessOwner._id,
       businessOwnerName: this.buildDisplayName(businessOwner),
-      ...(userId ? { userId: this.toObjectId(userId, 'user id') } : {}),
+      userId: this.toObjectId(userId, 'user id'),
     });
 
-     const notifyEmail = businessOwner.businessEmail || businessOwner.email;
+    const notifyEmail = businessOwner.businessEmail || businessOwner.email;
 
     if (notifyEmail) {
       sendMailer(
@@ -147,7 +155,8 @@ private async createQouteRecord(
             { label: 'Project Details', value: payload.projectDetails },
           ],
           noteTitle: 'Next Step',
-          noteText: 'Please contact the customer directly to discuss pricing and availability.',
+          noteText:
+            'Open this request in your dashboard to send the customer a reply.',
         }),
       ).catch((err) => console.error('Failed to send quote email:', err));
     }
@@ -175,15 +184,6 @@ private async createQouteRecord(
       },
       data: qoutes,
     };
-  }
-
-  async createQoute(createQouteDto: CreateQouteDto) {
-    const payload = this.normalizePayload(createQouteDto);
-    const businessOwner = await this.getBusinessOwnerOrThrow(
-      payload.businessOwnerId,
-    );
-
-    return this.createQouteRecord(payload, businessOwner);
   }
 
   async createMyQoute(userId: string, createQouteDto: CreateQouteDto) {
@@ -252,6 +252,93 @@ private async createQouteRecord(
     return this.getUserOwnedQouteOrThrow(id, userId);
   }
 
+  private async createReply(
+    qoute: QouteDocument,
+    senderId: string,
+    senderRole: QouteReplySenderRole,
+    replyQouteDto: ReplyQouteDto,
+  ) {
+    const senderObjectId = this.toObjectId(senderId, 'sender id');
+    const recipientId =
+      senderRole === 'user' ? qoute.businessOwnerId : qoute.userId;
+
+    if (!recipientId) {
+      throw new HttpException(
+        'This qoute was not created by a logged in user and cannot receive dashboard replies',
+        400,
+      );
+    }
+
+    return this.qouteReplyModel.create({
+      qouteId: qoute._id,
+      senderId: senderObjectId,
+      recipientId,
+      senderRole,
+      subject: replyQouteDto.subject.trim(),
+      description: replyQouteDto.description.trim(),
+    });
+  }
+
+  private async getReplies(qouteId: Types.ObjectId) {
+    return this.qouteReplyModel
+      .find({ qouteId })
+      .sort({ createdAt: 1 })
+      .populate(
+        'senderId',
+        'firstName lastName username businessName profilePicture',
+      )
+      .populate(
+        'recipientId',
+        'firstName lastName username businessName profilePicture',
+      );
+  }
+
+  async replyAsBusinessOwner(
+    id: string,
+    businessOwnerId: string,
+    replyQouteDto: ReplyQouteDto,
+  ) {
+    const qoute = await this.getOwnedQouteOrThrow(id, businessOwnerId);
+    const reply = await this.createReply(
+      qoute,
+      businessOwnerId,
+      'businessOwner',
+      replyQouteDto,
+    );
+    const updatedQoute = await this.qouteModel.findByIdAndUpdate(
+      qoute._id,
+      { isReplied: true },
+      { new: true, runValidators: true },
+    );
+
+    return { qoute: updatedQoute, reply };
+  }
+
+  async replyAsUser(id: string, userId: string, replyQouteDto: ReplyQouteDto) {
+    const qoute = await this.getUserOwnedQouteOrThrow(id, userId);
+
+    if (!qoute.isReplied) {
+      throw new HttpException(
+        'You can reply after the business owner responds to this qoute',
+        400,
+      );
+    }
+
+    const reply = await this.createReply(qoute, userId, 'user', replyQouteDto);
+
+    return { qoute, reply };
+  }
+
+  async getMyBusinessQouteReplies(id: string, businessOwnerId: string) {
+    const qoute = await this.getOwnedQouteOrThrow(id, businessOwnerId);
+    return this.getReplies(qoute._id);
+  }
+
+  async getMyUserQouteReplies(id: string, userId: string) {
+    const qoute = await this.getUserOwnedQouteOrThrow(id, userId);
+    return this.getReplies(qoute._id);
+  }
+
   async updateQoute(id: string, updateQouteDto: UpdateQouteDto) {
     const qoute = await this.getQouteOrThrow(id);
     const payload = this.normalizePayload(updateQouteDto);
@@ -285,6 +372,7 @@ private async createQouteRecord(
   async deleteQoute(id: string) {
     const qoute = await this.getQouteOrThrow(id);
     await this.qouteModel.findByIdAndDelete(qoute._id);
+    await this.qouteReplyModel.deleteMany({ qouteId: qoute._id });
     return qoute;
   }
 
@@ -292,6 +380,7 @@ private async createQouteRecord(
     await this.getBusinessOwnerOrThrow(businessOwnerId);
     const qoute = await this.getOwnedQouteOrThrow(id, businessOwnerId);
     await this.qouteModel.findByIdAndDelete(qoute._id);
+    await this.qouteReplyModel.deleteMany({ qouteId: qoute._id });
     return qoute;
   }
 
@@ -299,6 +388,7 @@ private async createQouteRecord(
     await this.getUserOrThrow(userId);
     const qoute = await this.getUserOwnedQouteOrThrow(id, userId);
     await this.qouteModel.findByIdAndDelete(qoute._id);
+    await this.qouteReplyModel.deleteMany({ qouteId: qoute._id });
     return qoute;
   }
 }

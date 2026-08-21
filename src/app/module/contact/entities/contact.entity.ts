@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type ContactDocument = HydratedDocument<Contact>;
 
@@ -35,6 +35,21 @@ export class Contact {
     trim: true,
   })
   message: string;
+
+  @Prop({ default: false, index: true })
+  isReplied: boolean;
+
+  @Prop({ type: Date })
+  repliedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  repliedById?: Types.ObjectId;
+
+  @Prop({ trim: true })
+  replySubject?: string;
+
+  @Prop({ trim: true })
+  replyDescription?: string;
 }
 
 export const ContactSchema = SchemaFactory.createForClass(Contact);
