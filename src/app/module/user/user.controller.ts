@@ -337,18 +337,65 @@ export class UserController {
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
   @UseGuards(AuthGuard('admin', 'user', 'businessOwner'))
-  @UseInterceptors(FileInterceptor('profilePicture', fileUpload.uploadConfig))
-  @ApiBody({ type: UpdateUserDto })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'profilePicture', maxCount: 1 },
+        { name: 'backgroundImage', maxCount: 1 },
+      ],
+      fileUpload.uploadConfig,
+    ),
+  )
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string', example: '' },
+        lastName: { type: 'string', example: '' },
+        email: { type: 'string', example: '' },
+        username: { type: 'string', example: '' },
+        gender: { type: 'string', enum: ['male', 'female'] },
+        phoneNumber: { type: 'string', example: '' },
+        businessName: { type: 'string', example: '' },
+        businessEmail: { type: 'string', example: '' },
+        businessWebsiteUrl: { type: 'string', example: '' },
+        serviceArea: { type: 'string', example: '' },
+        category: { type: 'string', example: '' },
+        country: { type: 'string', example: '' },
+        city: { type: 'string', example: '' },
+        state: { type: 'string', example: '' },
+        address: { type: 'string', example: '' },
+        postcode: { type: 'string', example: '' },
+        bio: { type: 'string', example: '' },
+        dateOfBirth: { type: 'string', example: '' },
+        profilePicture: {
+          type: 'string',
+          format: 'binary',
+        },
+        backgroundImage: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @HttpCode(HttpStatus.OK)
   async updateProfile(
     @Req() req: Request,
     @Body() updateUserDto: UpdateUserDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFiles()
+    files?: {
+      profilePicture?: Express.Multer.File[];
+      backgroundImage?: Express.Multer.File[];
+    },
   ) {
     const result = await this.userService.updateMyProfile(
       req.user!.id,
       updateUserDto,
-      file,
+      {
+        profilePicture: files?.profilePicture?.[0],
+        backgroundImage: files?.backgroundImage?.[0],
+      },
     );
     return {
       message: 'User updated successfully',

@@ -6,7 +6,6 @@ const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : value;
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
-
   @ApiPropertyOptional({
     example: 'Business information did not meet our platform requirements.',
     description: 'Reason sent by email when an account is rejected',
@@ -78,6 +77,14 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   })
   @Transform(emptyStringToUndefined)
   profilePicture?: any;
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    description: 'Background image file upload',
+  })
+  @Transform(emptyStringToUndefined)
+  backgroundImage?: any;
 
   @Transform(emptyStringToUndefined)
   status?: string;

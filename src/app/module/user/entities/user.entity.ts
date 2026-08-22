@@ -93,6 +93,9 @@ export class User {
   profilePicture: string;
 
   @Prop()
+  backgroundImage: string;
+
+  @Prop()
   dateOfBirth?: Date;
 
   @Prop()

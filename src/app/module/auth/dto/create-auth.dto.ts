@@ -65,6 +65,36 @@ export class RegisterUserDto {
   @IsOptional()
   bio?: string;
 
+  @ApiPropertyOptional({ example: 'United States' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  country?: string;
+
+  @ApiPropertyOptional({ example: 'New York' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  state?: string;
+
+  @ApiPropertyOptional({ example: 'New York' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @ApiPropertyOptional({ example: '221B Baker Street' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiPropertyOptional({ example: '10001' })
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  @IsOptional()
+  postcode?: string;
+
   @ApiProperty({ example: 'secret123' })
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
