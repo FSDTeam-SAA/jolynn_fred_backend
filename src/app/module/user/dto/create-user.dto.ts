@@ -28,7 +28,6 @@ const normalizeUsernameInput = ({ value }: { value: unknown }) =>
       : value;
 
 export class CreateUserDto {
-
   @ApiPropertyOptional({ example: '' })
   @IsOptional()
   @Transform(emptyStringToUndefined)
@@ -86,6 +85,12 @@ export class CreateUserDto {
   @Transform(emptyStringToUndefined)
   @IsString()
   profilePicture?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @Transform(emptyStringToUndefined)
+  @IsString()
+  backgroundImage?: string;
 
   @ApiPropertyOptional({ example: '' })
   @IsOptional()
