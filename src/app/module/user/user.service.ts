@@ -37,6 +37,11 @@ type CreateUserFiles = {
   csvFile?: Express.Multer.File;
 };
 
+type ProfileUpdateFiles = {
+  profilePicture?: Express.Multer.File;
+  backgroundImage?: Express.Multer.File;
+};
+
 const userSearchAbleFields = [
   'firstName',
   'lastName',
@@ -228,6 +233,7 @@ export class UserService {
           'address',
           'postcode',
           'profilePicture',
+          'backgroundImage',
           'bio',
           'role',
           'status',
@@ -432,6 +438,7 @@ export class UserService {
       address: businessOwner.address,
       postcode: businessOwner.postcode,
       profilePicture: businessOwner.profilePicture,
+      backgroundImage: businessOwner.backgroundImage,
       firstName: businessOwner.firstName,
       lastName: businessOwner.lastName,
       username: businessOwner.username,
@@ -613,15 +620,23 @@ export class UserService {
   async updateMyProfile(
     id: string,
     updateUserDto: UpdateUserDto,
-    file?: Express.Multer.File,
+    files?: ProfileUpdateFiles,
   ) {
     const user = await this.userModel.findById(id);
     if (!user) {
       throw new HttpException('User not found', 404);
     }
-    if (file) {
-      const uploadedFile = await fileUpload.uploadToCloudinary(file);
+    if (files?.profilePicture) {
+      const uploadedFile = await fileUpload.uploadToCloudinary(
+        files.profilePicture,
+      );
       updateUserDto.profilePicture = uploadedFile.url;
+    }
+    if (files?.backgroundImage) {
+      const uploadedFile = await fileUpload.uploadToCloudinary(
+        files.backgroundImage,
+      );
+      updateUserDto.backgroundImage = uploadedFile.url;
     }
     if (updateUserDto.email) {
       updateUserDto.email = updateUserDto.email.toLowerCase();
@@ -705,6 +720,7 @@ export class UserService {
           .filter(Boolean)
           .join(' '),
         profilePicture: businessOwner.profilePicture,
+        backgroundImage: businessOwner.backgroundImage,
         bio: businessOwner.bio,
         category: businessOwner.category,
         serviceCategoryId: businessOwner.serviceCategoryId,
