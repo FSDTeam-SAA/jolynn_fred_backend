@@ -36,7 +36,7 @@ export class ReportService {
     private readonly serviceModel: Model<BusinessServiceDocument>,
   ) {}
 
-async createReport(userId: string, createReportDto: CreateReportDto) {
+  async createReport(userId: string, createReportDto: CreateReportDto) {
     const owner = await this.userModel.findOne({
       _id: createReportDto.ownerId,
       role: 'businessOwner',
@@ -55,7 +55,7 @@ async createReport(userId: string, createReportDto: CreateReportDto) {
        <p><strong>Reported Business Owner:</strong> ${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})</p>
        <p><strong>Message:</strong> ${createReportDto.message}</p>`;
 
-   if (config.email.admin) {
+    if (config.email.admin) {
       sendMailer(
         config.email.admin,
         'New Report Submitted',
@@ -64,12 +64,17 @@ async createReport(userId: string, createReportDto: CreateReportDto) {
           subheading: 'A user has reported a business owner.',
           introText: 'A new report has been submitted and needs your review.',
           details: [
-            { label: 'Reported Business Owner', value: `${owner.firstName || ''} ${owner.lastName || ''}` },
+            {
+              label: 'Reported Business Owner',
+              value: `${owner.firstName || ''} ${owner.lastName || ''}`,
+            },
             { label: 'Owner Email', value: owner.email },
             { label: 'Message', value: createReportDto.message },
           ],
         }),
-      ).catch((err) => console.error('Failed to send admin report email:', err));
+      ).catch((err) =>
+        console.error('Failed to send admin report email:', err),
+      );
     }
 
     if (owner.email) {
@@ -79,17 +84,21 @@ async createReport(userId: string, createReportDto: CreateReportDto) {
         createNotificationEmailTemplate({
           heading: 'A Report Was Filed Against You',
           greetingName: owner.firstName || '',
-          introText: 'A user has submitted a report against your business account. Please review the details below.',
+          introText:
+            'A user has submitted a report against your business account. Please review the details below.',
           details: [{ label: 'Message', value: createReportDto.message }],
           noteTitle: 'What happens next?',
-          noteText: 'Our team will review this report and may reach out to you for more information.',
+          noteText:
+            'Our team will review this report and may reach out to you for more information.',
         }),
-      ).catch((err) => console.error('Failed to send owner report email:', err));
+      ).catch((err) =>
+        console.error('Failed to send owner report email:', err),
+      );
     }
 
     return report;
   }
-private getOwnerIdString(ownerId: any): string | null {
+  private getOwnerIdString(ownerId: any): string | null {
     if (!ownerId) return null;
     return typeof ownerId === 'object' && ownerId._id
       ? ownerId._id.toString()
@@ -149,9 +158,7 @@ private getOwnerIdString(ownerId: any): string | null {
   }
 
   async getSingleReport(id: string) {
-    const report = await this.reportModel
-      .findById(id)
-      .populate(populateFields);
+    const report = await this.reportModel.findById(id).populate(populateFields);
     if (!report) {
       throw new HttpException('Report not found', 404);
     }

@@ -253,7 +253,8 @@ export class ServiceController {
     required: false,
     type: Number,
     example: 4,
-    description: 'Filter businesses with rating greater than or equal to this value',
+    description:
+      'Filter businesses with rating greater than or equal to this value',
   })
   @ApiQuery({
     name: 'page',

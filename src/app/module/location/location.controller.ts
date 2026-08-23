@@ -1,10 +1,12 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Query } from '@nestjs/common';
 import {
-  ApiOperation,
-  ApiParam,
-  ApiQuery,
-  ApiTags,
-} from '@nestjs/swagger';
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Query,
+} from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
   GetCitiesByStateQueryDto,
   GetStatesQueryDto,

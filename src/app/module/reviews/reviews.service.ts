@@ -198,7 +198,10 @@ export class ReviewsService {
 
   async getAllReviews(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
-    const whereConditions = buildWhereConditions(params, reviewSearchAbleFields);
+    const whereConditions = buildWhereConditions(
+      params,
+      reviewSearchAbleFields,
+    );
 
     const total = await this.reviewModel.countDocuments(whereConditions);
     const reviews = await this.reviewModel

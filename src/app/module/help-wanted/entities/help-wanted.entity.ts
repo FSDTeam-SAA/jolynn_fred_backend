@@ -30,7 +30,7 @@ export class HelpWanted {
   })
   zipcode: string;
 
-    @Prop({
+  @Prop({
     trim: true,
   })
   state?: string;
