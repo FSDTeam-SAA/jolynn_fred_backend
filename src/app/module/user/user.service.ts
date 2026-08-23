@@ -490,11 +490,7 @@ export class UserService {
     );
 
     if (shouldNotifyRejection) {
-      this.sendAdminActionEmail(
-        user,
-        'account rejection',
-        rejectionReason,
-      );
+      this.sendAdminActionEmail(user, 'account rejection', rejectionReason);
     }
 
     return updatedUser;
@@ -502,7 +498,10 @@ export class UserService {
 
   private sendAdminActionEmail(
     user: UserDocument,
-    action: 'account deletion' | 'business profile deletion' | 'account rejection',
+    action:
+      | 'account deletion'
+      | 'business profile deletion'
+      | 'account rejection',
     reason?: string,
   ) {
     const isAccountDeletion = action === 'account deletion';

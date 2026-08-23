@@ -1,10 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import {
-  QOUTE_STATUSES,
-  type QouteStatus,
-} from '../entities/qoute.entity';
+import { QOUTE_STATUSES, type QouteStatus } from '../entities/qoute.entity';
 
 const normalizeOptionalString = ({ value }: { value: unknown }) =>
   value === undefined || value === '' || value === null

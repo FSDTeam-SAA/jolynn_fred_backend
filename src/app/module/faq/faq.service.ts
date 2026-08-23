@@ -56,11 +56,9 @@ export class FaqService {
       throw new HttpException('FAQ not found', 404);
     }
 
-    const updatedFaq = await this.faqModel.findByIdAndUpdate(
-      id,
-      updateFaqDto,
-      { new: true },
-    );
+    const updatedFaq = await this.faqModel.findByIdAndUpdate(id, updateFaqDto, {
+      new: true,
+    });
     return updatedFaq;
   }
 

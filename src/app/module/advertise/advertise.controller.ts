@@ -36,9 +36,8 @@ export class AdvertiseController {
   @ApiBody({ type: CreateAdvertiseDto })
   @HttpCode(HttpStatus.CREATED)
   async createAdvertise(@Body() createAdvertiseDto: CreateAdvertiseDto) {
-    const result = await this.advertiseService.createAdvertise(
-      createAdvertiseDto,
-    );
+    const result =
+      await this.advertiseService.createAdvertise(createAdvertiseDto);
     return {
       message: 'Advertise request submitted successfully',
       data: result,
@@ -88,10 +87,7 @@ export class AdvertiseController {
   async getAllAdvertise(@Req() req: Request) {
     const params = pick(req.query, ['searchTerm']);
     const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
-    const result = await this.advertiseService.getAllAdvertise(
-      params,
-      options,
-    );
+    const result = await this.advertiseService.getAllAdvertise(params, options);
 
     return {
       message: 'Advertise fetched successfully',

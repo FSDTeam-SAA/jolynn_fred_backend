@@ -119,11 +119,13 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Send password reset OTP to email' })
+  @ApiOperation({ summary: 'Send password reset OTP using email or username' })
   @ApiBody({ type: ForgotPasswordDto })
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() createAuthDto: ForgotPasswordDto) {
-    const result = await this.authService.forgotPassword(createAuthDto.email);
+    const result = await this.authService.forgotPassword(
+      createAuthDto.identifier,
+    );
 
     return {
       message: 'Email sent successfully',
@@ -150,9 +152,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async verifyEmail(@Body() createAuthDto: VerifyEmailDto) {
     const result = await this.authService.verifyEmail(
-      createAuthDto.email,
+      createAuthDto.identifier,
       createAuthDto.otp,
     );
+
     return {
       message: 'Email verified successfully',
       data: result,
@@ -165,9 +168,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resetPasswordChange(@Body() CreateAuthDto: ResetPasswordDto) {
     const result = await this.authService.resetPasswordChange(
-      CreateAuthDto.email,
+      CreateAuthDto.identifier,
       CreateAuthDto.newPassword,
     );
+
     return {
       message: 'Password changed successfully',
       data: result,

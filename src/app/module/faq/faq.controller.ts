@@ -126,10 +126,7 @@ export class FaqController {
     description: 'FAQ id',
   })
   @HttpCode(HttpStatus.OK)
-  async updateFaq(
-    @Param('id') id: string,
-    @Body() updateFaqDto: UpdateFaqDto,
-  ) {
+  async updateFaq(@Param('id') id: string, @Body() updateFaqDto: UpdateFaqDto) {
     const result = await this.faqService.updateFaq(id, updateFaqDto);
     return {
       message: 'FAQ updated successfully',
