@@ -1,9 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import {
-  CountryCity,
-  CountryCitySchema,
-} from './entities/country-city.entity';
+import { CountryCity, CountryCitySchema } from './entities/country-city.entity';
 import { State, StateSchema } from './entities/state.entity';
 import { LocationController } from './location.controller';
 import { LocationService } from './location.service';

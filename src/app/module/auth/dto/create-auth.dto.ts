@@ -164,7 +164,9 @@ export class RegisterBusinessOwnerDto {
   @IsString()
   serviceArea?: string;
 
-  @ApiPropertyOptional({ example: 'We provide professional plumbing services.' })
+  @ApiPropertyOptional({
+    example: 'We provide professional plumbing services.',
+  })
   @Transform(emptyStringToUndefined)
   @IsString()
   @IsOptional()
@@ -255,11 +257,14 @@ export class LoginAuthDto {
 }
 
 export class ForgotPasswordDto {
-  @ApiProperty({ example: 'john@example.com' })
-  @Transform(normalizeString)
-  @IsEmail({}, { message: 'Valid email is required' })
+  @ApiProperty({
+    example: 'john@example.com',
+    description: 'Email or username',
+  })
+  @Transform(normalizeUsernameInput)
+  @IsString()
   @IsNotEmpty()
-  email: string;
+  identifier: string;
 }
 
 export class ResendVerificationEmailDto {
@@ -271,11 +276,14 @@ export class ResendVerificationEmailDto {
 }
 
 export class VerifyEmailDto {
-  @ApiProperty({ example: 'john@example.com' })
-  @Transform(normalizeString)
-  @IsEmail({}, { message: 'Valid email is required' })
+  @ApiProperty({
+    example: 'john@example.com',
+    description: 'Email or username',
+  })
+  @Transform(normalizeUsernameInput)
+  @IsString()
   @IsNotEmpty()
-  email: string;
+  identifier: string;
 
   @ApiProperty({ example: '123456' })
   @Transform(normalizeString)
@@ -285,11 +293,14 @@ export class VerifyEmailDto {
 }
 
 export class ResetPasswordDto {
-  @ApiProperty({ example: 'john@example.com' })
-  @Transform(normalizeString)
-  @IsEmail({}, { message: 'Valid email is required' })
+  @ApiProperty({
+    example: 'john@example.com',
+    description: 'Email or username',
+  })
+  @Transform(normalizeUsernameInput)
+  @IsString()
   @IsNotEmpty()
-  email: string;
+  identifier: string;
 
   @ApiProperty({ example: 'newsecret123' })
   @IsString()

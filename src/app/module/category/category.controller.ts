@@ -38,9 +38,7 @@ export class CategoryController {
   @ApiBody({ type: CreateCategoryDto })
   @HttpCode(HttpStatus.CREATED)
   async createCategory(@Body() createCategoryDto: CreateCategoryDto) {
-    const result = await this.categoryService.createCategory(
-      createCategoryDto,
-    );
+    const result = await this.categoryService.createCategory(createCategoryDto);
     return {
       message: 'Category created successfully',
       data: result,
