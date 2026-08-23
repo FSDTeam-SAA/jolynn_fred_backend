@@ -19,14 +19,17 @@ export class CreateMessageDto {
   @ApiPropertyOptional({
     type: 'array',
     items: { type: 'string', format: 'binary' },
-    description: 'Optional PDF, image, or document attachments. Use the attachments field.',
+    description:
+      'Optional PDF, image, or document attachments. Use the attachments field.',
   })
   @IsOptional()
   attachments?: unknown[];
 }
 
 export class ReplyMessageDto {
-  @ApiProperty({ example: 'Thanks for reaching out. I am available on Tuesday.' })
+  @ApiProperty({
+    example: 'Thanks for reaching out. I am available on Tuesday.',
+  })
   @IsString()
   @IsNotEmpty()
   message: string;
@@ -34,7 +37,8 @@ export class ReplyMessageDto {
   @ApiPropertyOptional({
     type: 'array',
     items: { type: 'string', format: 'binary' },
-    description: 'Optional PDF, image, or document attachments. Use the attachments field.',
+    description:
+      'Optional PDF, image, or document attachments. Use the attachments field.',
   })
   @IsOptional()
   attachments?: unknown[];

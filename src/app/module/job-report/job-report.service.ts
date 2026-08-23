@@ -3,7 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateJobReportDto } from './dto/create-job-report.dto';
 import { JobReport, JobReportDocument } from './entities/job-report.entity';
-import { HelpWanted, HelpWantedDocument } from 'src/app/module/help-wanted/entities/help-wanted.entity';
+import {
+  HelpWanted,
+  HelpWantedDocument,
+} from 'src/app/module/help-wanted/entities/help-wanted.entity';
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
@@ -33,7 +36,10 @@ export class JobReportService {
     private readonly helpWantedModel: Model<HelpWantedDocument>,
   ) {}
 
-async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
+  async createJobReport(
+    userId: string,
+    createJobReportDto: CreateJobReportDto,
+  ) {
     const post = await this.helpWantedModel.findById(
       createJobReportDto.helpWantedId,
     );
@@ -53,14 +59,17 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
         createNotificationEmailTemplate({
           heading: 'New Job Post Report',
           subheading: 'A job post has been reported.',
-          introText: 'A job post on the platform has been reported and needs your review.',
+          introText:
+            'A job post on the platform has been reported and needs your review.',
           details: [
             { label: 'Reported Post By', value: post.username },
             { label: 'Post Email', value: post.email },
             { label: 'Message', value: createJobReportDto.message },
           ],
         }),
-      ).catch((err) => console.error('Failed to send admin job report email:', err));
+      ).catch((err) =>
+        console.error('Failed to send admin job report email:', err),
+      );
     }
 
     if (post.email) {
@@ -70,12 +79,15 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
         createNotificationEmailTemplate({
           heading: 'Your Post Was Reported',
           greetingName: post.username,
-          introText: 'Your job post has been reported by another user. Please review the details below.',
+          introText:
+            'Your job post has been reported by another user. Please review the details below.',
           details: [{ label: 'Message', value: createJobReportDto.message }],
           noteTitle: 'What happens next?',
           noteText: 'Our team will review this report shortly.',
         }),
-      ).catch((err) => console.error('Failed to send reported user email:', err));
+      ).catch((err) =>
+        console.error('Failed to send reported user email:', err),
+      );
     }
 
     return jobReport;
@@ -105,7 +117,11 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
     };
   }
 
-  async getMyJobReport(userId: string, params: IFilterParams, options: IOptions) {
+  async getMyJobReport(
+    userId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = {
       ...buildWhereConditions(params, jobReportSearchAbleFields),
@@ -140,7 +156,11 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
     return jobReport;
   }
 
- async deleteJobReport(id: string, requesterId: string, requesterRole: string) {
+  async deleteJobReport(
+    id: string,
+    requesterId: string,
+    requesterRole: string,
+  ) {
     const jobReport = await this.jobReportModel.findById(id);
     if (!jobReport) {
       throw new HttpException('Job report not found', 404);
@@ -150,10 +170,7 @@ async createJobReport(userId: string, createJobReportDto: CreateJobReportDto) {
     const isAdmin = requesterRole === 'admin';
 
     if (!isOwner && !isAdmin) {
-      throw new HttpException(
-        'You are not allowed to delete this report',
-        403,
-      );
+      throw new HttpException('You are not allowed to delete this report', 403);
     }
 
     const result = await this.jobReportModel.findByIdAndDelete(id);

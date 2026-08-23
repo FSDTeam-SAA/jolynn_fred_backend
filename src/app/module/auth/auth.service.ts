@@ -585,6 +585,33 @@ export class AuthService {
     await user.save();
   }
 
+  private async findUserByEmailOrUsername(identifier: string) {
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+
+    if (!normalizedIdentifier) {
+      throw new HttpException('Email or username is required', 400);
+    }
+
+    const isEmailIdentifier = normalizedIdentifier.includes('@');
+
+    if (isEmailIdentifier && !isEmail(normalizedIdentifier)) {
+      throw new HttpException('Valid email is required', 400);
+    }
+
+    if (!isEmailIdentifier && !USERNAME_REGEX.test(normalizedIdentifier)) {
+      throw new HttpException(
+        'Username must be 3-30 characters and use only lowercase letters, numbers, underscores, or hyphens',
+        400,
+      );
+    }
+
+    return this.userModel.findOne(
+      isEmailIdentifier
+        ? { email: normalizedIdentifier }
+        : { username: normalizedIdentifier },
+    );
+  }
+
   async resendVerificationEmail(email: string) {
     const user = await this.userModel.findOne({ email: email.toLowerCase() });
     if (!user) {
@@ -610,14 +637,14 @@ export class AuthService {
     return { message: 'Check your email for the verification link' };
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.userModel.findOne({ email });
-    if (!user) throw new HttpException('Email not found', 404);
+  async forgotPassword(identifier: string) {
+    const user = await this.findUserByEmailOrUsername(identifier);
+    if (!user) throw new HttpException('User not found', 404);
 
     const generateOtpNumber = Math.floor(100000 + Math.random() * 900000);
 
     user.otp = generateOtpNumber.toString();
-    user.otpExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
     const emailTemplate = {
@@ -633,30 +660,33 @@ export class AuthService {
     return { message: 'Check your email for OTP' };
   }
 
-  async verifyEmail(email: string, otp: string) {
-    const user = await this.userModel.findOne({ email });
+  async verifyEmail(identifier: string, otp: string) {
+    const user = await this.findUserByEmailOrUsername(identifier);
     if (!user) throw new HttpException('Invalid link', 400);
 
     if (user.otp !== otp) throw new HttpException('Invalid OTP', 400);
     if (!user.otpExpiry) throw new HttpException('Invalid OTP', 400);
-    const todayDate = new Date();
-    if (user.otpExpiry < todayDate) throw new HttpException('OTP expired', 400);
+
+    if (user.otpExpiry < new Date()) {
+      throw new HttpException('OTP expired', 400);
+    }
 
     user.otp = undefined as any;
     user.otpExpiry = undefined as any;
-
     user.verifiedForget = true;
+
     await user.save();
-    if (!user.verifiedForget) throw new HttpException('Invalid link', 400);
 
     return { message: 'OTP verified successfully' };
   }
 
-  async resetPasswordChange(email: string, newPassword: string) {
-    const user = await this.userModel.findOne({ email });
+  async resetPasswordChange(identifier: string, newPassword: string) {
+    const user = await this.findUserByEmailOrUsername(identifier);
     if (!user) throw new HttpException('Invalid link', 400);
 
-    if (!user.verifiedForget) throw new HttpException('Invalid link', 400);
+    if (!user.verifiedForget) {
+      throw new HttpException('Invalid link', 400);
+    }
 
     user.password = newPassword;
     user.verifiedForget = false;

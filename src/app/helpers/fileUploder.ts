@@ -105,7 +105,13 @@ const uploadVideoToCloudinary = async (
 
 const uploadMessageAttachmentToCloudinary = async (
   file: Express.Multer.File,
-): Promise<{ url: string; public_id: string; name: string; mimetype: string; size: number }> => {
+): Promise<{
+  url: string;
+  public_id: string;
+  name: string;
+  mimetype: string;
+  size: number;
+}> => {
   if (!file || !file.buffer?.length) {
     throw new HttpException('No valid attachment provided', 400);
   }
@@ -118,8 +124,14 @@ const uploadMessageAttachmentToCloudinary = async (
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/plain',
   ]);
-  if (!file.mimetype?.startsWith('image/') && !allowedMimeTypes.has(file.mimetype)) {
-    throw new HttpException('Only PDF, image, and document attachments are allowed', 400);
+  if (
+    !file.mimetype?.startsWith('image/') &&
+    !allowedMimeTypes.has(file.mimetype)
+  ) {
+    throw new HttpException(
+      'Only PDF, image, and document attachments are allowed',
+      400,
+    );
   }
 
   const uploaded = await uploadBufferToCloudinary(file.buffer, {

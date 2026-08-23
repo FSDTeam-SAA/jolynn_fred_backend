@@ -26,7 +26,6 @@ export class ReviewReply {
   })
   reviewerAvatar?: string;
 
-
   @Prop()
   repliedAt?: Date;
 }

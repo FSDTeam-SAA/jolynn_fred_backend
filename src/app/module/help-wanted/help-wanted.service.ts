@@ -221,14 +221,10 @@ export class HelpWantedService {
     const stateRegex = this.buildContainsRegex(state);
     const [cityPosterIds, statePosterIds] = await Promise.all([
       cityRegex
-        ? this.userModel
-            .find({ city: { $regex: cityRegex } })
-            .distinct('_id')
+        ? this.userModel.find({ city: { $regex: cityRegex } }).distinct('_id')
         : Promise.resolve([]),
       stateRegex
-        ? this.userModel
-            .find({ state: { $regex: stateRegex } })
-            .distinct('_id')
+        ? this.userModel.find({ state: { $regex: stateRegex } }).distinct('_id')
         : Promise.resolve([]),
     ]);
 

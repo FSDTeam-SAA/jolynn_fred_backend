@@ -101,7 +101,9 @@ export class SearchDataService implements OnModuleInit, OnModuleDestroy {
         createdAt: { $lt: cutoffDate },
       });
       if (result.deletedCount) {
-        this.logger.log(`Deleted ${result.deletedCount} expired search records`);
+        this.logger.log(
+          `Deleted ${result.deletedCount} expired search records`,
+        );
       }
     } catch (error) {
       this.logger.error('Failed to delete expired search records', error);

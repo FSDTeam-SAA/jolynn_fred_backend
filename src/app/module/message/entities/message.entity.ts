@@ -21,7 +21,8 @@ export class MessageAttachment {
   size: number;
 }
 
-export const MessageAttachmentSchema = SchemaFactory.createForClass(MessageAttachment);
+export const MessageAttachmentSchema =
+  SchemaFactory.createForClass(MessageAttachment);
 
 @Schema({ timestamps: true })
 export class Message {

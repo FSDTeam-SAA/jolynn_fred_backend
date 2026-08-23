@@ -28,7 +28,9 @@ export class UpdateReviewDto {
   })
   @IsOptional()
   @Transform(({ value }) =>
-    value === undefined || value === '' ? undefined : normalizeString({ value }),
+    value === undefined || value === ''
+      ? undefined
+      : normalizeString({ value }),
   )
   @IsString()
   @MaxLength(1500)
