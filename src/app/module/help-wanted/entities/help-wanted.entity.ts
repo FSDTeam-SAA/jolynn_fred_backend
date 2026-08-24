@@ -3,6 +3,17 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type HelpWantedDocument = HydratedDocument<HelpWanted>;
 
+@Schema({ _id: false })
+export class HelpWantedImage {
+  @Prop({ required: true })
+  url: string;
+
+  @Prop({ required: true })
+  publicId: string;
+}
+
+const HelpWantedImageSchema = SchemaFactory.createForClass(HelpWantedImage);
+
 @Schema({ timestamps: true })
 export class HelpWanted {
   @Prop({
@@ -74,6 +85,12 @@ export class HelpWanted {
     trim: true,
   })
   message: string;
+
+  @Prop({
+    type: [HelpWantedImageSchema],
+    default: [],
+  })
+  images: HelpWantedImage[];
 
   @Prop({
     type: String,
