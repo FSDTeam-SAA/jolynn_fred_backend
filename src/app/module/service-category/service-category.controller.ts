@@ -94,7 +94,7 @@ export class ServiceCategoryController {
     required: false,
     type: String,
     example: '',
-    description: 'Search by name, slug, description, status or source',
+    description: 'Search by category name, slug, description, or keywords',
   })
   @ApiQuery({
     name: 'page',
@@ -170,7 +170,8 @@ export class ServiceCategoryController {
     required: false,
     type: String,
     example: '',
-    description: 'Search by name, slug, description, status or source',
+    description:
+      'Search by name, slug, normalized name, description, keywords, status, or source',
   })
   @ApiQuery({
     name: 'status',
