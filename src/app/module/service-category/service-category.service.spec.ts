@@ -38,4 +38,39 @@ describe('ServiceCategoryService', () => {
       }),
     );
   });
+
+  it('blocks a second new category while another request is pending', async () => {
+    const pendingOwnerQuery = {
+      select: jest.fn().mockResolvedValue({ requestedCategory: 'Religion' }),
+    };
+    const pendingServiceQuery = {
+      select: jest.fn().mockResolvedValue(null),
+    };
+    const serviceCategoryModel = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    const businessServiceModel = {
+      findOne: jest.fn().mockReturnValue(pendingServiceQuery),
+    };
+    const userModel = {
+      findOne: jest.fn().mockReturnValue(pendingOwnerQuery),
+    };
+    const service = new ServiceCategoryService(
+      serviceCategoryModel as any,
+      businessServiceModel as any,
+      {} as any,
+      userModel as any,
+    );
+
+    await expect(
+      service.requestServiceCategory(
+        'Community Services',
+        'business_registration',
+        '507f1f77bcf86cd799439011',
+      ),
+    ).rejects.toThrow(
+      'Your category request "Religion" is currently subject to admin review',
+    );
+    expect(serviceCategoryModel.findOne).toHaveBeenCalledTimes(1);
+  });
 });
