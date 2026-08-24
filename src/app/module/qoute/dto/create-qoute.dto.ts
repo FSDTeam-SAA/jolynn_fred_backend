@@ -1,9 +1,10 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsMongoId,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -30,13 +31,13 @@ export class CreateQouteDto {
   @IsEmail({}, { message: 'Valid email is required' })
   email: string;
 
-  @ApiProperty({ example: '+1 512-555-0000' })
+  @ApiPropertyOptional({ example: '+1 512-555-0000' })
   @Transform(normalizeString)
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MinLength(8)
   @MaxLength(30)
-  phoneNumber: string;
+  phoneNumber?: string;
 
   @ApiProperty({ example: 'Emergency Plumbing' })
   @Transform(normalizeString)
