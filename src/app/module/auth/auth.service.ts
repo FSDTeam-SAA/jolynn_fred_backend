@@ -414,6 +414,13 @@ export class AuthService {
     }
 
     if (existingUser.role === 'businessOwner') {
+      if (existingUser.status === 'pending' && existingUser.requestedCategory) {
+        throw new HttpException(
+          `Your requested Other category "${existingUser.requestedCategory}" is currently subject to admin review. Please wait for approval before requesting another category or creating a new business profile.`,
+          409,
+        );
+      }
+
       throw new HttpException('User already has a business owner account', 400);
     }
 
