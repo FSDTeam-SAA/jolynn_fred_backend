@@ -137,6 +137,42 @@ export class ServiceCategoryService {
     });
   }
 
+  private async ensureNoPendingCategoryRequest(requestedByUserId?: string) {
+    const userId = this.toObjectId(requestedByUserId);
+    if (!userId) {
+      return;
+    }
+
+    const [pendingBusinessOwner, pendingService] = await Promise.all([
+      this.userModel
+        .findOne({
+          _id: userId,
+          role: 'businessOwner',
+          status: 'pending',
+          requestedCategory: { $nin: [null, ''] },
+        })
+        .select('requestedCategory'),
+      this.businessServiceModel
+        .findOne({
+          ownerId: userId,
+          status: 'pending',
+          requestedCategory: { $nin: [null, ''] },
+        })
+        .select('requestedCategory'),
+    ]);
+
+    const pendingCategory =
+      pendingBusinessOwner?.requestedCategory ??
+      pendingService?.requestedCategory;
+
+    if (pendingCategory) {
+      throw new HttpException(
+        `Your category request "${pendingCategory}" is currently subject to admin review. Please wait for a decision before requesting another new category.`,
+        409,
+      );
+    }
+  }
+
   async createServiceCategory(
     createServiceCategoryDto: CreateServiceCategoryDto,
     adminId?: string,
@@ -206,6 +242,8 @@ export class ServiceCategoryService {
     if (existingCategory) {
       return existingCategory;
     }
+
+    await this.ensureNoPendingCategoryRequest(requestedByUserId);
 
     try {
       return await this.serviceCategoryModel.create({
