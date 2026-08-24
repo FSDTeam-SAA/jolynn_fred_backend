@@ -259,7 +259,7 @@ export class LoginAuthDto {
 export class ForgotPasswordDto {
   @ApiProperty({
     example: 'john@example.com',
-    description: 'Email or username',
+    description: 'Email address or username',
   })
   @Transform(normalizeUsernameInput)
   @IsString()
