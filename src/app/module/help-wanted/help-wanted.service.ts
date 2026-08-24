@@ -3,7 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateHelpWantedDto } from './dto/create-help-wanted.dto';
 import { UpdateHelpWantedDto } from './dto/update-help-wanted.dto';
-import { HelpWanted, HelpWantedDocument } from './entities/help-wanted.entity';
+import {
+  HelpWanted,
+  HelpWantedDocument,
+  HelpWantedImage,
+} from './entities/help-wanted.entity';
 import { IFilterParams } from 'src/app/helpers/pick';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
@@ -13,6 +17,7 @@ import { User, UserDocument } from '../user/entities/user.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 
 const helpWantedSearchAbleFields = [
   'username',
@@ -101,6 +106,33 @@ export class HelpWantedService {
   private isOtherCategory(category?: string) {
     return ['other', 'others', '__other__'].includes(
       category?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '',
+    );
+  }
+
+  private async uploadImages(
+    files?: Express.Multer.File[],
+  ): Promise<HelpWantedImage[]> {
+    if (!files?.length) {
+      return [];
+    }
+
+    const uploads = await Promise.all(
+      files.map((file) => fileUpload.uploadToCloudinary(file)),
+    );
+
+    return uploads.map((file) => ({
+      url: file.url,
+      publicId: file.public_id,
+    }));
+  }
+
+  private async deleteImages(images?: HelpWantedImage[]) {
+    if (!images?.length) {
+      return;
+    }
+
+    await Promise.all(
+      images.map((image) => fileUpload.deleteFromCloudinary(image.publicId)),
     );
   }
 
@@ -307,6 +339,7 @@ export class HelpWantedService {
   async createHelpWanted(
     createHelpWantedDto: CreateHelpWantedDto,
     userId?: string,
+    imageFiles?: Express.Multer.File[],
   ) {
     const serviceCategory =
       await this.serviceCategoryService.resolveCategorySelection(
@@ -323,8 +356,10 @@ export class HelpWantedService {
     const categoryName = isPendingOtherCategory
       ? createHelpWantedDto.category
       : serviceCategory.name;
+    const images = await this.uploadImages(imageFiles);
     const helpWanted = await this.helpWantedModel.create({
       ...createHelpWantedDto,
+      images,
       userId,
       category: categoryName,
       requestedCategory: isPendingOtherCategory
@@ -436,16 +471,25 @@ export class HelpWantedService {
     return helpWanted;
   }
 
-  async updateHelpWanted(id: string, updateHelpWantedDto: UpdateHelpWantedDto) {
+  async updateHelpWanted(
+    id: string,
+    updateHelpWantedDto: UpdateHelpWantedDto,
+    imageFiles?: Express.Multer.File[],
+  ) {
     const helpWanted = await this.helpWantedModel.findById(id);
     if (!helpWanted) {
       throw new HttpException('Help wanted request not found', 404);
     }
 
+    const uploadedImages = await this.uploadImages(imageFiles);
+    const nextImages = [...(helpWanted.images ?? []), ...uploadedImages];
     const updatedHelpWanted = await this.helpWantedModel.findByIdAndUpdate(
       id,
-      updateHelpWantedDto,
-      { new: true },
+      {
+        ...updateHelpWantedDto,
+        images: nextImages,
+      },
+      { new: true, runValidators: true },
     );
     return updatedHelpWanted;
   }
@@ -468,6 +512,7 @@ export class HelpWantedService {
       throw new HttpException('You are not allowed to delete this post', 403);
     }
 
+    await this.deleteImages(helpWanted.images);
     const result = await this.helpWantedModel.findByIdAndDelete(id);
     return result;
   }

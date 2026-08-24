@@ -41,23 +41,14 @@ const businessOwnerSearchAbleFields = [
   'tag',
 ];
 
-const serviceGlobalSearchableFields = [
-  'title',
-  'description',
-  'logo.url',
-  'logo.publicId',
-];
+const serviceGlobalSearchableFields = ['title', 'description'];
 
 const serviceCategorySearchableFields = [
   'name',
   'slug',
   'normalizedName',
   'description',
-  'logo.url',
-  'logo.publicId',
-  'status',
-  'source',
-  'rejectionReason',
+  'keywords',
 ];
 
 @Injectable()
@@ -639,39 +630,63 @@ export class ServiceService {
   ) {
     const globalSearchRegex = this.buildContainsRegex(params.searchTerm);
     const serviceRegex = this.buildContainsRegex(params.service);
-    const categorySearchRegex = serviceRegex || globalSearchRegex;
-    const matchingCategoryIds = categorySearchRegex
-      ? await this.serviceCategoryModel
-          .find({
-            $or: serviceCategorySearchableFields.map((field) => ({
-              [field]: { $regex: categorySearchRegex },
-            })),
-          })
-          .distinct('_id')
-      : [];
-    const matchingServices =
-      serviceRegex || globalSearchRegex
-        ? await this.serviceModel
+    const approvedCategoryIds = await this.serviceCategoryModel
+      .find({ status: 'approved', isActive: true })
+      .distinct('_id');
+
+    const findMatchingCategoryIds = (searchRegex: RegExp | null) =>
+      searchRegex
+        ? this.serviceCategoryModel
+            .find({
+              status: 'approved',
+              isActive: true,
+              $or: serviceCategorySearchableFields.map((field) => ({
+                [field]: { $regex: searchRegex },
+              })),
+            })
+            .distinct('_id')
+        : Promise.resolve([]);
+
+    const [serviceCategoryIds, globalCategoryIds] = await Promise.all([
+      findMatchingCategoryIds(serviceRegex),
+      findMatchingCategoryIds(globalSearchRegex),
+    ]);
+
+    const findMatchingServices = (
+      searchRegex: RegExp | null,
+      matchingCategoryIds: Types.ObjectId[],
+    ) =>
+      searchRegex
+        ? this.serviceModel
             .find({
               status: 'active',
+              serviceCategoryId: { $in: approvedCategoryIds },
               $or: [
-                ...(serviceRegex || globalSearchRegex
-                  ? serviceGlobalSearchableFields.map((field) => ({
-                      [field]: { $regex: serviceRegex || globalSearchRegex },
-                    }))
-                  : []),
+                ...serviceGlobalSearchableFields.map((field) => ({
+                  [field]: { $regex: searchRegex },
+                })),
                 ...(matchingCategoryIds.length
                   ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
                   : []),
               ],
             })
+            .sort({ createdAt: -1 })
             .select('ownerId title description logo createdAt')
-        : [];
+        : Promise.resolve([] as BusinessServiceDocument[]);
+
+    const [serviceMatchingServices, globalMatchingServices] = await Promise.all(
+      [
+        findMatchingServices(serviceRegex, serviceCategoryIds),
+        findMatchingServices(globalSearchRegex, globalCategoryIds),
+      ],
+    );
 
     const serviceOwnerIds = serviceRegex
       ? [
           ...new Set(
-            matchingServices.map((service) => service.ownerId.toString()),
+            serviceMatchingServices.map((service) =>
+              service.ownerId.toString(),
+            ),
           ),
         ]
       : null;
@@ -685,8 +700,8 @@ export class ServiceService {
               ...businessOwnerSearchAbleFields.map((field) => ({
                 [field]: { $regex: globalSearchRegex },
               })),
-              ...(matchingCategoryIds.length
-                ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
+              ...(globalCategoryIds.length
+                ? [{ serviceCategoryId: { $in: globalCategoryIds } }]
                 : []),
             ],
           })
@@ -696,7 +711,9 @@ export class ServiceService {
     const globalOwnerIds = globalSearchRegex
       ? [
           ...new Set([
-            ...matchingServices.map((service) => service.ownerId.toString()),
+            ...globalMatchingServices.map((service) =>
+              service.ownerId.toString(),
+            ),
             ...matchingProfileOwners.map((owner) => owner.id),
           ]),
         ]
@@ -714,19 +731,23 @@ export class ServiceService {
       return this.sortAndPaginateBusinessOwnerCards([], options);
     }
 
-    const whereConditions = this.buildBusinessOwnerWhereConditions(
-      ownerIds,
-      params,
-      matchingCategoryIds,
-    );
+    // The owner ids already represent the OR across service, category, and
+    // profile matches. Reapplying searchTerm here would incorrectly require a
+    // matching service owner to also contain the term in their profile.
+    const whereConditions = this.buildBusinessOwnerWhereConditions(ownerIds, {
+      ...params,
+      searchTerm: undefined,
+    });
     const businessOwners = await this.userModel.find(whereConditions);
     const servicesByOwnerId = new Map<string, BusinessServiceDocument>();
-    const servicesForCards =
-      serviceRegex || matchingServices.length
-        ? matchingServices
+    const servicesForCards = serviceRegex
+      ? serviceMatchingServices
+      : globalSearchRegex
+        ? globalMatchingServices
         : await this.serviceModel
             .find({
               status: 'active',
+              serviceCategoryId: { $in: approvedCategoryIds },
               ownerId: {
                 $in: businessOwners.map((owner) =>
                   this.toObjectId(owner.id, 'business owner id'),
