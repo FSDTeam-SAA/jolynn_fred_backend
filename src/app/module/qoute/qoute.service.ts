@@ -150,7 +150,9 @@ export class QouteService {
           details: [
             { label: 'Requested By', value: payload.name },
             { label: 'Email', value: payload.email },
-            { label: 'Phone', value: payload.phoneNumber },
+            ...(payload.phoneNumber
+              ? [{ label: 'Phone', value: payload.phoneNumber }]
+              : []),
             { label: 'Service Needed', value: payload.serviceNeeded },
             { label: 'Project Details', value: payload.projectDetails },
           ],
