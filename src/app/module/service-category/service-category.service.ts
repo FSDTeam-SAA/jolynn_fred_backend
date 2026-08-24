@@ -21,9 +21,19 @@ import { User, UserDocument } from '../user/entities/user.entity';
 const serviceCategorySearchAbleFields = [
   'name',
   'slug',
+  'normalizedName',
   'description',
+  'keywords',
   'status',
   'source',
+];
+
+const publicServiceCategorySearchableFields = [
+  'name',
+  'slug',
+  'normalizedName',
+  'description',
+  'keywords',
 ];
 
 type CategorySelectionSource = Extract<
@@ -50,6 +60,20 @@ export class ServiceCategoryService {
 
   private toDisplayName(name: string) {
     return name.trim().replace(/\s+/g, ' ');
+  }
+
+  private normalizeKeywords(keywords?: string[]) {
+    if (!keywords?.length) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        keywords
+          .map((keyword) => this.normalizeCategoryName(keyword))
+          .filter(Boolean),
+      ),
+    ];
   }
 
   private createSlug(name: string) {
@@ -137,6 +161,7 @@ export class ServiceCategoryService {
       approvedAt: new Date(),
       isActive: createServiceCategoryDto.isActive ?? true,
       sortOrder: createServiceCategoryDto.sortOrder ?? 0,
+      keywords: this.normalizeKeywords(createServiceCategoryDto.keywords),
     };
     delete payload.logo;
 
@@ -313,7 +338,7 @@ export class ServiceCategoryService {
     });
     const whereConditions = buildWhereConditions(
       params,
-      serviceCategorySearchAbleFields,
+      publicServiceCategorySearchableFields,
       {
         status: 'approved',
         isActive: true,
@@ -390,6 +415,12 @@ export class ServiceCategoryService {
       ...updateServiceCategoryDto,
     };
     delete updatePayload.logo;
+
+    if (updateServiceCategoryDto.keywords !== undefined) {
+      updatePayload.keywords = this.normalizeKeywords(
+        updateServiceCategoryDto.keywords,
+      );
+    }
 
     if (updateServiceCategoryDto.name) {
       const name = this.toDisplayName(updateServiceCategoryDto.name);

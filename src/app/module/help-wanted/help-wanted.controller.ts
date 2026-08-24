@@ -9,11 +9,15 @@ import {
   Post,
   Put,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -28,6 +32,7 @@ import AuthGuard from 'src/app/middlewares/auth.guard';
 import pick from 'src/app/helpers/pick';
 import { JwtService } from '@nestjs/jwt';
 import config from 'src/app/config';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 @ApiTags('Help Wanted')
 @Controller('help-wanted')
 export class HelpWantedController {
@@ -57,16 +62,20 @@ export class HelpWantedController {
       'Submit a help wanted request (public, login optional to link post to your account)',
   })
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FilesInterceptor('images', 10, fileUpload.uploadConfig))
   @ApiBody({ type: CreateHelpWantedDto })
   @HttpCode(HttpStatus.CREATED)
   async createHelpWanted(
     @Req() req: Request,
     @Body() createHelpWantedDto: CreateHelpWantedDto,
+    @UploadedFiles() imageFiles?: Express.Multer.File[],
   ) {
     const userId = this.tryGetUserId(req);
     const result = await this.helpWantedService.createHelpWanted(
       createHelpWantedDto,
       userId,
+      imageFiles,
     );
     return {
       message: 'Help wanted request submitted successfully',
@@ -252,6 +261,8 @@ export class HelpWantedController {
   })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('admin'))
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FilesInterceptor('images', 10, fileUpload.uploadConfig))
   @ApiBody({ type: UpdateHelpWantedDto })
   @ApiParam({
     name: 'id',
@@ -264,10 +275,12 @@ export class HelpWantedController {
   async updateHelpWanted(
     @Param('id') id: string,
     @Body() updateHelpWantedDto: UpdateHelpWantedDto,
+    @UploadedFiles() imageFiles?: Express.Multer.File[],
   ) {
     const result = await this.helpWantedService.updateHelpWanted(
       id,
       updateHelpWantedDto,
+      imageFiles,
     );
     return {
       message: 'Help wanted updated successfully',

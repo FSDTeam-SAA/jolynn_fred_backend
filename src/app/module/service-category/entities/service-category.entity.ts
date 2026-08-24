@@ -59,6 +59,9 @@ export class ServiceCategory {
   @Prop({ trim: true })
   description?: string;
 
+  @Prop({ type: [String], default: [] })
+  keywords: string[];
+
   @Prop({ type: ServiceCategoryLogoSchema, default: undefined })
   logo?: ServiceCategoryLogo;
 

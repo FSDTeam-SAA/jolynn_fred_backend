@@ -74,4 +74,12 @@ export class CreateHelpWantedDto {
   @IsString()
   @IsNotEmpty()
   message: string;
+
+  @ApiPropertyOptional({
+    type: 'array',
+    items: { type: 'string', format: 'binary' },
+    description: 'Up to 10 images for the help wanted request',
+  })
+  @IsOptional()
+  images?: string[];
 }
