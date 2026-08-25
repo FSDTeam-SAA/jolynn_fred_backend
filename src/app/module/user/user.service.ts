@@ -481,6 +481,10 @@ export class UserService {
     const rejectionReason = updateUserDto.reason;
     const shouldNotifyRejection =
       updateUserDto.status === 'rejected' && user.status !== 'rejected';
+    const shouldNotifyBusinessApproval =
+      user.role === 'businessOwner' &&
+      user.status === 'pending' &&
+      updateUserDto.status === 'active';
     delete updateUserDto.reason;
 
     const updatedUser = await this.userModel.findByIdAndUpdate(
@@ -491,6 +495,30 @@ export class UserService {
 
     if (shouldNotifyRejection) {
       this.sendAdminActionEmail(user, 'account rejection', rejectionReason);
+    }
+
+    if (shouldNotifyBusinessApproval) {
+      void sendMailer(
+        user.email,
+        'Your business has been approved!',
+        createNotificationEmailTemplate({
+          heading: 'Your business has been approved!',
+          subheading: 'Your business profile is now live on Jolynn.',
+          greetingName: user.firstName || user.businessName || 'there',
+          introText:
+            'Your business profile has been approved and is now visible on the platform.',
+          details: [
+            ...(user.businessName
+              ? [{ label: 'Business Name', value: user.businessName }]
+              : []),
+          ],
+          noteTitle: 'What happens next?',
+          noteText:
+            'You can now manage your business profile, services, gallery, and customer requests from your account.',
+        }),
+      ).catch((error) => {
+        console.error('Failed to send business approval email:', error);
+      });
     }
 
     return updatedUser;
