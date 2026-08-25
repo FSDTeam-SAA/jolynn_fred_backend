@@ -50,10 +50,9 @@ export class Qoute {
   email: string;
 
   @Prop({
-    required: [true, 'Phone number is required'],
     trim: true,
   })
-  phoneNumber: string;
+  phoneNumber?: string;
 
   @Prop({
     required: [true, 'Service needed is required'],

@@ -504,13 +504,13 @@ export class AuthService {
       serviceCategory,
     );
 
-    await this.sendRegistrationConfirmation(
-      updatedUser.email,
-      [updatedUser.firstName, updatedUser.lastName].filter(Boolean).join(' ') ||
-        updatedUser.username ||
-        updatedUser.email,
-      'businessOwner',
-    );
+    // await this.sendRegistrationConfirmation(
+    //   updatedUser.email,
+    //   [updatedUser.firstName, updatedUser.lastName].filter(Boolean).join(' ') ||
+    //     updatedUser.username ||
+    //     updatedUser.email,
+    //   'businessOwner',
+    // );
 
     return this.createAuthenticatedSession(updatedUser, res);
   }

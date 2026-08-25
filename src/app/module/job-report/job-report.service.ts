@@ -72,23 +72,23 @@ export class JobReportService {
       );
     }
 
-    if (post.email) {
-      sendMailer(
-        post.email,
-        'Your Job Post Has Been Reported',
-        createNotificationEmailTemplate({
-          heading: 'Your Post Was Reported',
-          greetingName: post.username,
-          introText:
-            'Your job post has been reported by another user. Please review the details below.',
-          details: [{ label: 'Message', value: createJobReportDto.message }],
-          noteTitle: 'What happens next?',
-          noteText: 'Our team will review this report shortly.',
-        }),
-      ).catch((err) =>
-        console.error('Failed to send reported user email:', err),
-      );
-    }
+    // if (post.email) {
+    //   sendMailer(
+    //     post.email,
+    //     'Your Job Post Has Been Reported',
+    //     createNotificationEmailTemplate({
+    //       heading: 'Your Post Was Reported',
+    //       greetingName: post.username,
+    //       introText:
+    //         'Your job post has been reported by another user. Please review the details below.',
+    //       details: [{ label: 'Message', value: createJobReportDto.message }],
+    //       noteTitle: 'What happens next?',
+    //       noteText: 'Our team will review this report shortly.',
+    //     }),
+    //   ).catch((err) =>
+    //     console.error('Failed to send reported user email:', err),
+    //   );
+    // }
 
     return jobReport;
   }
