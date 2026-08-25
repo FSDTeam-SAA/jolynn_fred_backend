@@ -36,6 +36,9 @@ export class BusinessService {
   @Prop({ type: String, trim: true, default: null })
   requestedCategory?: string | null;
 
+  @Prop({ type: [String], default: [] })
+  keywords: string[];
+
   @Prop({ type: String, trim: true, default: 'active' })
   status: 'active' | 'pending';
 
