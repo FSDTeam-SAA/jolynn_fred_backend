@@ -51,9 +51,9 @@ export class ReportService {
       message: createReportDto.message,
     });
 
-    const emailBody = `<p>A new report has been submitted.</p>
-       <p><strong>Reported Business Owner:</strong> ${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})</p>
-       <p><strong>Message:</strong> ${createReportDto.message}</p>`;
+    // const emailBody = `<p>A new report has been submitted.</p>
+    //    <p><strong>Reported Business Owner:</strong> ${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})</p>
+    //    <p><strong>Message:</strong> ${createReportDto.message}</p>`;
 
     if (config.email.admin) {
       sendMailer(
@@ -77,24 +77,24 @@ export class ReportService {
       );
     }
 
-    if (owner.email) {
-      sendMailer(
-        owner.email,
-        'You Have Been Reported',
-        createNotificationEmailTemplate({
-          heading: 'A Report Was Filed Against You',
-          greetingName: owner.firstName || '',
-          introText:
-            'A user has submitted a report against your business account. Please review the details below.',
-          details: [{ label: 'Message', value: createReportDto.message }],
-          noteTitle: 'What happens next?',
-          noteText:
-            'Our team will review this report and may reach out to you for more information.',
-        }),
-      ).catch((err) =>
-        console.error('Failed to send owner report email:', err),
-      );
-    }
+    // if (owner.email) {
+    //   sendMailer(
+    //     owner.email,
+    //     'You Have Been Reported',
+    //     createNotificationEmailTemplate({
+    //       heading: 'A Report Was Filed Against You',
+    //       greetingName: owner.firstName || '',
+    //       introText:
+    //         'A user has submitted a report against your business account. Please review the details below.',
+    //       details: [{ label: 'Message', value: createReportDto.message }],
+    //       noteTitle: 'What happens next?',
+    //       noteText:
+    //         'Our team will review this report and may reach out to you for more information.',
+    //     }),
+    //   ).catch((err) =>
+    //     console.error('Failed to send owner report email:', err),
+    //   );
+    // }
 
     return report;
   }
