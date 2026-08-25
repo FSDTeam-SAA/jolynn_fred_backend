@@ -40,6 +40,11 @@ type PaymentSuccessTemplateParams = {
   paymentMethod?: string;
 };
 
+export const SIDEQUOTE_EMAIL_LOGO_CID = 'sidequote-logo';
+
+const sideQuoteEmailLogoHtml = `
+                <img src="cid:${SIDEQUOTE_EMAIL_LOGO_CID}" width="64" height="64" alt="SideQuote" style="display:block;width:64px;height:64px;margin:0 auto 18px;border:0;border-radius:50%;outline:none;text-decoration:none;" />`;
+
 const brand = {
   name: 'Jolynn',
   primary: '#626d5a',
@@ -122,7 +127,7 @@ export const createRegistrationConfirmationEmailTemplate = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
               <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:38px 34px 34px;text-align:center;">
-                <div style="display:inline-block;width:54px;height:54px;line-height:54px;background:#ffffff;border-radius:50%;margin-bottom:18px;color:${sideQuoteBrand.secondary};font-family:Georgia,serif;font-size:36px;font-weight:700;">&ldquo;</div>
+                ${sideQuoteEmailLogoHtml}
                 <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.25;font-weight:800;">Welcome to ${sideQuoteBrand.name}</h1>
                 <p style="margin:12px 0 0;color:#eaf7ff;font-size:16px;line-height:1.6;">Your account is ready. Let&rsquo;s get you signed in.</p>
               </td>
@@ -206,7 +211,7 @@ export const createNewsletterEmailTemplate = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
               <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:34px;text-align:center;">
-                <div style="display:inline-block;width:48px;height:48px;line-height:48px;background:#ffffff;border-radius:50%;margin-bottom:16px;color:${sideQuoteBrand.secondary};font-family:Georgia,serif;font-size:32px;font-weight:700;">&ldquo;</div>
+                ${sideQuoteEmailLogoHtml}
                 <p style="margin:0 0 10px;color:#dff4ff;font-size:13px;line-height:1.4;text-transform:uppercase;letter-spacing:1.8px;font-weight:800;">${sideQuoteBrand.name} Newsletter</p>
                 <h1 style="margin:0;color:#ffffff;font-size:29px;line-height:1.3;font-weight:800;">${safeSubject}</h1>
               </td>
@@ -267,9 +272,7 @@ export const createForgotPasswordEmailTemplate = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
               <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:34px 34px 30px;text-align:center;">
-                <div style="display:inline-block;background:#ffffff;border-radius:999px;padding:10px 18px;margin-bottom:18px;">
-                  <span style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:${sideQuoteBrand.secondary};font-weight:700;">${sideQuoteBrand.name}</span>
-                </div>
+                ${sideQuoteEmailLogoHtml}
                 <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:700;">Reset your password</h1>
                 <p style="margin:10px 0 0;color:#dff4ff;font-size:15px;line-height:1.6;">Use the verification code below to continue securely.</p>
               </td>
@@ -361,9 +364,7 @@ export const createPaymentSuccessEmailTemplate = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${brand.panel};border:1px solid ${brand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(39,42,37,0.10);">
             <tr>
               <td style="background:${brand.primary};padding:34px 34px 30px;text-align:center;">
-                <div style="display:inline-block;background:${brand.cream};border-radius:999px;padding:10px 18px;margin-bottom:18px;">
-                  <span style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:${brand.gold};font-weight:700;">${brand.name}</span>
-                </div>
+                ${sideQuoteEmailLogoHtml}
                 <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:700;">Payment Received</h1>
                 <p style="margin:10px 0 0;color:#ece8df;font-size:15px;line-height:1.6;">Thank you for your payment. Your transaction was completed successfully.</p>
               </td>
@@ -462,7 +463,7 @@ export const createNotificationEmailTemplate = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
               <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:34px 34px 30px;text-align:center;">
-                <div style="display:inline-block;width:48px;height:48px;line-height:48px;background:#ffffff;border-radius:50%;margin-bottom:16px;color:${sideQuoteBrand.secondary};font-family:Georgia,serif;font-size:32px;font-weight:700;">&ldquo;</div>
+                ${sideQuoteEmailLogoHtml}
                 <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:800;">${heading}</h1>
                 ${subheading ? `<p style="margin:10px 0 0;color:#eaf7ff;font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
               </td>
@@ -520,3 +521,31 @@ export const createNotificationEmailTemplate = ({
   </body>
 </html>`;
 };
+
+export const createBusinessCategoryApprovedEmailTemplate = ({
+  displayName,
+  businessName,
+  categoryName,
+}: {
+  displayName: string;
+  businessName?: string;
+  categoryName: string;
+}) =>
+  createNotificationEmailTemplate({
+    heading: 'Your Business Is Ready!',
+    subheading: 'Your requested business category has been approved.',
+    greetingName: escapeHtml(displayName || 'there'),
+    introText:
+      'Great news! Your requested category has been approved, and your business is now ready to connect with customers on SideQuote.',
+    details: [
+      ...(businessName
+        ? [{ label: 'Business Name', value: escapeHtml(businessName) }]
+        : []),
+      { label: 'Approved Category', value: escapeHtml(categoryName) },
+    ],
+    noteTitle: "You're ready for business",
+    noteText:
+      'You can now manage your business profile, add services, showcase your work, and respond to customer opportunities from your account.',
+    footerText:
+      'This is an automated business approval notification from SideQuote. Please do not reply directly to this email.',
+  });

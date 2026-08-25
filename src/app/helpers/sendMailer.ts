@@ -23,7 +23,10 @@
 
 // export default sendMailer;
 import nodemailer, { Transporter } from 'nodemailer';
+import * as fs from 'fs';
+import { join } from 'path';
 import config from '../config';
+import { SIDEQUOTE_EMAIL_LOGO_CID } from './template';
 
 let transporter: Transporter | undefined;
 
@@ -31,6 +34,32 @@ type MailAttachment = {
   filename: string;
   content: Buffer;
   contentType?: string;
+  cid?: string;
+  contentDisposition?: 'attachment' | 'inline';
+};
+
+let sideQuoteLogoAttachment: MailAttachment | null | undefined;
+
+const getSideQuoteLogoAttachment = () => {
+  if (sideQuoteLogoAttachment !== undefined) {
+    return sideQuoteLogoAttachment;
+  }
+
+  const logoPath = join(process.cwd(), 'logo.webp');
+  if (!fs.existsSync(logoPath)) {
+    sideQuoteLogoAttachment = null;
+    return sideQuoteLogoAttachment;
+  }
+
+  sideQuoteLogoAttachment = {
+    filename: 'logo.webp',
+    content: fs.readFileSync(logoPath),
+    contentType: 'image/webp',
+    cid: SIDEQUOTE_EMAIL_LOGO_CID,
+    contentDisposition: 'inline',
+  };
+
+  return sideQuoteLogoAttachment;
 };
 
 const sendMailer = async (
@@ -68,12 +97,16 @@ const sendMailer = async (
   });
 
   try {
+    const logoAttachment = getSideQuoteLogoAttachment();
     const info = await transporter.sendMail({
       from: `"SideQuote" <${sender}>`,
       to: email,
       subject,
       html,
-      attachments,
+      attachments: [
+        ...(logoAttachment ? [logoAttachment] : []),
+        ...(attachments ?? []),
+      ],
     });
 
     console.log('Message sent:', info.messageId);
