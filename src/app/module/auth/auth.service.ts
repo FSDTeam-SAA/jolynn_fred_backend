@@ -82,6 +82,7 @@ export class AuthService {
     category: string,
     requestedCategory: string | undefined,
     serviceCategory: { _id: Types.ObjectId; name: string; status: string },
+    keywords?: string[],
   ) {
     const isPendingCategory = serviceCategory.status === 'pending';
     const isOtherPendingCategory =
@@ -92,11 +93,26 @@ export class AuthService {
       title: isOtherPendingCategory ? category : serviceCategory.name,
       requestedCategory: isOtherPendingCategory ? requestedCategory : null,
       serviceCategoryId: serviceCategory._id,
+      keywords: this.normalizeKeywords(keywords),
       description: isOtherPendingCategory
         ? `Service requested for ${requestedCategory}`
         : `${serviceCategory.name} service`,
       status: isPendingCategory ? 'pending' : 'active',
     });
+  }
+
+  private normalizeKeywords(keywords?: string[]) {
+    if (!keywords?.length) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        keywords
+          .map((keyword) => keyword.trim().replace(/\s+/g, ' ').toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
   }
 
   private sanitizeUser(user: UserDocument) {
@@ -386,6 +402,7 @@ export class AuthService {
       registerBusinessOwnerDto.category,
       registerBusinessOwnerDto.requestedCategory,
       serviceCategory,
+      registerBusinessOwnerDto.keywords,
     );
 
     const verificationToken = await this.createEmailVerificationTokenForUser(
@@ -502,6 +519,7 @@ export class AuthService {
       registerBusinessOwnerDto.category,
       registerBusinessOwnerDto.requestedCategory,
       serviceCategory,
+      registerBusinessOwnerDto.keywords,
     );
 
     // await this.sendRegistrationConfirmation(

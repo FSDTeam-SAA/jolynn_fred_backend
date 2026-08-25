@@ -28,6 +28,43 @@ const createQuery = <T>(value: T) => {
 };
 
 describe('ServiceService global business search', () => {
+  it('normalizes and saves business-specific keywords when creating a service', async () => {
+    const categoryId = new Types.ObjectId();
+    const ownerId = new Types.ObjectId();
+    const serviceModel = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((payload) => payload),
+    };
+    const serviceCategoryService = {
+      resolveCategorySelection: jest.fn().mockResolvedValue({
+        _id: categoryId,
+        name: 'Plumbing',
+        status: 'approved',
+      }),
+    };
+    const service = new ServiceService(
+      serviceModel as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      serviceCategoryService as any,
+    );
+
+    await service.createService(ownerId.toString(), {
+      title: 'Plumbing',
+      description: 'Residential plumbing repairs',
+      keywords: [' Emergency Plumber ', 'emergency   plumber', 'Pipe Repair'],
+    });
+
+    expect(serviceModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId,
+        serviceCategoryId: categoryId,
+        keywords: ['emergency plumber', 'pipe repair'],
+      }),
+    );
+  });
+
   it('returns an owner matched by a category keyword without requiring a profile match', async () => {
     const categoryId = new Types.ObjectId();
     const ownerId = new Types.ObjectId();
@@ -104,6 +141,91 @@ describe('ServiceService global business search', () => {
       expect.arrayContaining([
         expect.objectContaining({ $or: expect.anything() }),
       ]),
+    );
+  });
+
+  it('returns every active profile sharing the same business keyword', async () => {
+    const categoryId = new Types.ObjectId();
+    const firstOwnerId = new Types.ObjectId();
+    const secondOwnerId = new Types.ObjectId();
+    const matchingServices = [
+      {
+        id: new Types.ObjectId().toString(),
+        ownerId: firstOwnerId,
+        title: 'Plumbing',
+        description: 'Residential plumbing repairs',
+        createdAt: new Date(),
+      },
+      {
+        id: new Types.ObjectId().toString(),
+        ownerId: secondOwnerId,
+        title: 'Heating',
+        description: 'Home heating services',
+        createdAt: new Date(),
+      },
+    ];
+    const owners = [
+      {
+        id: firstOwnerId.toString(),
+        email: 'first@example.com',
+        businessName: 'First Business',
+        role: 'businessOwner',
+        status: 'active',
+        createdAt: new Date(),
+      },
+      {
+        id: secondOwnerId.toString(),
+        email: 'second@example.com',
+        businessName: 'Second Business',
+        role: 'businessOwner',
+        status: 'active',
+        createdAt: new Date(),
+      },
+    ];
+    const serviceModel = {
+      find: jest.fn().mockReturnValue(createQuery(matchingServices)),
+    };
+    const userModel = {
+      find: jest
+        .fn()
+        .mockReturnValueOnce(createQuery([]))
+        .mockReturnValueOnce(createQuery(owners)),
+    };
+    const reviewModel = {
+      aggregate: jest.fn().mockResolvedValue([]),
+    };
+    const serviceCategoryModel = {
+      find: jest
+        .fn()
+        .mockReturnValueOnce(createQuery([categoryId]))
+        .mockReturnValueOnce(createQuery([])),
+    };
+    const service = new ServiceService(
+      serviceModel as any,
+      userModel as any,
+      reviewModel as any,
+      serviceCategoryModel as any,
+      {} as any,
+    );
+
+    const result = await service.searchBusinessOwnersByService(
+      { searchTerm: 'emergency repair' },
+      { page: 1, limit: 10 },
+    );
+
+    expect(result.meta.total).toBe(2);
+    expect(result.data.map((profile) => profile.businessOwnerId)).toEqual(
+      expect.arrayContaining([
+        firstOwnerId.toString(),
+        secondOwnerId.toString(),
+      ]),
+    );
+    expect(serviceModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        $or: expect.arrayContaining([
+          { keywords: { $regex: expect.any(RegExp) } },
+        ]),
+      }),
     );
   });
 });
