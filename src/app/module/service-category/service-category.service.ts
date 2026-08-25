@@ -17,6 +17,8 @@ import {
   HelpWantedDocument,
 } from '../help-wanted/entities/help-wanted.entity';
 import { User, UserDocument } from '../user/entities/user.entity';
+import sendMailer from 'src/app/helpers/sendMailer';
+import { createBusinessCategoryApprovedEmailTemplate } from 'src/app/helpers/template';
 
 const serviceCategorySearchAbleFields = [
   'name',
@@ -135,6 +137,40 @@ export class ServiceCategoryService {
     return this.serviceCategoryModel.findOne({
       normalizedName: this.normalizeCategoryName(name),
     });
+  }
+
+  private notifyBusinessOwnersCategoryApproved(
+    businessOwners: Array<{
+      email: string;
+      firstName?: string;
+      lastName?: string;
+      businessName?: string;
+    }>,
+    categoryName: string,
+  ) {
+    for (const businessOwner of businessOwners) {
+      const displayName =
+        [businessOwner.firstName, businessOwner.lastName]
+          .filter(Boolean)
+          .join(' ') ||
+        businessOwner.businessName ||
+        'there';
+
+      void sendMailer(
+        businessOwner.email,
+        'Your business is ready on SideQuote',
+        createBusinessCategoryApprovedEmailTemplate({
+          displayName,
+          businessName: businessOwner.businessName,
+          categoryName,
+        }),
+      ).catch((error) => {
+        console.error(
+          'Failed to send business category approval email:',
+          error,
+        );
+      });
+    }
   }
 
   private async ensureNoPendingCategoryRequest(requestedByUserId?: string) {
@@ -554,6 +590,29 @@ export class ServiceCategoryService {
     );
 
     if (status === 'approved' && updatedCategory) {
+      const pendingServiceOwnerIds = await this.businessServiceModel.distinct(
+        'ownerId',
+        {
+          serviceCategoryId: updatedCategory._id,
+          status: 'pending',
+        },
+      );
+      const businessOwnersToNotify = await this.userModel
+        .find({
+          role: 'businessOwner',
+          $or: [
+            {
+              serviceCategoryId: updatedCategory._id,
+              status: 'pending',
+            },
+            ...(pendingServiceOwnerIds.length
+              ? [{ _id: { $in: pendingServiceOwnerIds } }]
+              : []),
+          ],
+        })
+        .select('email firstName lastName businessName')
+        .lean();
+
       await this.helpWantedModel.updateMany(
         {
           serviceCategoryId: updatedCategory._id,
@@ -590,6 +649,11 @@ export class ServiceCategoryService {
             requestedCategory: null,
           },
         },
+      );
+
+      this.notifyBusinessOwnersCategoryApproved(
+        businessOwnersToNotify,
+        updatedCategory.name,
       );
     }
 
