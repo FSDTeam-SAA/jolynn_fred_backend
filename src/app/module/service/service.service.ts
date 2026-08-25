@@ -19,7 +19,7 @@ import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
 
-const serviceSearchAbleFields = ['title', 'description'];
+const serviceSearchAbleFields = ['title', 'description', 'keywords'];
 const businessOwnerSearchAbleFields = [
   'firstName',
   'lastName',
@@ -41,7 +41,7 @@ const businessOwnerSearchAbleFields = [
   'tag',
 ];
 
-const serviceGlobalSearchableFields = ['title', 'description'];
+const serviceGlobalSearchableFields = ['title', 'description', 'keywords'];
 
 const serviceCategorySearchableFields = [
   'name',
@@ -93,6 +93,20 @@ export class ServiceService {
     }
 
     return new RegExp(`^${this.escapeRegex(value.trim())}$`, 'i');
+  }
+
+  private normalizeKeywords(keywords?: string[]) {
+    if (!keywords?.length) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        keywords
+          .map((keyword) => keyword.trim().replace(/\s+/g, ' ').toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
   }
 
   private parseMinimumRating(value: unknown) {
@@ -482,6 +496,7 @@ export class ServiceService {
       title,
       serviceCategoryId: serviceCategory._id,
       requestedCategory: isOtherCategory ? payload.requestedCategory : null,
+      keywords: this.normalizeKeywords(payload.keywords),
       status: isPendingCategory ? 'pending' : 'active',
       description: payload.description,
     };
@@ -863,6 +878,10 @@ export class ServiceService {
     }
 
     delete payload.requestedCategory;
+
+    if (payload.keywords !== undefined) {
+      payload.keywords = this.normalizeKeywords(payload.keywords);
+    }
 
     await this.ensureUniqueTitle(ownerId, payload.title, serviceId);
 

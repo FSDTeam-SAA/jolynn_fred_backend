@@ -1,5 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -8,6 +10,7 @@ import {
   IsString,
   IsUrl,
   Matches,
+  MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
@@ -23,6 +26,36 @@ const normalizeUsernameInput = ({ value }: { value: unknown }) =>
 
 const emptyStringToUndefined = ({ value }: { value: unknown }) =>
   value === '' ? undefined : normalizeString({ value });
+
+const parseStringArray = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return [];
+  }
+
+  try {
+    const parsedValue: unknown = JSON.parse(normalizedValue);
+    if (Array.isArray(parsedValue)) {
+      return parsedValue;
+    }
+  } catch {
+    // Accept comma-separated keywords in addition to JSON arrays.
+  }
+
+  return normalizedValue.split(',');
+};
 
 export class RegisterUserDto {
   @ApiProperty({ example: 'John' })
@@ -186,6 +219,20 @@ export class RegisterBusinessOwnerDto {
   @Transform(emptyStringToUndefined)
   @IsString()
   requestedCategory?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['emergency plumber', 'pipe repair', '24 hour plumbing'],
+    description: 'Business-specific keywords used to find this profile',
+    maxItems: 20,
+  })
+  @IsOptional()
+  @Transform(parseStringArray)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  keywords?: string[];
 
   @ApiProperty({ example: 'New York' })
   @Transform(normalizeString)
