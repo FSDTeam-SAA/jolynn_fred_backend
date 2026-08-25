@@ -63,6 +63,20 @@ const sideQuoteBrand = {
   border: '#dce7f2',
 };
 
+const sideQuoteLegalLinksHtml = `
+  <p style="margin:10px 0 0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">
+    <a href="https://sidequote.cloud/privacy-policy" target="_blank" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">Privacy Policy</a>
+    <span style="color:${sideQuoteBrand.muted};"> | </span>
+    <a href="https://sidequote.cloud/terms-and-condition" target="_blank" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">Terms and Conditions</a>
+  </p>`;
+
+const jolynnLegalLinksHtml = `
+  <p style="margin:10px 0 0;color:${brand.muted};font-size:12px;line-height:1.7;">
+    <a href="https://sidequote.cloud/privacy-policy" target="_blank" style="color:${brand.gold};text-decoration:underline;">Privacy Policy</a>
+    <span style="color:${brand.muted};"> | </span>
+    <a href="https://sidequote.cloud/terms-and-condition" target="_blank" style="color:${brand.gold};text-decoration:underline;">Terms and Conditions</a>
+  </p>`;
+
 const escapeHtml = (value: string) =>
   value.replace(
     /[&<>"']/g,
@@ -154,6 +168,7 @@ export const createRegistrationConfirmationEmailTemplate = ({
             <tr>
               <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:24px 34px;text-align:center;">
                 <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">If you did not create this account, please contact our support team.</p>
+                ${sideQuoteLegalLinksHtml}
                 <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
               </td>
             </tr>
@@ -219,6 +234,7 @@ export const createNewsletterEmailTemplate = ({
             <tr>
               <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:24px 34px;text-align:center;">
                 <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">You received this newsletter because you have an active ${sideQuoteBrand.name} account.</p>
+                ${sideQuoteLegalLinksHtml}
                 <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
               </td>
             </tr>
@@ -302,6 +318,7 @@ export const createForgotPasswordEmailTemplate = ({
             <tr>
               <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:22px 34px;text-align:center;">
                 <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">For your security, never share this code with anyone.</p>
+                ${sideQuoteLegalLinksHtml}
                 <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:12px;line-height:1.7;font-weight:700;">${sideQuoteBrand.name} Support Team</p>
               </td>
             </tr>
@@ -401,6 +418,7 @@ export const createPaymentSuccessEmailTemplate = ({
             <tr>
               <td style="background:#ffffff;border-top:1px solid ${brand.border};padding:22px 34px;text-align:center;">
                 <p style="margin:0;color:${brand.muted};font-size:12px;line-height:1.7;">If you did not authorize this payment, contact our support team immediately.</p>
+                ${jolynnLegalLinksHtml}
                 <p style="margin:8px 0 0;color:${brand.primary};font-size:12px;line-height:1.7;font-weight:700;">${brand.name} Billing Team</p>
               </td>
             </tr>
@@ -491,6 +509,7 @@ export const createNotificationEmailTemplate = ({
             <tr>
               <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:22px 34px;text-align:center;">
                 <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
+                ${sideQuoteLegalLinksHtml}
                 <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
               </td>
             </tr>
