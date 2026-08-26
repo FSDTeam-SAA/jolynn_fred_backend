@@ -10,7 +10,11 @@ import {
   ServiceCategorySchema,
 } from '../service-category/entities/service-category.entity';
 import { SearchDataModule } from '../search-data/search-data.module';
-
+import {
+  HelpWantedCounter,
+  HelpWantedCounterSchema,
+} from './entities/help-wanted-counter.entity';
+  
 @Module({
   imports: [
     SearchDataModule,
@@ -19,6 +23,7 @@ import { SearchDataModule } from '../search-data/search-data.module';
       { name: HelpWanted.name, schema: HelpWantedSchema },
       { name: User.name, schema: UserSchema },
       { name: ServiceCategory.name, schema: ServiceCategorySchema },
+      { name: HelpWantedCounter.name, schema: HelpWantedCounterSchema },
     ]),
   ],
   controllers: [HelpWantedController],
