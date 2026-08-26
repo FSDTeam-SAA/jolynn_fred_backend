@@ -403,10 +403,10 @@ export class ServiceCategoryService {
     };
   }
 
-  async getPublicServiceCategories(params: IFilterParams, options: IOptions) {
+   async getPublicServiceCategories(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper({
       limit: 50,
-      sortBy: 'createdAt',
+      sortBy: 'viewCount',
       sortOrder: 'desc',
       ...options,
     });
