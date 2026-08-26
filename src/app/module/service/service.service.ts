@@ -577,8 +577,12 @@ export class ServiceService {
     return this.getServicesByOwner(ownerId, params, options);
   }
 
-  async getAllPublicServices(params: IFilterParams, options: IOptions) {
-    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    async getAllPublicServices(params: IFilterParams, options: IOptions) {
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper({
+      sortBy: 'viewCount',
+      sortOrder: 'desc',
+      ...options,
+    });
     const approvedCategoryIds = await this.serviceCategoryModel
       .find({ status: 'approved', isActive: true })
       .distinct('_id');

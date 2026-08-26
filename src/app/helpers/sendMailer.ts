@@ -71,7 +71,7 @@ const sendMailer = async (
   const port = Number(config.email.port || 587);
   const authUser = config.email.address || config.email.from;
   const authPass = config.email.pass;
-  const sender = config.email.from || authUser;
+  const sender = config.email.displayFrom || config.email.from || authUser;
 
   if (!config.email.host || !authUser || !authPass || !sender) {
     throw new Error(
