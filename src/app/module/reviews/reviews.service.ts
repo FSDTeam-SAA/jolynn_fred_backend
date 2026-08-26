@@ -9,6 +9,11 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { ReplyReviewDto } from './dto/reply-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Review, ReviewDocument } from './entities/review.entity';
+import {
+  businessOwnerMembershipFilter,
+  getBusinessProfile,
+  getPersonalProfile,
+} from 'src/app/helpers/account-profile';
 
 const reviewSearchAbleFields = ['message', 'reviewerName', 'businessName'];
 
@@ -39,15 +44,30 @@ export class ReviewsService {
     return new Types.ObjectId(id);
   }
 
-  private buildDisplayName(user: UserDocument) {
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
-    return user.businessName || fullName || user.username || user.email;
+  private buildDisplayName(
+    user: UserDocument,
+    profileType: 'user' | 'businessOwner',
+  ) {
+    if (profileType === 'businessOwner') {
+      const profile = getBusinessProfile(user);
+      return (
+        profile.businessName || profile.ownerName || user.username || 'Business'
+      );
+    }
+    const profile = getPersonalProfile(user);
+    return (
+      [profile.firstName, profile.lastName].filter(Boolean).join(' ') ||
+      user.username ||
+      user.email
+    );
   }
 
   private async getBusinessOrThrow(businessId: string) {
     const business = await this.userModel.findOne({
-      _id: this.toObjectId(businessId, 'business id'),
-      role: 'businessOwner',
+      $and: [
+        { _id: this.toObjectId(businessId, 'business id') },
+        businessOwnerMembershipFilter,
+      ],
     });
 
     if (!business) {
@@ -152,9 +172,9 @@ export class ReviewsService {
     return this.reviewModel.create({
       businessId: business._id,
       reviewerId: reviewer._id,
-      reviewerName: this.buildDisplayName(reviewer),
-      reviewerAvatar: reviewer.profilePicture,
-      businessName: this.buildDisplayName(business),
+      reviewerName: this.buildDisplayName(reviewer, 'user'),
+      reviewerAvatar: getPersonalProfile(reviewer).profilePicture,
+      businessName: this.buildDisplayName(business, 'businessOwner'),
       rating: payload.rating,
       message: payload.message,
     });
@@ -346,7 +366,7 @@ export class ReviewsService {
         reply: {
           message: replyReviewDto.message,
           repliedById: businessOwner._id,
-          repliedByName: this.buildDisplayName(businessOwner),
+          repliedByName: this.buildDisplayName(businessOwner, 'businessOwner'),
           repliedAt: new Date(),
         },
       },

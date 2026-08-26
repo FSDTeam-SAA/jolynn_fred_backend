@@ -12,6 +12,125 @@ import {
   type UserStatus,
 } from 'src/app/constants/auth.constants';
 
+@Schema({ _id: false })
+export class PersonalProfile {
+  @Prop({ trim: true })
+  firstName?: string;
+
+  @Prop({ trim: true })
+  lastName?: string;
+
+  @Prop({ type: String, enum: USER_GENDERS, default: 'male' })
+  gender?: UserGender;
+
+  @Prop()
+  phoneNumber?: string;
+
+  @Prop()
+  country?: string;
+
+  @Prop()
+  city?: string;
+
+  @Prop()
+  state?: string;
+
+  @Prop()
+  address?: string;
+
+  @Prop()
+  postcode?: string;
+
+  @Prop()
+  profilePicture?: string;
+
+  @Prop()
+  backgroundImage?: string;
+
+  @Prop()
+  dateOfBirth?: Date;
+
+  @Prop()
+  bio?: string;
+
+  @Prop({
+    enum: [
+      'Boiler Customer',
+      'Annual Service Agreement',
+      'Heat Pump Quote',
+      'Bathroom Lead',
+    ],
+    default: 'Boiler Customer',
+  })
+  tag?: string;
+}
+
+export const PersonalProfileSchema =
+  SchemaFactory.createForClass(PersonalProfile);
+
+@Schema({ _id: false })
+export class BusinessProfile {
+  @Prop({ trim: true })
+  businessName?: string;
+
+  @Prop({ trim: true })
+  ownerName?: string;
+
+  @Prop({ lowercase: true, trim: true })
+  businessEmail?: string;
+
+  @Prop({ trim: true })
+  businessWebsiteUrl?: string;
+
+  @Prop({ trim: true })
+  serviceArea?: string;
+
+  @Prop({ trim: true })
+  category?: string;
+
+  @Prop({ type: String, trim: true, default: null })
+  requestedCategory?: string | null;
+
+  @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
+  serviceCategoryId?: Types.ObjectId;
+
+  @Prop()
+  phoneNumber?: string;
+
+  @Prop()
+  country?: string;
+
+  @Prop()
+  city?: string;
+
+  @Prop()
+  state?: string;
+
+  @Prop()
+  address?: string;
+
+  @Prop()
+  postcode?: string;
+
+  @Prop()
+  profilePicture?: string;
+
+  @Prop()
+  backgroundImage?: string;
+
+  @Prop()
+  bio?: string;
+
+  @Prop({ type: String, enum: USER_STATUSES, default: 'active' })
+  status?: UserStatus;
+
+  @Prop()
+  stripeAccountId?: string;
+}
+
+export const BusinessProfileSchema =
+  SchemaFactory.createForClass(BusinessProfile);
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ trim: true })
@@ -42,12 +161,28 @@ export class User {
   password: string;
 
   @Prop({
+    type: String,
     enum: USER_ROLES,
     default: 'user',
   })
   role: UserRole;
 
-  @Prop({ enum: USER_GENDERS, default: 'male' })
+  @Prop({ type: [String], enum: USER_ROLES, default: undefined })
+  roles?: UserRole[];
+
+  @Prop({ type: String, enum: USER_ROLES })
+  defaultRole?: UserRole;
+
+  @Prop({ type: String, enum: USER_STATUSES })
+  accountStatus?: UserStatus;
+
+  @Prop({ type: PersonalProfileSchema, default: undefined })
+  userProfile?: PersonalProfile;
+
+  @Prop({ type: BusinessProfileSchema, default: undefined })
+  businessProfile?: BusinessProfile;
+
+  @Prop({ type: String, enum: USER_GENDERS, default: 'male' })
   gender: UserGender;
 
   @Prop()
@@ -104,7 +239,7 @@ export class User {
   @Prop()
   otpExpiry?: Date;
 
-  @Prop({ enum: USER_STATUSES, default: 'active' })
+  @Prop({ type: String, enum: USER_STATUSES, default: 'active' })
   status: UserStatus;
 
   @Prop({ default: false })
@@ -141,6 +276,14 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.index({ roles: 1, 'businessProfile.status': 1 });
+UserSchema.index({ 'businessProfile.serviceCategoryId': 1 });
+UserSchema.index({
+  'businessProfile.category': 1,
+  'businessProfile.state': 1,
+  'businessProfile.city': 1,
+});
 
 UserSchema.pre('save', async function () {
   if (!this.isModified('password') || !this.password) return;

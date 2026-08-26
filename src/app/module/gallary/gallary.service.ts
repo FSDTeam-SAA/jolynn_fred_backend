@@ -6,6 +6,7 @@ import { fileUpload } from 'src/app/helpers/fileUploder';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import type { IFilterParams } from 'src/app/helpers/pick';
 import { User, UserDocument } from '../user/entities/user.entity';
+import { activeBusinessOwnerFilter } from 'src/app/helpers/account-profile';
 import { CreateGallaryDto } from './dto/create-gallary.dto';
 import { UpdateGallaryDto } from './dto/update-gallary.dto';
 import {
@@ -45,9 +46,10 @@ export class GallaryService {
 
   private async ensurePublicBusinessOwnerExists(ownerId: string) {
     const owner = await this.userModel.exists({
-      _id: this.toObjectId(ownerId, 'business owner id'),
-      role: 'businessOwner',
-      status: 'active',
+      $and: [
+        { _id: this.toObjectId(ownerId, 'business owner id') },
+        activeBusinessOwnerFilter,
+      ],
     });
 
     if (!owner) {

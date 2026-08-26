@@ -10,6 +10,10 @@ import {
 import { User, UserDocument } from '../user/entities/user.entity';
 import { CreateSaveQuoteDto } from './dto/create-save-quote.dto';
 import { SaveQuote, SaveQuoteDocument } from './entities/save-quote.entity';
+import {
+  activeBusinessOwnerFilter,
+  getBusinessProfile,
+} from 'src/app/helpers/account-profile';
 
 @Injectable()
 export class SaveQuoteService {
@@ -46,9 +50,10 @@ export class SaveQuoteService {
 
   private async getBusinessOwnerOrThrow(businessOwnerId: string) {
     const businessOwner = await this.userModel.findOne({
-      _id: this.toObjectId(businessOwnerId, 'business owner id'),
-      role: 'businessOwner',
-      status: 'active',
+      $and: [
+        { _id: this.toObjectId(businessOwnerId, 'business owner id') },
+        activeBusinessOwnerFilter,
+      ],
     });
 
     if (!businessOwner) {
@@ -160,9 +165,10 @@ export class SaveQuoteService {
       await Promise.all([
         this.userModel
           .find({
-            _id: { $in: businessOwnerIds },
-            role: 'businessOwner',
-            status: 'active',
+            $and: [
+              { _id: { $in: businessOwnerIds } },
+              activeBusinessOwnerFilter,
+            ],
           })
           .lean(),
         this.serviceModel
@@ -203,6 +209,7 @@ export class SaveQuoteService {
           averageRating: 0,
           totalReviews: 0,
         };
+        const profile = getBusinessProfile(businessOwner as any);
 
         return {
           id: savedBusiness._id.toString(),
@@ -210,19 +217,17 @@ export class SaveQuoteService {
           businessOwner: {
             businessOwnerId: ownerId,
             businessName:
-              businessOwner.businessName ||
-              businessOwner.username ||
-              businessOwner.email,
-            category: businessOwner.category,
-            city: businessOwner.city,
-            state: businessOwner.state,
-            country: businessOwner.country,
-            address: businessOwner.address,
-            serviceArea: businessOwner.serviceArea,
-            profilePicture: businessOwner.profilePicture,
-            bio: businessOwner.bio,
-            businessWebsiteUrl: businessOwner.businessWebsiteUrl,
-            phoneNumber: businessOwner.phoneNumber,
+              profile.businessName || businessOwner.username || 'Business',
+            category: profile.category,
+            city: profile.city,
+            state: profile.state,
+            country: profile.country,
+            address: profile.address,
+            serviceArea: profile.serviceArea,
+            profilePicture: profile.profilePicture,
+            bio: profile.bio,
+            businessWebsiteUrl: profile.businessWebsiteUrl,
+            phoneNumber: profile.phoneNumber,
             rating: reviewSummary.averageRating,
             totalReviews: reviewSummary.totalReviews,
             service: service

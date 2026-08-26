@@ -15,13 +15,20 @@ import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
+import {
+  businessOwnerMembershipFilter,
+  getBusinessProfile,
+} from 'src/app/helpers/account-profile';
 const reportSearchAbleFields = ['message'];
 
 const populateFields = [
-  { path: 'userId', select: 'firstName lastName email phoneNumber' },
+  {
+    path: 'userId',
+    select: 'firstName lastName email phoneNumber userProfile',
+  },
   {
     path: 'ownerId',
-    select: 'firstName lastName businessName email phoneNumber',
+    select: 'firstName lastName businessName email phoneNumber businessProfile',
   },
 ];
 
@@ -38,8 +45,7 @@ export class ReportService {
 
   async createReport(userId: string, createReportDto: CreateReportDto) {
     const owner = await this.userModel.findOne({
-      _id: createReportDto.ownerId,
-      role: 'businessOwner',
+      $and: [{ _id: createReportDto.ownerId }, businessOwnerMembershipFilter],
     });
     if (!owner) {
       throw new HttpException('Business owner not found', 404);
@@ -66,7 +72,11 @@ export class ReportService {
           details: [
             {
               label: 'Reported Business Owner',
-              value: `${owner.firstName || ''} ${owner.lastName || ''}`,
+              value:
+                getBusinessProfile(owner).ownerName ||
+                getBusinessProfile(owner).businessName ||
+                owner.username ||
+                owner.email,
             },
             { label: 'Owner Email', value: owner.email },
             { label: 'Message', value: createReportDto.message },

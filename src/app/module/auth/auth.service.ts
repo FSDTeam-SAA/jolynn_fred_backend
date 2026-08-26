@@ -2,8 +2,10 @@ import { HttpException, Injectable } from '@nestjs/common';
 import {
   LoginAuthDto,
   RegisterBusinessOwnerDto,
+  RegisterExistingBusinessUserDto,
   RegisterExistingUserBusinessOwnerDto,
   RegisterUserDto,
+  SwitchProfileDto,
 } from './dto/create-auth.dto';
 import { User, UserDocument } from '../user/entities/user.entity';
 import { InjectModel } from '@nestjs/mongoose';
@@ -32,6 +34,15 @@ import {
   BusinessServiceDocument,
 } from '../service/entities/service.entity';
 import { isEmail } from 'class-validator';
+import {
+  getAccountStatus,
+  getAvailableRoles,
+  getBusinessProfile,
+  getDefaultRole,
+  getPersonalProfile,
+  hasProfileRole,
+  toPlainProfile,
+} from 'src/app/helpers/account-profile';
 @Injectable()
 export class AuthService {
   constructor(
@@ -115,18 +126,35 @@ export class AuthService {
     ];
   }
 
-  private sanitizeUser(user: UserDocument) {
+  private sanitizeUser(
+    user: UserDocument,
+    activeRole = getDefaultRole(user),
+  ): Record<string, any> {
     const rawUser = user.toObject() as unknown as {
       password?: string;
       [key: string]: unknown;
     };
     const { password: _password, ...sanitizedUser } = rawUser;
+    const activeProfile =
+      activeRole === 'businessOwner'
+        ? toPlainProfile(getBusinessProfile(user))
+        : activeRole === 'user'
+          ? toPlainProfile(getPersonalProfile(user))
+          : undefined;
 
-    return sanitizedUser;
+    return {
+      ...sanitizedUser,
+      ...(activeProfile ?? {}),
+      role: activeRole,
+      roles: getAvailableRoles(user),
+      defaultRole: getDefaultRole(user),
+      accountStatus: getAccountStatus(user),
+      profile: activeProfile,
+    };
   }
 
-  private createTokenPayload(user: UserDocument) {
-    return { id: user._id, email: user.email, role: user.role };
+  private createTokenPayload(user: UserDocument, activeRole: UserRole) {
+    return { id: user._id, email: user.email, role: activeRole };
   }
 
   private buildCookieOptions() {
@@ -194,19 +222,29 @@ export class AuthService {
     }
   }
 
-  private createAuthenticatedSession(user: UserDocument, res: Response) {
-    const accessToken = this.jwtService.sign(this.createTokenPayload(user), {
-      secret: config.jwt.accessTokenSecret,
-      expiresIn: config.jwt.accessTokenExpires as any,
-    } as jwt.JwtSignOptions);
-    const refreshToken = this.jwtService.sign(this.createTokenPayload(user), {
-      secret: config.jwt.refreshTokenSecret,
-      expiresIn: config.jwt.refreshTokenExpires as any,
-    } as jwt.JwtSignOptions);
+  private createAuthenticatedSession(
+    user: UserDocument,
+    res: Response,
+    activeRole = getDefaultRole(user),
+  ) {
+    const accessToken = this.jwtService.sign(
+      this.createTokenPayload(user, activeRole),
+      {
+        secret: config.jwt.accessTokenSecret,
+        expiresIn: config.jwt.accessTokenExpires as any,
+      } as jwt.JwtSignOptions,
+    );
+    const refreshToken = this.jwtService.sign(
+      this.createTokenPayload(user, activeRole),
+      {
+        secret: config.jwt.refreshTokenSecret,
+        expiresIn: config.jwt.refreshTokenExpires as any,
+      } as jwt.JwtSignOptions,
+    );
 
     res.cookie('refreshToken', refreshToken, this.buildCookieOptions());
 
-    return { accessToken, user: this.sanitizeUser(user) };
+    return { accessToken, user: this.sanitizeUser(user, activeRole) };
   }
 
   private async ensureUniqueCredentials(email: string, username?: string) {
@@ -292,19 +330,25 @@ export class AuthService {
 
     const newUser = await this.createAccount(
       {
-        firstName: registerUserDto.firstName,
-        lastName: registerUserDto.lastName,
         username: registerUserDto.username,
         email: registerUserDto.email.toLowerCase(),
-        phoneNumber: registerUserDto.phoneNumber,
-        bio: registerUserDto.bio,
-        country: registerUserDto.country,
-        state: registerUserDto.state,
-        city: registerUserDto.city,
-        address: registerUserDto.address,
-        postcode: registerUserDto.postcode,
         password: registerUserDto.password,
         agreementAccepted: registerUserDto.agreementAccepted,
+        roles: ['user'],
+        defaultRole: 'user',
+        accountStatus: 'active',
+        userProfile: {
+          firstName: registerUserDto.firstName,
+          lastName: registerUserDto.lastName,
+          phoneNumber: registerUserDto.phoneNumber,
+          bio: registerUserDto.bio,
+          country: registerUserDto.country,
+          state: registerUserDto.state,
+          city: registerUserDto.city,
+          address: registerUserDto.address,
+          postcode: registerUserDto.postcode,
+        },
+        // Kept during the migration window for old admin filters.
         status: 'active',
       },
       'user',
@@ -357,33 +401,34 @@ export class AuthService {
 
     const newBusinessOwner = await this.createAccount(
       {
-        firstName: registerBusinessOwnerDto.ownerName.split(' ')[0],
-        lastName: registerBusinessOwnerDto.ownerName
-          .split(' ')
-          .slice(1)
-          .join(' '),
         username: registerBusinessOwnerDto.username.toLowerCase(),
         email: loginEmail.toLowerCase(),
-        businessName: registerBusinessOwnerDto.businessName,
-        businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
-        businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
-        bio: registerBusinessOwnerDto.bio,
-        address: registerBusinessOwnerDto.address,
-        serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: isOtherCategory
-          ? registerBusinessOwnerDto.category
-          : serviceCategory.name,
-        requestedCategory: isOtherCategory
-          ? registerBusinessOwnerDto.requestedCategory
-          : null,
-        serviceCategoryId: serviceCategory._id,
-        state: registerBusinessOwnerDto.state,
-        city: registerBusinessOwnerDto.city,
         agreementAccepted: registerBusinessOwnerDto.agreementAccepted,
         password: registerBusinessOwnerDto.password,
-        // Business owners are available immediately after registration.
-        // Email verification is still required before login.
-        status: isPendingCategory ? 'pending' : 'active',
+        roles: ['businessOwner'],
+        defaultRole: 'businessOwner',
+        accountStatus: 'active',
+        businessProfile: {
+          businessName: registerBusinessOwnerDto.businessName,
+          ownerName: registerBusinessOwnerDto.ownerName,
+          businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
+          businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
+          bio: registerBusinessOwnerDto.bio,
+          address: registerBusinessOwnerDto.address,
+          serviceArea: registerBusinessOwnerDto.serviceArea,
+          category: isOtherCategory
+            ? registerBusinessOwnerDto.category
+            : serviceCategory.name,
+          requestedCategory: isOtherCategory
+            ? registerBusinessOwnerDto.requestedCategory
+            : null,
+          serviceCategoryId: serviceCategory._id,
+          state: registerBusinessOwnerDto.state,
+          city: registerBusinessOwnerDto.city,
+          status: isPendingCategory ? 'pending' : 'active',
+        },
+        // Kept during the migration window for old admin filters.
+        status: 'active',
       },
       'businessOwner',
     );
@@ -397,13 +442,18 @@ export class AuthService {
       });
     }
 
-    await this.createBusinessProfileService(
-      new Types.ObjectId(String(newBusinessOwner._id)),
-      registerBusinessOwnerDto.category,
-      registerBusinessOwnerDto.requestedCategory,
-      serviceCategory,
-      registerBusinessOwnerDto.keywords,
-    );
+    try {
+      await this.createBusinessProfileService(
+        new Types.ObjectId(String(newBusinessOwner._id)),
+        registerBusinessOwnerDto.category,
+        registerBusinessOwnerDto.requestedCategory,
+        serviceCategory,
+        registerBusinessOwnerDto.keywords,
+      );
+    } catch (error) {
+      await this.userModel.findByIdAndDelete(newBusinessOwner._id);
+      throw error;
+    }
 
     const verificationToken = await this.createEmailVerificationTokenForUser(
       newBusinessOwner._id,
@@ -430,10 +480,14 @@ export class AuthService {
       throw new HttpException('User not found', 404);
     }
 
-    if (existingUser.role === 'businessOwner') {
-      if (existingUser.status === 'pending' && existingUser.requestedCategory) {
+    if (hasProfileRole(existingUser, 'businessOwner')) {
+      const existingBusinessProfile = getBusinessProfile(existingUser);
+      if (
+        existingBusinessProfile.status === 'pending' &&
+        existingBusinessProfile.requestedCategory
+      ) {
         throw new HttpException(
-          `Your requested Other category "${existingUser.requestedCategory}" is currently subject to admin review. Please wait for approval before requesting another category or creating a new business profile.`,
+          `Your requested Other category "${existingBusinessProfile.requestedCategory}" is currently subject to admin review. Please wait for approval before requesting another category or creating a new business profile.`,
           409,
         );
       }
@@ -441,11 +495,11 @@ export class AuthService {
       throw new HttpException('User already has a business owner account', 400);
     }
 
-    if (existingUser.status === 'rejected') {
+    if (getAccountStatus(existingUser) === 'rejected') {
       throw new HttpException('Your account has been rejected by admin', 403);
     }
 
-    if (existingUser.status === 'suspended') {
+    if (getAccountStatus(existingUser) === 'suspended') {
       throw new HttpException('Your account has been suspended', 403);
     }
 
@@ -468,9 +522,14 @@ export class AuthService {
       this.isOtherCategory(registerBusinessOwnerDto.category) &&
       isPendingCategory;
 
+    const personalProfile = getPersonalProfile(existingUser);
     const businessDetails = Object.fromEntries(
       Object.entries({
         businessName: registerBusinessOwnerDto.businessName,
+        ownerName:
+          [personalProfile.firstName, personalProfile.lastName]
+            .filter(Boolean)
+            .join(' ') || existingUser.username,
         businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
         businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
         bio: registerBusinessOwnerDto.bio,
@@ -485,14 +544,20 @@ export class AuthService {
         serviceCategoryId: serviceCategory._id,
         state: registerBusinessOwnerDto.state,
         city: registerBusinessOwnerDto.city,
-        role: 'businessOwner',
         status: isPendingCategory ? 'pending' : 'active',
       }).filter(([, value]) => value !== undefined),
     );
 
     const updatedUser = await this.userModel.findByIdAndUpdate(
       existingUser._id,
-      businessDetails,
+      {
+        $set: { businessProfile: businessDetails },
+        $addToSet: {
+          roles: {
+            $each: [...getAvailableRoles(existingUser), 'businessOwner'],
+          },
+        },
+      },
       { new: true, runValidators: true },
     );
 
@@ -504,7 +569,7 @@ export class AuthService {
       this.notifyAdminAboutCategoryApproval({
         category: registerBusinessOwnerDto.requestedCategory!,
         name:
-          [updatedUser.firstName, updatedUser.lastName]
+          [personalProfile.firstName, personalProfile.lastName]
             .filter(Boolean)
             .join(' ') ||
           updatedUser.username ||
@@ -514,13 +579,24 @@ export class AuthService {
       });
     }
 
-    await this.createBusinessProfileService(
-      updatedUser._id,
-      registerBusinessOwnerDto.category,
-      registerBusinessOwnerDto.requestedCategory,
-      serviceCategory,
-      registerBusinessOwnerDto.keywords,
-    );
+    try {
+      await this.createBusinessProfileService(
+        updatedUser._id,
+        registerBusinessOwnerDto.category,
+        registerBusinessOwnerDto.requestedCategory,
+        serviceCategory,
+        registerBusinessOwnerDto.keywords,
+      );
+    } catch (error) {
+      await this.userModel.updateOne(
+        { _id: updatedUser._id },
+        {
+          $unset: { businessProfile: 1 },
+          $pull: { roles: 'businessOwner' },
+        },
+      );
+      throw error;
+    }
 
     // await this.sendRegistrationConfirmation(
     //   updatedUser.email,
@@ -530,7 +606,96 @@ export class AuthService {
     //   'businessOwner',
     // );
 
-    return this.createAuthenticatedSession(updatedUser, res);
+    return this.createAuthenticatedSession(updatedUser, res, 'businessOwner');
+  }
+
+  async registerUserForExistingBusinessOwner(
+    userId: string,
+    registerUserDto: RegisterExistingBusinessUserDto,
+    res: Response,
+  ) {
+    const existingUser = await this.userModel.findById(userId);
+    if (!existingUser) {
+      throw new HttpException('User not found', 404);
+    }
+
+    if (!hasProfileRole(existingUser, 'businessOwner')) {
+      throw new HttpException('Business profile not found', 404);
+    }
+
+    if (hasProfileRole(existingUser, 'user')) {
+      throw new HttpException('User already has a personal profile', 409);
+    }
+
+    const accountStatus = getAccountStatus(existingUser);
+    if (accountStatus === 'rejected' || accountStatus === 'suspended') {
+      throw new HttpException('Your account is not active', 403);
+    }
+
+    if (!existingUser.emailVerified) {
+      throw new HttpException(
+        'Please verify your email address before creating a user profile',
+        403,
+      );
+    }
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      existingUser._id,
+      {
+        $set: {
+          userProfile: {
+            firstName: registerUserDto.firstName,
+            lastName: registerUserDto.lastName,
+            phoneNumber: registerUserDto.phoneNumber,
+            bio: registerUserDto.bio,
+            country: registerUserDto.country,
+            state: registerUserDto.state,
+            city: registerUserDto.city,
+            address: registerUserDto.address,
+            postcode: registerUserDto.postcode,
+          },
+        },
+        $addToSet: {
+          roles: { $each: [...getAvailableRoles(existingUser), 'user'] },
+        },
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!updatedUser) {
+      throw new HttpException('User not found', 404);
+    }
+
+    return this.createAuthenticatedSession(updatedUser, res, 'user');
+  }
+
+  async switchProfile(
+    userId: string,
+    switchProfileDto: SwitchProfileDto,
+    res: Response,
+  ) {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new HttpException('User not found', 404);
+    }
+
+    const accountStatus = getAccountStatus(user);
+    if (accountStatus === 'rejected' || accountStatus === 'suspended') {
+      throw new HttpException('Your account is not active', 403);
+    }
+
+    if (!hasProfileRole(user, switchProfileDto.targetRole)) {
+      throw new HttpException(
+        `You do not have a ${switchProfileDto.targetRole} profile`,
+        403,
+      );
+    }
+
+    return this.createAuthenticatedSession(
+      user,
+      res,
+      switchProfileDto.targetRole,
+    );
   }
 
   async login(loginDto: LoginAuthDto, res: Response) {
@@ -570,14 +735,14 @@ export class AuthService {
       throw new HttpException('Incorrect password', 401);
     }
 
-    if (user.status === 'rejected') {
+    if (getAccountStatus(user) === 'rejected') {
       throw new HttpException(
         'Your registration request was rejected by admin',
         403,
       );
     }
 
-    if (user.status === 'suspended') {
+    if (getAccountStatus(user) === 'suspended') {
       throw new HttpException('Your account has been suspended', 403);
     }
 
@@ -588,7 +753,7 @@ export class AuthService {
       );
     }
 
-    return this.createAuthenticatedSession(user, res);
+    return this.createAuthenticatedSession(user, res, getDefaultRole(user));
   }
 
   async verifyRegistrationEmail(token: string) {
@@ -652,10 +817,18 @@ export class AuthService {
     );
     await this.sendRegistrationConfirmation(
       user.email,
-      [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+      (getDefaultRole(user) === 'businessOwner'
+        ? getBusinessProfile(user).ownerName ||
+          getBusinessProfile(user).businessName
+        : [
+            getPersonalProfile(user).firstName,
+            getPersonalProfile(user).lastName,
+          ]
+            .filter(Boolean)
+            .join(' ')) ||
         user.username ||
         user.email,
-      user.role === 'businessOwner' ? 'businessOwner' : 'user',
+      getDefaultRole(user) === 'businessOwner' ? 'businessOwner' : 'user',
       this.buildEmailVerificationUrl(verificationToken),
     );
 

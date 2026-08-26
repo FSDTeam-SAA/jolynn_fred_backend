@@ -44,33 +44,49 @@ const serviceCategorySearchableFields = [
 ];
 
 const posterSearchableFields = [
-  'firstName',
-  'lastName',
   'email',
   'username',
-  'gender',
-  'phoneNumber',
+  'userProfile.firstName',
+  'userProfile.lastName',
+  'userProfile.phoneNumber',
+  'userProfile.country',
+  'userProfile.city',
+  'userProfile.state',
+  'userProfile.address',
+  'userProfile.postcode',
+  'userProfile.bio',
+  'businessProfile.ownerName',
+  'businessProfile.businessName',
+  'businessProfile.businessEmail',
+  'businessProfile.businessWebsiteUrl',
+  'businessProfile.serviceArea',
+  'businessProfile.category',
+  'businessProfile.country',
+  'businessProfile.city',
+  'businessProfile.state',
+  'businessProfile.address',
+  'businessProfile.postcode',
+  'businessProfile.bio',
+  // Legacy profile fields.
+  'firstName',
+  'lastName',
   'businessName',
-  'businessEmail',
-  'businessWebsiteUrl',
-  'serviceArea',
-  'category',
-  'country',
-  'city',
-  'state',
-  'address',
-  'postcode',
-  'bio',
-  'tag',
 ];
 
 const posterLocationFields = [
+  'userProfile.city',
+  'userProfile.state',
+  'userProfile.country',
+  'userProfile.address',
+  'userProfile.postcode',
+  'businessProfile.city',
+  'businessProfile.state',
+  'businessProfile.country',
+  'businessProfile.address',
+  'businessProfile.serviceArea',
+  'businessProfile.postcode',
   'city',
   'state',
-  'country',
-  'address',
-  'serviceArea',
-  'postcode',
 ];
 
 @Injectable()
@@ -262,10 +278,26 @@ export class HelpWantedService {
     const stateRegex = this.buildContainsRegex(state);
     const [cityPosterIds, statePosterIds] = await Promise.all([
       cityRegex
-        ? this.userModel.find({ city: { $regex: cityRegex } }).distinct('_id')
+        ? this.userModel
+            .find({
+              $or: [
+                { 'userProfile.city': { $regex: cityRegex } },
+                { 'businessProfile.city': { $regex: cityRegex } },
+                { city: { $regex: cityRegex } },
+              ],
+            })
+            .distinct('_id')
         : Promise.resolve([]),
       stateRegex
-        ? this.userModel.find({ state: { $regex: stateRegex } }).distinct('_id')
+        ? this.userModel
+            .find({
+              $or: [
+                { 'userProfile.state': { $regex: stateRegex } },
+                { 'businessProfile.state': { $regex: stateRegex } },
+                { state: { $regex: stateRegex } },
+              ],
+            })
+            .distinct('_id')
         : Promise.resolve([]),
     ]);
 

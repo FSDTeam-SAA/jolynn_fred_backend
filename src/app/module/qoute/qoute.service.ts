@@ -16,6 +16,10 @@ import {
   QouteReplyDocument,
   type QouteReplySenderRole,
 } from './entities/qoute-reply.entity';
+import {
+  businessOwnerMembershipFilter,
+  getBusinessProfile,
+} from 'src/app/helpers/account-profile';
 const qouteSearchAbleFields = [
   'name',
   'email',
@@ -56,14 +60,18 @@ export class QouteService {
   }
 
   private buildDisplayName(user: UserDocument) {
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
-    return user.businessName || fullName || user.username || user.email;
+    const profile = getBusinessProfile(user);
+    return (
+      profile.businessName || profile.ownerName || user.username || 'Business'
+    );
   }
 
   private async getBusinessOwnerOrThrow(businessOwnerId: string) {
     const businessOwner = await this.userModel.findOne({
-      _id: this.toObjectId(businessOwnerId, 'business owner id'),
-      role: 'businessOwner',
+      $and: [
+        { _id: this.toObjectId(businessOwnerId, 'business owner id') },
+        businessOwnerMembershipFilter,
+      ],
     });
 
     if (!businessOwner) {
@@ -136,7 +144,8 @@ export class QouteService {
       userId: this.toObjectId(userId, 'user id'),
     });
 
-    const notifyEmail = businessOwner.businessEmail || businessOwner.email;
+    const notifyEmail =
+      getBusinessProfile(businessOwner).businessEmail || businessOwner.email;
 
     if (notifyEmail) {
       sendMailer(
@@ -287,11 +296,11 @@ export class QouteService {
       .sort({ createdAt: 1 })
       .populate(
         'senderId',
-        'firstName lastName username businessName profilePicture',
+        'firstName lastName username businessName profilePicture userProfile businessProfile',
       )
       .populate(
         'recipientId',
-        'firstName lastName username businessName profilePicture',
+        'firstName lastName username businessName profilePicture userProfile businessProfile',
       );
   }
 

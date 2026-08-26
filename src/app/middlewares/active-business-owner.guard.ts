@@ -8,6 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Request } from 'express';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../module/user/entities/user.entity';
+import { getBusinessProfile, hasProfileRole } from '../helpers/account-profile';
 
 @Injectable()
 export class ActiveBusinessOwnerGuard implements CanActivate {
@@ -29,14 +30,16 @@ export class ActiveBusinessOwnerGuard implements CanActivate {
 
     const businessOwner = await this.userModel
       .findById(user.id)
-      .select('role status requestedCategory');
+      .select('role roles status requestedCategory businessProfile');
 
-    if (!businessOwner || businessOwner.role !== 'businessOwner') {
+    if (!businessOwner || !hasProfileRole(businessOwner, 'businessOwner')) {
       throw new HttpException('Unauthorized', 401);
     }
 
-    if (businessOwner.status === 'pending') {
-      const requestedCategory = businessOwner.requestedCategory?.trim();
+    const businessProfile = getBusinessProfile(businessOwner);
+
+    if (businessProfile.status === 'pending') {
+      const requestedCategory = businessProfile.requestedCategory?.trim();
 
       throw new HttpException(
         requestedCategory
@@ -46,21 +49,21 @@ export class ActiveBusinessOwnerGuard implements CanActivate {
       );
     }
 
-    if (businessOwner.status === 'rejected') {
+    if (businessProfile.status === 'rejected') {
       throw new HttpException(
         'Your business account has been rejected and cannot add services or gallery items. Please contact support for assistance.',
         403,
       );
     }
 
-    if (businessOwner.status === 'suspended') {
+    if (businessProfile.status === 'suspended') {
       throw new HttpException(
         'Your business account is suspended and cannot add services or gallery items. Please contact support for assistance.',
         403,
       );
     }
 
-    if (businessOwner.status !== 'active') {
+    if (businessProfile.status !== 'active') {
       throw new HttpException(
         'Your business account must be active before adding services or gallery items.',
         403,

@@ -17,10 +17,12 @@ import {
   ForgotPasswordDto,
   LoginAuthDto,
   RegisterBusinessOwnerDto,
+  RegisterExistingBusinessUserDto,
   RegisterExistingUserBusinessOwnerDto,
   RegisterUserDto,
   ResetPasswordDto,
   ResendVerificationEmailDto,
+  SwitchProfileDto,
   VerifyEmailDto,
 } from './dto/create-auth.dto';
 import type { Request, Response } from 'express';
@@ -85,9 +87,55 @@ export class AuthController {
 
     return {
       message:
-        'Your business account has been created successfully. Please check your email for confirmation and use the login link to access your account.',
+        'Your business profile has been created and selected successfully.',
       data: result,
     };
+  }
+
+  @Post('register/user/existing-business-owner')
+  @ApiOperation({
+    summary: 'Create an independent user profile for a business account',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('businessOwner'))
+  @ApiBody({ type: RegisterExistingBusinessUserDto })
+  @HttpCode(HttpStatus.CREATED)
+  async registerUserForExistingBusinessOwner(
+    @Req() req: Request,
+    @Body() registerUserDto: RegisterExistingBusinessUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.registerUserForExistingBusinessOwner(
+      req.user!.id,
+      registerUserDto,
+      res,
+    );
+
+    return {
+      message:
+        'Your personal profile has been created and selected successfully',
+      data: result,
+    };
+  }
+
+  @Post('switch-profile')
+  @ApiOperation({ summary: 'Switch the active profile for this session' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user', 'businessOwner'))
+  @ApiBody({ type: SwitchProfileDto })
+  @HttpCode(HttpStatus.OK)
+  async switchProfile(
+    @Req() req: Request,
+    @Body() switchProfileDto: SwitchProfileDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.switchProfile(
+      req.user!.id,
+      switchProfileDto,
+      res,
+    );
+
+    return { message: 'Profile switched successfully', data: result };
   }
 
   @Post('login')
