@@ -18,27 +18,34 @@ import { ServiceCategory } from '../service-category/entities/service-category.e
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
+import {
+  activeBusinessOwnerFilter,
+  getBusinessProfile,
+  hasProfileRole,
+} from 'src/app/helpers/account-profile';
 
 const serviceSearchAbleFields = ['title', 'description', 'keywords'];
 const businessOwnerSearchAbleFields = [
-  'firstName',
-  'lastName',
   'email',
   'username',
-  'gender',
-  'phoneNumber',
+  'businessProfile.ownerName',
+  'businessProfile.phoneNumber',
+  'businessProfile.businessName',
+  'businessProfile.businessEmail',
+  'businessProfile.businessWebsiteUrl',
+  'businessProfile.serviceArea',
+  'businessProfile.category',
+  'businessProfile.city',
+  'businessProfile.state',
+  'businessProfile.country',
+  'businessProfile.address',
+  'businessProfile.postcode',
+  'businessProfile.bio',
+  // Legacy paths remain searchable until existing accounts are migrated.
   'businessName',
-  'businessEmail',
-  'businessWebsiteUrl',
-  'serviceArea',
   'category',
   'city',
   'state',
-  'country',
-  'address',
-  'postcode',
-  'bio',
-  'tag',
 ];
 
 const serviceGlobalSearchableFields = ['title', 'description', 'keywords'];
@@ -134,26 +141,27 @@ export class ServiceService {
     return new Types.ObjectId(id);
   }
 
-  private buildDisplayName(
-    user: Pick<UserDocument, 'businessName' | 'username' | 'email'>,
-  ) {
-    return user.businessName || user.username || user.email;
+  private buildDisplayName(user: UserDocument) {
+    const profile = getBusinessProfile(user);
+    return (
+      profile.businessName || profile.ownerName || user.username || 'Business'
+    );
   }
 
   private async ensurePublicBusinessOwnerExists(ownerId: string) {
     const owner = await this.userModel
       .findById(this.toObjectId(ownerId, 'business owner id'))
-      .select('role status');
+      .select('role roles status businessProfile');
 
     if (!owner) {
       throw new HttpException('Business owner not found', 404);
     }
 
-    if (owner.role !== 'businessOwner') {
+    if (!hasProfileRole(owner, 'businessOwner')) {
       throw new HttpException('Business owner not found', 404);
     }
 
-    if (owner.status !== 'active') {
+    if (getBusinessProfile(owner).status !== 'active') {
       throw new HttpException('Business owner is not active', 404);
     }
   }
@@ -299,10 +307,7 @@ export class ServiceService {
     } = params;
 
     const andConditions: Record<string, unknown>[] = [
-      {
-        role: 'businessOwner',
-        status: 'active',
-      },
+      activeBusinessOwnerFilter,
     ];
 
     if (ownerIds) {
@@ -323,7 +328,9 @@ export class ServiceService {
 
       if (searchableCategoryIds.length) {
         profileSearchConditions.push({
-          serviceCategoryId: { $in: searchableCategoryIds },
+          'businessProfile.serviceCategoryId': {
+            $in: searchableCategoryIds,
+          },
         } as any);
       }
 
@@ -333,35 +340,37 @@ export class ServiceService {
     const businessNameRegex = this.buildExactRegex(businessName);
     if (businessNameRegex) {
       andConditions.push({
-        businessName: { $regex: businessNameRegex },
+        $or: [
+          { 'businessProfile.businessName': { $regex: businessNameRegex } },
+          { businessName: { $regex: businessNameRegex } },
+        ],
       });
     }
 
     const categoryRegex = this.buildExactRegex(category);
     if (categoryRegex) {
       andConditions.push({
-        category: { $regex: categoryRegex },
+        $or: [
+          { 'businessProfile.category': { $regex: categoryRegex } },
+          { category: { $regex: categoryRegex } },
+        ],
       });
     }
 
     const cityRegex = this.buildExactRegex(city);
     if (cityRegex) {
-      andConditions.push({
-        city: { $regex: cityRegex },
-      });
+      andConditions.push({ 'businessProfile.city': { $regex: cityRegex } });
     }
 
     const stateRegex = this.buildExactRegex(state);
     if (stateRegex) {
-      andConditions.push({
-        state: { $regex: stateRegex },
-      });
+      andConditions.push({ 'businessProfile.state': { $regex: stateRegex } });
     }
 
     const zipcodeRegex = this.buildExactRegex(zipcode);
     if (zipcodeRegex) {
       andConditions.push({
-        postcode: { $regex: zipcodeRegex },
+        'businessProfile.postcode': { $regex: zipcodeRegex },
       });
     }
 
@@ -369,11 +378,11 @@ export class ServiceService {
     if (locationRegex) {
       andConditions.push({
         $or: [
-          { city: { $regex: locationRegex } },
-          { state: { $regex: locationRegex } },
-          { country: { $regex: locationRegex } },
-          { address: { $regex: locationRegex } },
-          { serviceArea: { $regex: locationRegex } },
+          { 'businessProfile.city': { $regex: locationRegex } },
+          { 'businessProfile.state': { $regex: locationRegex } },
+          { 'businessProfile.country': { $regex: locationRegex } },
+          { 'businessProfile.address': { $regex: locationRegex } },
+          { 'businessProfile.serviceArea': { $regex: locationRegex } },
         ],
       });
     }
@@ -390,6 +399,7 @@ export class ServiceService {
     >,
   ) {
     return businessOwners.map((owner) => {
+      const profile = getBusinessProfile(owner);
       const service = servicesByOwnerId.get(owner.id);
       const reviewSummary = reviewSummaryMap.get(owner.id) ?? {
         averageRating: 0,
@@ -398,19 +408,19 @@ export class ServiceService {
 
       return {
         businessOwnerId: owner.id,
-        businessName: owner.businessName || owner.username || owner.email,
-        email: owner.email,
-        businessEmail: owner.businessEmail,
-        category: owner.category,
-        city: owner.city,
-        state: owner.state,
-        country: owner.country,
-        address: owner.address,
-        serviceArea: owner.serviceArea,
-        profilePicture: owner.profilePicture,
-        bio: owner.bio,
-        businessWebsiteUrl: owner.businessWebsiteUrl,
-        phoneNumber: owner.phoneNumber,
+        businessName: profile.businessName || owner.username || 'Business',
+        email: profile.businessEmail,
+        businessEmail: profile.businessEmail,
+        category: profile.category,
+        city: profile.city,
+        state: profile.state,
+        country: profile.country,
+        address: profile.address,
+        serviceArea: profile.serviceArea,
+        profilePicture: profile.profilePicture,
+        bio: profile.bio,
+        businessWebsiteUrl: profile.businessWebsiteUrl,
+        phoneNumber: profile.phoneNumber,
         rating: reviewSummary.averageRating,
         totalReviews: reviewSummary.totalReviews,
         createdAt: (owner as any).createdAt,
@@ -606,9 +616,8 @@ export class ServiceService {
         _id: { $in: ownerIds },
       })
       .select(
-        'businessName username email city state country address serviceArea',
-      )
-      .lean();
+        'businessName username email city state country address serviceArea businessProfile',
+      );
 
     const ownerMap = new Map(
       owners.map((owner) => [owner._id.toString(), owner]),
@@ -616,18 +625,19 @@ export class ServiceService {
 
     const data = services.map((service) => {
       const owner = ownerMap.get(service.ownerId.toString());
+      const profile = owner ? getBusinessProfile(owner) : null;
 
       return {
         ...service,
         viewCount: service.viewCount ?? 0,
-        businessOwnerName: owner ? this.buildDisplayName(owner as any) : null,
+        businessOwnerName: owner ? this.buildDisplayName(owner) : null,
         businessOwnerLocation: owner
           ? {
-              city: owner.city,
-              state: owner.state,
-              country: owner.country,
-              address: owner.address,
-              serviceArea: owner.serviceArea,
+              city: profile?.city,
+              state: profile?.state,
+              country: profile?.country,
+              address: profile?.address,
+              serviceArea: profile?.serviceArea,
             }
           : null,
       };
@@ -713,15 +723,25 @@ export class ServiceService {
     const matchingProfileOwners = globalSearchRegex
       ? await this.userModel
           .find({
-            role: 'businessOwner',
-            status: 'active',
-            $or: [
-              ...businessOwnerSearchAbleFields.map((field) => ({
-                [field]: { $regex: globalSearchRegex },
-              })),
-              ...(globalCategoryIds.length
-                ? [{ serviceCategoryId: { $in: globalCategoryIds } }]
-                : []),
+            $and: [
+              activeBusinessOwnerFilter,
+              {
+                $or: [
+                  ...businessOwnerSearchAbleFields.map((field) => ({
+                    [field]: { $regex: globalSearchRegex },
+                  })),
+                  ...(globalCategoryIds.length
+                    ? [
+                        {
+                          'businessProfile.serviceCategoryId': {
+                            $in: globalCategoryIds,
+                          },
+                        },
+                        { serviceCategoryId: { $in: globalCategoryIds } },
+                      ]
+                    : []),
+                ],
+              },
             ],
           })
           .select('_id')

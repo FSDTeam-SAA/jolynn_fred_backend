@@ -1,6 +1,10 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import {
+  businessOwnerMembershipFilter,
+  getBusinessProfile,
+} from 'src/app/helpers/account-profile';
 import { User, UserDocument } from 'src/app/module/user/entities/user.entity';
 import {
   Report,
@@ -90,12 +94,24 @@ export class DashboardService {
       activeUsers,
       totalServiceCategory,
     ] = await Promise.all([
-      this.userModel.countDocuments({ role: 'businessOwner' }),
+      this.userModel.countDocuments(businessOwnerMembershipFilter),
       this.userModel.countDocuments({
-        role: 'businessOwner',
-        status: 'pending',
+        $and: [
+          businessOwnerMembershipFilter,
+          {
+            $or: [
+              { 'businessProfile.status': 'pending' },
+              { businessProfile: { $exists: false }, status: 'pending' },
+            ],
+          },
+        ],
       }),
-      this.userModel.countDocuments({ status: 'active' }),
+      this.userModel.countDocuments({
+        $or: [
+          { accountStatus: 'active' },
+          { accountStatus: { $exists: false }, status: 'active' },
+        ],
+      }),
       this.serviceCategoryModel.countDocuments(),
     ]);
 
@@ -254,15 +270,37 @@ export class DashboardService {
         .sort({ createdAt: -1 })
         .limit(3),
       this.userModel
-        .find({ role: 'businessOwner', status: 'pending' })
+        .find({
+          $and: [
+            businessOwnerMembershipFilter,
+            {
+              $or: [
+                { 'businessProfile.status': 'pending' },
+                { businessProfile: { $exists: false }, status: 'pending' },
+              ],
+            },
+          ],
+        })
         .sort({ createdAt: -1 })
         .limit(3)
-        .select('firstName lastName businessName email status createdAt'),
+        .select(
+          'firstName lastName businessName email status businessProfile createdAt',
+        ),
     ]);
 
     return {
       latestReports,
-      newRegistrations,
+      newRegistrations: newRegistrations.map((user) => {
+        const profile = getBusinessProfile(user);
+        return {
+          id: user.id,
+          email: user.email,
+          businessName: profile.businessName,
+          ownerName: profile.ownerName,
+          status: profile.status,
+          createdAt: user.get('createdAt'),
+        };
+      }),
     };
   }
 }
