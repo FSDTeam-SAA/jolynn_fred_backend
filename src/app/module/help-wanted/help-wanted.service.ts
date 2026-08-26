@@ -18,7 +18,7 @@ import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
 import { fileUpload } from 'src/app/helpers/fileUploder';
-
+import {HelpWantedCounter, HelpWantedCounterDocument,} from './entities/help-wanted-counter.entity';
 const helpWantedSearchAbleFields = [
   'username',
   'email',
@@ -82,6 +82,8 @@ export class HelpWantedService {
     private readonly serviceCategoryModel: Model<ServiceCategory>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(HelpWantedCounter.name)
+    private readonly counterModel: Model<HelpWantedCounterDocument>,
     private readonly serviceCategoryService: ServiceCategoryService,
   ) {}
 
@@ -135,7 +137,14 @@ export class HelpWantedService {
       images.map((image) => fileUpload.deleteFromCloudinary(image.publicId)),
     );
   }
-
+  private async generateJobId(): Promise<string> {
+    const counter = await this.counterModel.findOneAndUpdate(
+      { name: 'help_wanted' },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+    return `JOB-${String(counter.seq).padStart(6, '0')}`;
+  }
   private buildBudgetRangeCondition(budgetRange?: unknown) {
     if (typeof budgetRange !== 'string') {
       return undefined;
@@ -336,11 +345,12 @@ export class HelpWantedService {
     return andConditions.length ? { $and: andConditions } : {};
   }
 
-  async createHelpWanted(
+   async createHelpWanted(
     createHelpWantedDto: CreateHelpWantedDto,
     userId?: string,
     imageFiles?: Express.Multer.File[],
   ) {
+    const jobId = await this.generateJobId();
     const serviceCategory =
       await this.serviceCategoryService.resolveCategorySelection(
         createHelpWantedDto.category,
@@ -359,6 +369,7 @@ export class HelpWantedService {
     const images = await this.uploadImages(imageFiles);
     const helpWanted = await this.helpWantedModel.create({
       ...createHelpWantedDto,
+      jobId,
       images,
       userId,
       category: categoryName,

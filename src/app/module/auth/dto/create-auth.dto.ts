@@ -105,15 +105,15 @@ export class RegisterUserDto {
   country?: string;
 
   @ApiPropertyOptional({ example: 'New York' })
+  @IsOptional()
   @Transform(emptyStringToUndefined)
   @IsString()
-  @IsOptional()
   state?: string;
 
   @ApiPropertyOptional({ example: 'New York' })
+  @IsOptional()
   @Transform(emptyStringToUndefined)
   @IsString()
-  @IsOptional()
   city?: string;
 
   @ApiPropertyOptional({ example: '221B Baker Street' })

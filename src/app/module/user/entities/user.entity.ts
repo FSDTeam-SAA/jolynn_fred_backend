@@ -78,7 +78,7 @@ export class User {
   country: string;
 
   @Prop()
-  city: string;
+  city?: string;
 
   @Prop()
   state?: string;
