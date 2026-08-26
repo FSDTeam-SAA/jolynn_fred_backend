@@ -32,6 +32,7 @@ export default {
     address: process.env.EMAIL_ADDRESS,
     pass: process.env.EMAIL_PASS,
     from: process.env.EMAIL_FROM,
+    displayFrom: process.env.EMAIL_DISPLAY_FROM,
     to: process.env.EMAIL_TO,
     admin: process.env.ADMIN_EMAIL,
   },
