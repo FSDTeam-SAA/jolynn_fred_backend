@@ -19,6 +19,7 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { DeleteUserDto } from './dto/delete-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
   FileFieldsInterceptor,
   FileInterceptor,
@@ -290,7 +291,10 @@ export class UserController {
   @UseGuards(AuthGuard('admin', 'user', 'businessOwner'))
   @HttpCode(HttpStatus.OK)
   async getProfile(@Req() req: Request) {
-    const user = await this.userService.getProfile(req.user!.id);
+    const user = await this.userService.getProfile(
+      req.user!.id,
+      req.user!.role,
+    );
     return {
       message: 'User fetched successfully',
       data: user,
@@ -382,7 +386,7 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   async updateProfile(
     @Req() req: Request,
-    @Body() updateUserDto: UpdateUserDto,
+    @Body() updateProfileDto: UpdateProfileDto,
     @UploadedFiles()
     files?: {
       profilePicture?: Express.Multer.File[];
@@ -391,7 +395,8 @@ export class UserController {
   ) {
     const result = await this.userService.updateMyProfile(
       req.user!.id,
-      updateUserDto,
+      req.user!.role,
+      updateProfileDto,
       {
         profilePicture: files?.profilePicture?.[0],
         backgroundImage: files?.backgroundImage?.[0],

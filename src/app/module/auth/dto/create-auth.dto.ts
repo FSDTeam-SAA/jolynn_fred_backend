@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -273,6 +274,20 @@ export class RegisterExistingUserBusinessOwnerDto extends OmitType(
     'agreementAccepted',
   ] as const,
 ) {}
+
+export class RegisterExistingBusinessUserDto extends OmitType(RegisterUserDto, [
+  'username',
+  'email',
+  'password',
+  'confirmPassword',
+  'agreementAccepted',
+] as const) {}
+
+export class SwitchProfileDto {
+  @ApiProperty({ enum: ['user', 'businessOwner'] })
+  @IsIn(['user', 'businessOwner'])
+  targetRole: 'user' | 'businessOwner';
+}
 
 export class CreateAuthDto extends RegisterUserDto {}
 

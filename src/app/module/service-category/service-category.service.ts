@@ -19,6 +19,10 @@ import {
 import { User, UserDocument } from '../user/entities/user.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createBusinessCategoryApprovedEmailTemplate } from 'src/app/helpers/template';
+import {
+  businessOwnerMembershipFilter,
+  getBusinessProfile,
+} from 'src/app/helpers/account-profile';
 
 const serviceCategorySearchAbleFields = [
   'name',
@@ -145,23 +149,23 @@ export class ServiceCategoryService {
       firstName?: string;
       lastName?: string;
       businessName?: string;
+      businessProfile?: {
+        ownerName?: string;
+        businessName?: string;
+      };
     }>,
     categoryName: string,
   ) {
     for (const businessOwner of businessOwners) {
-      const displayName =
-        [businessOwner.firstName, businessOwner.lastName]
-          .filter(Boolean)
-          .join(' ') ||
-        businessOwner.businessName ||
-        'there';
+      const profile = getBusinessProfile(businessOwner as any);
+      const displayName = profile.ownerName || profile.businessName || 'there';
 
       void sendMailer(
         businessOwner.email,
         'Your business is ready on SideQuote',
         createBusinessCategoryApprovedEmailTemplate({
           displayName,
-          businessName: businessOwner.businessName,
+          businessName: profile.businessName,
           categoryName,
         }),
       ).catch((error) => {
@@ -182,12 +186,25 @@ export class ServiceCategoryService {
     const [pendingBusinessOwner, pendingService] = await Promise.all([
       this.userModel
         .findOne({
-          _id: userId,
-          role: 'businessOwner',
-          status: 'pending',
-          requestedCategory: { $nin: [null, ''] },
+          $and: [
+            { _id: userId },
+            businessOwnerMembershipFilter,
+            {
+              $or: [
+                {
+                  'businessProfile.status': 'pending',
+                  'businessProfile.requestedCategory': { $nin: [null, ''] },
+                },
+                {
+                  businessProfile: { $exists: false },
+                  status: 'pending',
+                  requestedCategory: { $nin: [null, ''] },
+                },
+              ],
+            },
+          ],
         })
-        .select('requestedCategory'),
+        .select('requestedCategory businessProfile.requestedCategory'),
       this.businessServiceModel
         .findOne({
           ownerId: userId,
@@ -198,8 +215,9 @@ export class ServiceCategoryService {
     ]);
 
     const pendingCategory =
-      pendingBusinessOwner?.requestedCategory ??
-      pendingService?.requestedCategory;
+      (pendingBusinessOwner
+        ? getBusinessProfile(pendingBusinessOwner).requestedCategory
+        : undefined) ?? pendingService?.requestedCategory;
 
     if (pendingCategory) {
       throw new HttpException(
@@ -599,18 +617,27 @@ export class ServiceCategoryService {
       );
       const businessOwnersToNotify = await this.userModel
         .find({
-          role: 'businessOwner',
-          $or: [
+          $and: [
+            businessOwnerMembershipFilter,
             {
-              serviceCategoryId: updatedCategory._id,
-              status: 'pending',
+              $or: [
+                {
+                  'businessProfile.serviceCategoryId': updatedCategory._id,
+                  'businessProfile.status': 'pending',
+                },
+                {
+                  businessProfile: { $exists: false },
+                  serviceCategoryId: updatedCategory._id,
+                  status: 'pending',
+                },
+                ...(pendingServiceOwnerIds.length
+                  ? [{ _id: { $in: pendingServiceOwnerIds } }]
+                  : []),
+              ],
             },
-            ...(pendingServiceOwnerIds.length
-              ? [{ _id: { $in: pendingServiceOwnerIds } }]
-              : []),
           ],
         })
-        .select('email firstName lastName businessName')
+        .select('email firstName lastName businessName businessProfile')
         .lean();
 
       await this.helpWantedModel.updateMany(
@@ -636,20 +663,36 @@ export class ServiceCategoryService {
           },
         },
       );
-      await this.userModel.updateMany(
-        {
-          serviceCategoryId: updatedCategory._id,
-          role: 'businessOwner',
-          status: 'pending',
-        },
-        {
-          $set: {
-            category: updatedCategory.name,
-            status: 'active',
-            requestedCategory: null,
+      await Promise.all([
+        this.userModel.updateMany(
+          {
+            'businessProfile.serviceCategoryId': updatedCategory._id,
+            'businessProfile.status': 'pending',
           },
-        },
-      );
+          {
+            $set: {
+              'businessProfile.category': updatedCategory.name,
+              'businessProfile.status': 'active',
+              'businessProfile.requestedCategory': null,
+            },
+          },
+        ),
+        this.userModel.updateMany(
+          {
+            businessProfile: { $exists: false },
+            serviceCategoryId: updatedCategory._id,
+            role: 'businessOwner',
+            status: 'pending',
+          },
+          {
+            $set: {
+              category: updatedCategory.name,
+              status: 'active',
+              requestedCategory: null,
+            },
+          },
+        ),
+      ]);
 
       this.notifyBusinessOwnersCategoryApproved(
         businessOwnersToNotify,

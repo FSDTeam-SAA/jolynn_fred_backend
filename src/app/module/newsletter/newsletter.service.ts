@@ -6,6 +6,11 @@ import sendMailer from 'src/app/helpers/sendMailer';
 import { createNewsletterEmailTemplate } from 'src/app/helpers/template';
 import { User, UserDocument } from 'src/app/module/user/entities/user.entity';
 import { SendNewsletterDto } from './dto/send-newsletter.dto';
+import {
+  getBusinessProfile,
+  getDefaultRole,
+  getPersonalProfile,
+} from 'src/app/helpers/account-profile';
 
 const EMAIL_BATCH_SIZE = 10;
 
@@ -17,9 +22,19 @@ export class NewsletterService {
   ) {}
 
   private buildDisplayName(user: UserDocument) {
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    const personalProfile = getPersonalProfile(user);
+    const fullName = [personalProfile.firstName, personalProfile.lastName]
+      .filter(Boolean)
+      .join(' ');
+    const businessName = getBusinessProfile(user).businessName;
 
-    return fullName || user.businessName || user.username || 'SideQuote member';
+    return (
+      (getDefaultRole(user) === 'businessOwner' ? businessName : fullName) ||
+      fullName ||
+      businessName ||
+      user.username ||
+      'SideQuote member'
+    );
   }
 
   private buildPlatformUrl() {
@@ -31,8 +46,20 @@ export class NewsletterService {
 
   private async getRecipients(sendNewsletterDto: SendNewsletterDto) {
     const baseConditions = {
-      status: 'active',
-      role: { $in: ['user', 'businessOwner'] },
+      $and: [
+        {
+          $or: [
+            { accountStatus: 'active' },
+            { accountStatus: { $exists: false }, status: 'active' },
+          ],
+        },
+        {
+          $or: [
+            { roles: { $in: ['user', 'businessOwner'] } },
+            { role: { $in: ['user', 'businessOwner'] } },
+          ],
+        },
+      ],
       email: { $exists: true, $ne: '' },
     };
     const whereConditions =
@@ -47,7 +74,9 @@ export class NewsletterService {
 
     return this.userModel
       .find(whereConditions)
-      .select('email firstName lastName username businessName');
+      .select(
+        'email firstName lastName username businessName role roles defaultRole userProfile businessProfile',
+      );
   }
 
   async sendNewsletter(sendNewsletterDto: SendNewsletterDto) {

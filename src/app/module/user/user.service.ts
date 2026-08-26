@@ -31,6 +31,19 @@ import {
 import { Report, ReportDocument } from '../report/entities/report.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { type UserRole } from 'src/app/constants/auth.constants';
+import {
+  activeBusinessOwnerFilter,
+  businessOwnerMembershipFilter,
+  getAccountStatus,
+  getAvailableRoles,
+  getBusinessProfile,
+  getDefaultRole,
+  getPersonalProfile,
+  hasProfileRole,
+  toPlainProfile,
+} from 'src/app/helpers/account-profile';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -43,6 +56,18 @@ type ProfileUpdateFiles = {
 };
 
 const userSearchAbleFields = [
+  'userProfile.firstName',
+  'userProfile.lastName',
+  'userProfile.phoneNumber',
+  'userProfile.country',
+  'userProfile.city',
+  'userProfile.state',
+  'userProfile.address',
+  'businessProfile.ownerName',
+  'businessProfile.businessName',
+  'businessProfile.category',
+  'businessProfile.city',
+  'businessProfile.state',
   'firstName',
   'lastName',
   'email',
@@ -110,8 +135,18 @@ export class UserService {
   }
 
   private buildDisplayName(user: UserDocument) {
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
-    return user.businessName || fullName || user.username || user.email;
+    const businessProfile = getBusinessProfile(user);
+    const personalProfile = getPersonalProfile(user);
+    const fullName = [personalProfile.firstName, personalProfile.lastName]
+      .filter(Boolean)
+      .join(' ');
+    return (
+      businessProfile.businessName ||
+      businessProfile.ownerName ||
+      fullName ||
+      user.username ||
+      'Business'
+    );
   }
 
   private async getBusinessReviewSummary(businessOwnerId: Types.ObjectId) {
@@ -236,7 +271,9 @@ export class UserService {
           'backgroundImage',
           'bio',
           'role',
+          'roles',
           'status',
+          'businessProfile',
           'tag',
           'createdAt',
           'updatedAt',
@@ -247,11 +284,11 @@ export class UserService {
       throw new HttpException('Business owner not found', 404);
     }
 
-    if (businessOwner.role !== 'businessOwner') {
+    if (!hasProfileRole(businessOwner, 'businessOwner')) {
       throw new HttpException('Business owner not found', 404);
     }
 
-    if (businessOwner.status !== 'active') {
+    if (getBusinessProfile(businessOwner).status !== 'active') {
       throw new HttpException('Business owner is not active', 404);
     }
 
@@ -384,7 +421,27 @@ export class UserService {
 
   async getAllUser(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
-    const whereConditions = buildWhereConditions(params, userSearchAbleFields);
+    const { role, status, ...otherParams } = params;
+    const baseConditions = buildWhereConditions(
+      otherParams,
+      userSearchAbleFields,
+    );
+    const andConditions: Record<string, unknown>[] = [baseConditions];
+    if (role) {
+      andConditions.push({
+        $or: [{ roles: role }, { role }],
+      });
+    }
+    if (status) {
+      andConditions.push({
+        $or: [
+          { accountStatus: status },
+          { 'businessProfile.status': status },
+          { accountStatus: { $exists: false }, status },
+        ],
+      });
+    }
+    const whereConditions = { $and: andConditions };
 
     const total = await this.userModel.countDocuments(whereConditions);
     const users = await this.userModel
@@ -419,32 +476,31 @@ export class UserService {
       businessOwnerId,
     );
     const reviewSummary = await this.getBusinessReviewSummary(businessOwnerId);
+    const profile = getBusinessProfile(businessOwner);
 
     return {
       ownerId: businessOwner.id,
       displayName: this.buildDisplayName(businessOwner),
-      businessName: businessOwner.businessName,
-      category: businessOwner.category,
-      serviceCategoryId: businessOwner.serviceCategoryId,
-      bio: businessOwner.bio,
-      serviceArea: businessOwner.serviceArea,
-      phoneNumber: businessOwner.phoneNumber,
-      businessEmail: businessOwner.businessEmail,
-      email: businessOwner.email,
-      businessWebsiteUrl: businessOwner.businessWebsiteUrl,
-      country: businessOwner.country,
-      city: businessOwner.city,
-      state: businessOwner.state,
-      address: businessOwner.address,
-      postcode: businessOwner.postcode,
-      profilePicture: businessOwner.profilePicture,
-      backgroundImage: businessOwner.backgroundImage,
-      firstName: businessOwner.firstName,
-      lastName: businessOwner.lastName,
+      businessName: profile.businessName,
+      category: profile.category,
+      serviceCategoryId: profile.serviceCategoryId,
+      bio: profile.bio,
+      serviceArea: profile.serviceArea,
+      phoneNumber: profile.phoneNumber,
+      businessEmail: profile.businessEmail,
+      email: profile.businessEmail,
+      businessWebsiteUrl: profile.businessWebsiteUrl,
+      country: profile.country,
+      city: profile.city,
+      state: profile.state,
+      address: profile.address,
+      postcode: profile.postcode,
+      profilePicture: profile.profilePicture,
+      backgroundImage: profile.backgroundImage,
+      ownerName: profile.ownerName,
       username: businessOwner.username,
-      role: businessOwner.role,
-      status: businessOwner.status,
-      tag: businessOwner.tag,
+      role: 'businessOwner',
+      status: profile.status,
       rating: reviewSummary.averageRating,
       totalReviews: reviewSummary.totalReviews,
       reviewSummary,
@@ -479,18 +535,70 @@ export class UserService {
     await this.ensureUniqueUserFields(updateUserDto, id);
 
     const rejectionReason = updateUserDto.reason;
+    const businessProfile = getBusinessProfile(user);
+    const isBusinessProfileUpdate = hasProfileRole(user, 'businessOwner');
     const shouldNotifyRejection =
-      updateUserDto.status === 'rejected' && user.status !== 'rejected';
+      updateUserDto.status === 'rejected' &&
+      (isBusinessProfileUpdate
+        ? businessProfile.status !== 'rejected'
+        : getAccountStatus(user) !== 'rejected');
     const shouldNotifyBusinessApproval =
-      user.role === 'businessOwner' &&
-      user.status === 'pending' &&
+      isBusinessProfileUpdate &&
+      businessProfile.status === 'pending' &&
       updateUserDto.status === 'active';
     delete updateUserDto.reason;
+    const updatePayload: Record<string, unknown> = { ...updateUserDto };
+    if (isBusinessProfileUpdate) {
+      const businessFields = [
+        'businessName',
+        'businessEmail',
+        'businessWebsiteUrl',
+        'serviceArea',
+        'category',
+        'phoneNumber',
+        'country',
+        'city',
+        'state',
+        'address',
+        'postcode',
+        'profilePicture',
+        'backgroundImage',
+        'bio',
+        'stripeAccountId',
+      ];
+      for (const field of businessFields) {
+        if (updatePayload[field] !== undefined) {
+          updatePayload[`businessProfile.${field}`] = updatePayload[field];
+          delete updatePayload[field];
+        }
+      }
+    }
+    if (updateUserDto.status) {
+      if (isBusinessProfileUpdate) {
+        updatePayload['businessProfile.status'] = updateUserDto.status;
+      } else {
+        updatePayload.accountStatus = updateUserDto.status;
+      }
+      delete updatePayload.status;
+    }
+    if (isBusinessProfileUpdate && !user.businessProfile) {
+      const migratedBusinessProfile = {
+        ...businessProfile,
+      } as Record<string, unknown>;
+      for (const [field, value] of Object.entries(updatePayload)) {
+        if (field.startsWith('businessProfile.')) {
+          migratedBusinessProfile[field.slice('businessProfile.'.length)] =
+            value;
+          delete updatePayload[field];
+        }
+      }
+      updatePayload.businessProfile = migratedBusinessProfile;
+    }
 
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,
-      updateUserDto,
-      { new: true },
+      { $set: updatePayload },
+      { new: true, runValidators: true },
     );
 
     if (shouldNotifyRejection) {
@@ -504,12 +612,20 @@ export class UserService {
         createNotificationEmailTemplate({
           heading: 'Your business has been approved!',
           subheading: 'Your business profile is now live on Jolynn.',
-          greetingName: user.firstName || user.businessName || 'there',
+          greetingName:
+            businessProfile.ownerName ||
+            businessProfile.businessName ||
+            'there',
           introText:
             'Your business profile has been approved and is now visible on the platform.',
           details: [
-            ...(user.businessName
-              ? [{ label: 'Business Name', value: user.businessName }]
+            ...(businessProfile.businessName
+              ? [
+                  {
+                    label: 'Business Name',
+                    value: businessProfile.businessName,
+                  },
+                ]
               : []),
           ],
           noteTitle: 'What happens next?',
@@ -534,9 +650,11 @@ export class UserService {
   ) {
     const isAccountDeletion = action === 'account deletion';
     const isRejection = action === 'account rejection';
+    const personalProfile = getPersonalProfile(user);
+    const businessProfile = getBusinessProfile(user);
     const details = [
-      ...(user.businessName
-        ? [{ label: 'Business Name', value: user.businessName }]
+      ...(businessProfile.businessName
+        ? [{ label: 'Business Name', value: businessProfile.businessName }]
         : []),
       ...(reason ? [{ label: 'Reason', value: reason }] : []),
     ];
@@ -559,7 +677,11 @@ export class UserService {
           : isAccountDeletion
             ? 'Your account is no longer available on Jolynn.'
             : 'Your business profile is no longer active on Jolynn.',
-        greetingName: user.firstName || user.businessName || 'there',
+        greetingName:
+          personalProfile.firstName ||
+          businessProfile.ownerName ||
+          businessProfile.businessName ||
+          'there',
         introText: isRejection
           ? 'Your account application was rejected by an administrator or the support team.'
           : isAccountDeletion
@@ -580,7 +702,7 @@ export class UserService {
     if (!user) {
       throw new HttpException('User not found', 404);
     }
-    if (user.role !== 'businessOwner') {
+    if (!hasProfileRole(user, 'businessOwner')) {
       const result = await this.userModel.findByIdAndDelete(id);
       this.sendAdminActionEmail(user, 'account deletion', reason);
       return { user: result, businessProfileDeleted: false };
@@ -614,72 +736,202 @@ export class UserService {
       this.reportModel.deleteMany({ ownerId: businessOwnerId }),
     ]);
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(
-      businessOwnerId,
-      {
-        $set: { role: 'user', status: 'active' },
-        $unset: {
-          businessName: 1,
-          businessEmail: 1,
-          businessWebsiteUrl: 1,
-          serviceArea: 1,
-          category: 1,
-          serviceCategoryId: 1,
-          stripeAccountId: 1,
-        },
-      },
-      { new: true, runValidators: true },
+    const remainingRoles = getAvailableRoles(user).filter(
+      (role) => role !== 'businessOwner',
+    );
+    const updatedUser = remainingRoles.length
+      ? await this.userModel.findByIdAndUpdate(
+          businessOwnerId,
+          {
+            $set: {
+              roles: remainingRoles,
+              role:
+                user.role === 'businessOwner' ? remainingRoles[0] : user.role,
+              defaultRole:
+                getDefaultRole(user) === 'businessOwner'
+                  ? remainingRoles[0]
+                  : getDefaultRole(user),
+            },
+            $unset: {
+              businessProfile: 1,
+              businessName: 1,
+              businessEmail: 1,
+              businessWebsiteUrl: 1,
+              serviceArea: 1,
+              category: 1,
+              requestedCategory: 1,
+              serviceCategoryId: 1,
+              stripeAccountId: 1,
+            },
+          },
+          { new: true, runValidators: true },
+        )
+      : await this.userModel.findByIdAndDelete(businessOwnerId);
+
+    this.sendAdminActionEmail(
+      user,
+      remainingRoles.length ? 'business profile deletion' : 'account deletion',
+      reason,
     );
 
-    this.sendAdminActionEmail(user, 'business profile deletion', reason);
-
-    return { user: updatedUser, businessProfileDeleted: true };
+    return {
+      user: updatedUser,
+      businessProfileDeleted: remainingRoles.length > 0,
+    };
   }
 
-  async getProfile(id: string) {
-    const result = await this.userModel.findById(id);
-    if (!result) {
+  async getProfile(id: string, activeRole: UserRole) {
+    const user = await this.userModel.findById(id);
+    if (!user) {
       throw new HttpException('User not found', 404);
     }
-    return result;
+
+    if (activeRole !== 'admin' && !hasProfileRole(user, activeRole)) {
+      throw new HttpException('Profile not found', 404);
+    }
+
+    const profile =
+      activeRole === 'businessOwner'
+        ? toPlainProfile(getBusinessProfile(user))
+        : toPlainProfile(getPersonalProfile(user));
+
+    return {
+      ...profile,
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      emailVerified: user.emailVerified,
+      role: activeRole,
+      roles: getAvailableRoles(user),
+      defaultRole: getDefaultRole(user),
+      accountStatus: getAccountStatus(user),
+      profile,
+    };
   }
 
   async updateMyProfile(
     id: string,
-    updateUserDto: UpdateUserDto,
+    activeRole: UserRole,
+    updateProfileDto: UpdateProfileDto,
     files?: ProfileUpdateFiles,
   ) {
     const user = await this.userModel.findById(id);
     if (!user) {
       throw new HttpException('User not found', 404);
     }
+    if (activeRole !== 'admin' && !hasProfileRole(user, activeRole)) {
+      throw new HttpException('Profile not found', 404);
+    }
+
+    const uploadedFields: Record<string, unknown> = {};
     if (files?.profilePicture) {
       const uploadedFile = await fileUpload.uploadToCloudinary(
         files.profilePicture,
       );
-      updateUserDto.profilePicture = uploadedFile.url;
+      uploadedFields.profilePicture = uploadedFile.url;
     }
     if (files?.backgroundImage) {
       const uploadedFile = await fileUpload.uploadToCloudinary(
         files.backgroundImage,
       );
-      updateUserDto.backgroundImage = uploadedFile.url;
+      uploadedFields.backgroundImage = uploadedFile.url;
     }
-    if (updateUserDto.email) {
-      updateUserDto.email = updateUserDto.email.toLowerCase();
+
+    const incomingFields = {
+      ...updateProfileDto,
+      ...uploadedFields,
+    } as Record<string, unknown>;
+    delete incomingFields.profilePicture;
+    delete incomingFields.backgroundImage;
+
+    const personalFields = new Set([
+      'firstName',
+      'lastName',
+      'gender',
+      'phoneNumber',
+      'country',
+      'city',
+      'state',
+      'address',
+      'postcode',
+      'bio',
+      'dateOfBirth',
+      'tag',
+    ]);
+    const businessFields = new Set([
+      'businessName',
+      'ownerName',
+      'businessEmail',
+      'businessWebsiteUrl',
+      'serviceArea',
+      'phoneNumber',
+      'country',
+      'city',
+      'state',
+      'address',
+      'postcode',
+      'bio',
+    ]);
+    const targetProfile =
+      activeRole === 'businessOwner' ? 'businessProfile' : 'userProfile';
+    const allowedFields =
+      activeRole === 'businessOwner' ? businessFields : personalFields;
+    const setPayload: Record<string, unknown> = {};
+
+    for (const [field, value] of Object.entries(incomingFields)) {
+      if (allowedFields.has(field) && value !== undefined) {
+        setPayload[`${targetProfile}.${field}`] =
+          field === 'businessEmail' && typeof value === 'string'
+            ? value.toLowerCase()
+            : value;
+      }
     }
-    if (updateUserDto.username) {
-      updateUserDto.username = this.normalizeAndValidateUsername(
-        updateUserDto.username,
+
+    for (const [field, value] of Object.entries(uploadedFields)) {
+      setPayload[`${targetProfile}.${field}`] = value;
+    }
+
+    if (!Object.keys(setPayload).length) {
+      return this.getProfile(id, activeRole);
+    }
+
+    const hasStoredProfile =
+      activeRole === 'businessOwner'
+        ? Boolean(user.businessProfile)
+        : Boolean(user.userProfile);
+    if (!hasStoredProfile) {
+      const migratedProfile = {
+        ...(activeRole === 'businessOwner'
+          ? getBusinessProfile(user)
+          : getPersonalProfile(user)),
+      } as Record<string, unknown>;
+      for (const [path, value] of Object.entries(setPayload)) {
+        migratedProfile[path.slice(targetProfile.length + 1)] = value;
+      }
+      for (const [field, value] of Object.entries(uploadedFields)) {
+        migratedProfile[field] = value;
+      }
+      const migratedUser = await this.userModel.findByIdAndUpdate(
+        id,
+        { $set: { [targetProfile]: migratedProfile } },
+        { new: true, runValidators: true },
       );
+      if (!migratedUser) {
+        throw new HttpException('User not found', 404);
+      }
+      return this.getProfile(id, activeRole);
     }
 
-    await this.ensureUniqueUserFields(updateUserDto, id);
+    const result = await this.userModel.findByIdAndUpdate(
+      id,
+      { $set: setPayload },
+      { new: true, runValidators: true },
+    );
+    if (!result) {
+      throw new HttpException('User not found', 404);
+    }
 
-    const result = await this.userModel.findByIdAndUpdate(id, updateUserDto, {
-      new: true,
-    });
-    return result;
+    return this.getProfile(id, activeRole);
   }
 
   async getPublicBusinessProfileByUsername(
@@ -689,9 +941,7 @@ export class UserService {
     const normalizedUsername = this.normalizeAndValidateUsername(username);
 
     const businessOwner = await this.userModel.findOne({
-      username: normalizedUsername,
-      role: 'businessOwner',
-      status: 'active',
+      $and: [{ username: normalizedUsername }, activeBusinessOwnerFilter],
     });
 
     if (!businessOwner) {
@@ -733,6 +983,7 @@ export class UserService {
     ]);
 
     const reviewMetrics = reviewSummary[0];
+    const profile = getBusinessProfile(businessOwner);
     const totalGalleryImages = galleryItems.reduce(
       (count, item) => count + item.images.length,
       0,
@@ -742,23 +993,21 @@ export class UserService {
       profile: {
         id: businessOwner.id,
         username: businessOwner.username,
-        businessName: businessOwner.businessName,
-        ownerName: [businessOwner.firstName, businessOwner.lastName]
-          .filter(Boolean)
-          .join(' '),
-        profilePicture: businessOwner.profilePicture,
-        backgroundImage: businessOwner.backgroundImage,
-        bio: businessOwner.bio,
-        category: businessOwner.category,
-        serviceCategoryId: businessOwner.serviceCategoryId,
-        serviceArea: businessOwner.serviceArea,
-        businessWebsiteUrl: businessOwner.businessWebsiteUrl,
-        businessEmail: businessOwner.businessEmail,
-        phoneNumber: businessOwner.phoneNumber,
-        country: businessOwner.country,
-        city: businessOwner.city,
-        state: businessOwner.state,
-        address: businessOwner.address,
+        businessName: profile.businessName,
+        ownerName: profile.ownerName,
+        profilePicture: profile.profilePicture,
+        backgroundImage: profile.backgroundImage,
+        bio: profile.bio,
+        category: profile.category,
+        serviceCategoryId: profile.serviceCategoryId,
+        serviceArea: profile.serviceArea,
+        businessWebsiteUrl: profile.businessWebsiteUrl,
+        businessEmail: profile.businessEmail,
+        phoneNumber: profile.phoneNumber,
+        country: profile.country,
+        city: profile.city,
+        state: profile.state,
+        address: profile.address,
       },
       summary: {
         totalServices: services.length,

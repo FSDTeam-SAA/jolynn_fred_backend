@@ -9,6 +9,7 @@ import { Model, Types } from 'mongoose';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import { User, UserDocument } from '../user/entities/user.entity';
+import { activeBusinessOwnerFilter } from 'src/app/helpers/account-profile';
 import { CreateMessageDto, ReplyMessageDto } from './dto/create-message.dto';
 import {
   Conversation,
@@ -195,9 +196,10 @@ export class MessageService implements OnApplicationBootstrap {
 
   private async getBusinessOwnerOrThrow(id: string) {
     const owner = await this.userModel.findOne({
-      _id: this.toObjectId(id, 'business owner id'),
-      role: 'businessOwner',
-      status: 'active',
+      $and: [
+        { _id: this.toObjectId(id, 'business owner id') },
+        activeBusinessOwnerFilter,
+      ],
     });
     if (!owner) throw new HttpException('Business owner not found', 404);
     return owner;
@@ -337,11 +339,13 @@ export class MessageService implements OnApplicationBootstrap {
     const data = await this.conversationModel.populate(result?.data || [], [
       {
         path: 'userId',
-        select: 'firstName lastName username email businessName profilePicture',
+        select:
+          'firstName lastName username email businessName profilePicture userProfile',
       },
       {
         path: 'businessOwnerId',
-        select: 'firstName lastName username email businessName profilePicture',
+        select:
+          'firstName lastName username email businessName profilePicture businessProfile',
       },
     ]);
     const total = result?.meta[0]?.total || 0;
