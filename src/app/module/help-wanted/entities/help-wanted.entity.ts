@@ -17,6 +17,12 @@ const HelpWantedImageSchema = SchemaFactory.createForClass(HelpWantedImage);
 @Schema({ timestamps: true })
 export class HelpWanted {
   @Prop({
+    unique: true,
+    index: true,
+  })
+  jobId: string;
+
+  @Prop({
     type: Types.ObjectId,
     ref: 'User',
   })
