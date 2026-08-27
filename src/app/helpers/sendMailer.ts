@@ -24,6 +24,7 @@
 // export default sendMailer;
 import nodemailer, { Transporter } from 'nodemailer';
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 import { join } from 'path';
 import config from '../config';
 import { SIDEQUOTE_EMAIL_LOGO_CID } from './template';
@@ -99,14 +100,18 @@ const sendMailer = async (
 
   try {
     const logoAttachment = getSideQuoteLogoAttachment();
+    const logoCid = `${SIDEQUOTE_EMAIL_LOGO_CID}-${randomUUID()}@sidequote.cloud`;
+    const emailHtml = logoAttachment
+      ? html?.replaceAll(`cid:${SIDEQUOTE_EMAIL_LOGO_CID}`, `cid:${logoCid}`)
+      : html;
     const info = await transporter.sendMail({
       from: `"SideQuote" <${sender}>`,
       replyTo: `"SideQuote No Reply" <${replyTo}>`,
       to: email,
       subject,
-      html,
+      html: emailHtml,
       attachments: [
-        ...(logoAttachment ? [logoAttachment] : []),
+        ...(logoAttachment ? [{ ...logoAttachment, cid: logoCid }] : []),
         ...(attachments ?? []),
       ],
     });
