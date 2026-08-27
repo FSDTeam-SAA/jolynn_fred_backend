@@ -71,7 +71,8 @@ const sendMailer = async (
   const port = Number(config.email.port || 587);
   const authUser = config.email.address || config.email.from;
   const authPass = config.email.pass;
-  const sender = config.email.displayFrom || config.email.from || authUser;
+  const sender = config.email.publicFrom;
+  const replyTo = config.email.replyTo;
 
   if (!config.email.host || !authUser || !authPass || !sender) {
     throw new Error(
@@ -100,6 +101,7 @@ const sendMailer = async (
     const logoAttachment = getSideQuoteLogoAttachment();
     const info = await transporter.sendMail({
       from: `"SideQuote" <${sender}>`,
+      replyTo: `"SideQuote No Reply" <${replyTo}>`,
       to: email,
       subject,
       html,
