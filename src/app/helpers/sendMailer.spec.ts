@@ -35,6 +35,12 @@ describe('sendMailer', () => {
       `<img src="cid:${SIDEQUOTE_EMAIL_LOGO_CID}" alt="SideQuote" />`,
     );
 
+    const mailOptions = sendMail.mock.calls[0][0];
+    const logoAttachment = mailOptions.attachments.find(
+      (attachment: { filename?: string }) =>
+        attachment.filename === 'logo.webp',
+    );
+
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
         from: '"SideQuote" <noreply@sidequote.com>',
@@ -44,11 +50,12 @@ describe('sendMailer', () => {
             filename: 'logo.webp',
             content: expect.any(Buffer),
             contentType: 'image/webp',
-            cid: SIDEQUOTE_EMAIL_LOGO_CID,
+            cid: expect.stringMatching(/^sidequote-logo-.+@sidequote\.cloud$/),
             contentDisposition: 'inline',
           }),
         ]),
       }),
     );
+    expect(mailOptions.html).toContain(`src="cid:${logoAttachment.cid}"`);
   });
 });
