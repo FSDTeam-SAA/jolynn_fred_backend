@@ -80,6 +80,7 @@ describe('ServiceService global business search', () => {
     const owner = {
       id: ownerId.toString(),
       email: 'plumber@example.com',
+      username: 'reliable_plumbing',
       businessName: 'Reliable Plumbing',
       role: 'businessOwner',
       status: 'active',
@@ -120,6 +121,9 @@ describe('ServiceService global business search', () => {
     expect(result.data[0]).toEqual(
       expect.objectContaining({
         businessOwnerId: ownerId.toString(),
+        username: 'reliable_plumbing',
+        profileUrl: '/reliable_plumbing',
+        legacyProfileUrl: `/services/businesses/${ownerId}?serviceId=${matchedService.id}`,
         businessName: 'Reliable Plumbing',
         service: expect.objectContaining({ title: 'Plumbing' }),
       }),
@@ -168,6 +172,7 @@ describe('ServiceService global business search', () => {
       {
         id: firstOwnerId.toString(),
         email: 'first@example.com',
+        username: 'first_business',
         businessName: 'First Business',
         role: 'businessOwner',
         status: 'active',
@@ -176,6 +181,7 @@ describe('ServiceService global business search', () => {
       {
         id: secondOwnerId.toString(),
         email: 'second@example.com',
+        username: 'second_business',
         businessName: 'Second Business',
         role: 'businessOwner',
         status: 'active',

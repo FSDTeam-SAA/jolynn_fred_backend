@@ -19,6 +19,10 @@ import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
 import {
+  buildLegacyProfileUrl,
+  buildPublicProfileUrl,
+} from 'src/app/helpers/profile-url';
+import {
   activeBusinessOwnerFilter,
   getBusinessProfile,
   hasProfileRole,
@@ -405,9 +409,13 @@ export class ServiceService {
         averageRating: 0,
         totalReviews: 0,
       };
+      const legacyProfileUrl = buildLegacyProfileUrl(owner.id, service?.id);
 
       return {
         businessOwnerId: owner.id,
+        username: owner.username,
+        profileUrl: buildPublicProfileUrl(owner.username) ?? legacyProfileUrl,
+        legacyProfileUrl,
         businessName: profile.businessName || owner.username || 'Business',
         email: profile.businessEmail,
         businessEmail: profile.businessEmail,

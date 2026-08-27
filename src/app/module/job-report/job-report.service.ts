@@ -177,28 +177,31 @@ export class JobReportService {
     const result = await this.jobReportModel.findByIdAndDelete(id);
 
     if (isAdmin && post?.email) {
-      void sendMailer(
-        post.email,
-        'Your Job Report Has Been Reviewed',
-        createNotificationEmailTemplate({
-          heading: 'Job Report Reviewed',
-          subheading: 'A report related to your job post was reviewed by admin.',
-          greetingName: post.username || 'there',
-          introText:
-            'Our admin team reviewed a report related to your job post and removed the report from the system.',
-          details: [
-            { label: 'Category', value: post.category },
-            { label: 'Budget Range', value: post.budgetRange },
-            { label: 'Post Message', value: post.message },
-            { label: 'Report Message', value: jobReport.message },
-          ],
-          noteTitle: 'Need help?',
-          noteText:
-            'Please contact support if you have questions about this review.',
-        }),
-      ).catch((error) => {
+      try {
+        await sendMailer(
+          post.email,
+          'Your Job Report Has Been Reviewed',
+          createNotificationEmailTemplate({
+            heading: 'Job Report Reviewed',
+            subheading:
+              'A report related to your job post was reviewed by admin.',
+            greetingName: post.username || 'there',
+            introText:
+              'Our admin team reviewed a report related to your job post and removed the report from the system.',
+            details: [
+              { label: 'Category', value: post.category },
+              { label: 'Budget Range', value: post.budgetRange },
+              { label: 'Post Message', value: post.message },
+              { label: 'Report Message', value: jobReport.message },
+            ],
+            noteTitle: 'Need help?',
+            noteText:
+              'Please contact support if you have questions about this review.',
+          }),
+        );
+      } catch (error) {
         console.error('Failed to send deleted job report email:', error);
-      });
+      }
     }
 
     return result;
