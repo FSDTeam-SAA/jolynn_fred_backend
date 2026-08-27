@@ -17,10 +17,7 @@ import config from 'src/app/config';
 const jobReportSearchAbleFields = ['message'];
 
 const populateFields = [
-  {
-    path: 'helpWantedId',
-    select: 'username email zipcode category budgetRange phone message',
-  },
+  { path: 'helpWantedId' },
   {
     path: 'userId',
     select: 'firstName lastName email username phoneNumber profilePicture',
