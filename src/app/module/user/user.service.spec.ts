@@ -114,6 +114,27 @@ describe('UserService profile isolation', () => {
 });
 
 describe('UserService public username profile', () => {
+  it('resolves a public service slug without exposing the service id', () => {
+    const serviceId = new Types.ObjectId().toString();
+    const service = new UserService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const resolvedServiceId = (service as any).resolveServiceIdBySlug(
+      [{ id: serviceId, title: 'Emergency Plumbing & Repair' }],
+      'emergency-plumbing-repair',
+    );
+
+    expect(resolvedServiceId).toBe(serviceId);
+  });
+
   it('returns a shareable URL and complete public business profile data', async () => {
     const ownerId = new Types.ObjectId();
     const createdAt = new Date('2026-01-01T00:00:00.000Z');
