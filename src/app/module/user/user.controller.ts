@@ -318,14 +318,22 @@ export class UserController {
     type: String,
     description: 'Matched service id whose view count should be incremented',
   })
+  @ApiQuery({
+    name: 'serviceSlug',
+    required: false,
+    type: String,
+    description: 'Public service slug whose view count should be incremented',
+  })
   @HttpCode(HttpStatus.OK)
   async getPublicBusinessProfile(
     @Param('username') username: string,
     @Query('serviceId') serviceId?: string,
+    @Query('serviceSlug') serviceSlug?: string,
   ) {
     const result = await this.userService.getPublicBusinessProfileByUsername(
       username,
       serviceId,
+      serviceSlug,
     );
 
     return {
