@@ -44,6 +44,10 @@ import {
   hasProfileRole,
   toPlainProfile,
 } from 'src/app/helpers/account-profile';
+import {
+  buildLegacyProfileUrl,
+  buildPublicProfileUrl,
+} from 'src/app/helpers/profile-url';
 
 type CreateUserFiles = {
   profilePicture?: Express.Multer.File;
@@ -959,63 +963,58 @@ export class UserService {
 
     const [services, galleryItems, reviewSummary] = await Promise.all([
       this.serviceModel
-        .find({ ownerId: businessOwnerId })
-        .select('title description logo viewCount createdAt')
+        .find({ ownerId: businessOwnerId, status: 'active' })
         .sort({ createdAt: -1 }),
       this.gallaryModel
         .find({ userId: businessOwnerId })
-        .select('title images createdAt')
         .sort({ createdAt: -1 }),
-      this.reviewModel.aggregate([
-        {
-          $match: {
-            businessId: businessOwnerId,
-          },
-        },
-        {
-          $group: {
-            _id: '$businessId',
-            totalReviews: { $sum: 1 },
-            averageRating: { $avg: '$rating' },
-          },
-        },
-      ]),
+      this.getBusinessReviewSummary(businessOwnerId),
     ]);
 
-    const reviewMetrics = reviewSummary[0];
     const profile = getBusinessProfile(businessOwner);
     const totalGalleryImages = galleryItems.reduce(
       (count, item) => count + item.images.length,
       0,
     );
+    const profileUrl = buildPublicProfileUrl(businessOwner.username)!;
+    const legacyProfileUrl = buildLegacyProfileUrl(businessOwner.id, serviceId);
 
     return {
+      profileUrl,
+      legacyProfileUrl,
       profile: {
         id: businessOwner.id,
+        ownerId: businessOwner.id,
         username: businessOwner.username,
+        displayName: this.buildDisplayName(businessOwner),
+        profileUrl,
         businessName: profile.businessName,
         ownerName: profile.ownerName,
         profilePicture: profile.profilePicture,
         backgroundImage: profile.backgroundImage,
         bio: profile.bio,
         category: profile.category,
+        requestedCategory: profile.requestedCategory,
         serviceCategoryId: profile.serviceCategoryId,
         serviceArea: profile.serviceArea,
         businessWebsiteUrl: profile.businessWebsiteUrl,
         businessEmail: profile.businessEmail,
+        email: profile.businessEmail,
         phoneNumber: profile.phoneNumber,
         country: profile.country,
         city: profile.city,
         state: profile.state,
         address: profile.address,
+        postcode: profile.postcode,
+        role: 'businessOwner',
+        status: profile.status,
+        createdAt: businessOwner.get('createdAt'),
+        updatedAt: businessOwner.get('updatedAt'),
       },
       summary: {
         totalServices: services.length,
         totalGalleryImages,
-        totalReviews: reviewMetrics?.totalReviews ?? 0,
-        averageRating: reviewMetrics?.averageRating
-          ? Number(reviewMetrics.averageRating.toFixed(1))
-          : 0,
+        ...reviewSummary,
       },
       services,
       gallery: galleryItems,
