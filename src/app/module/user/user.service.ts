@@ -47,6 +47,8 @@ import {
 import {
   buildLegacyProfileUrl,
   buildPublicProfileUrl,
+  buildPublicServiceProfileUrl,
+  createServiceSlug,
 } from 'src/app/helpers/profile-url';
 
 type CreateUserFiles = {
@@ -247,6 +249,34 @@ export class UserService {
       viewCount: service.viewCount ?? 0,
       categoryViewCount,
     };
+  }
+
+  private resolveServiceIdBySlug(
+    services: BusinessServiceDocument[],
+    serviceSlug?: string,
+  ) {
+    if (!serviceSlug) return undefined;
+
+    const normalizedSlug = createServiceSlug(serviceSlug);
+    if (!normalizedSlug) {
+      throw new HttpException('Invalid service slug', 400);
+    }
+
+    const matches = services.filter(
+      (service) => createServiceSlug(service.title) === normalizedSlug,
+    );
+
+    if (matches.length === 0) {
+      throw new HttpException('Service not found for this business owner', 404);
+    }
+    if (matches.length > 1) {
+      throw new HttpException(
+        'Service slug is not unique for this business owner',
+        409,
+      );
+    }
+
+    return matches[0].id;
   }
 
   private async getPublicBusinessOwnerOrThrow(ownerId: string) {
@@ -941,6 +971,7 @@ export class UserService {
   async getPublicBusinessProfileByUsername(
     username: string,
     serviceId?: string,
+    serviceSlug?: string,
   ) {
     const normalizedUsername = this.normalizeAndValidateUsername(username);
 
@@ -956,11 +987,6 @@ export class UserService {
       businessOwner.id,
       'business owner id',
     );
-    const viewedService = await this.recordViewedService(
-      serviceId,
-      businessOwnerId,
-    );
-
     const [services, galleryItems, reviewSummary] = await Promise.all([
       this.serviceModel
         .find({ ownerId: businessOwnerId, status: 'active' })
@@ -971,13 +997,31 @@ export class UserService {
       this.getBusinessReviewSummary(businessOwnerId),
     ]);
 
+    const resolvedServiceId =
+      serviceId || this.resolveServiceIdBySlug(services, serviceSlug);
+    const viewedService = await this.recordViewedService(
+      resolvedServiceId,
+      businessOwnerId,
+    );
+    const viewedServiceTitle = resolvedServiceId
+      ? services.find((service) => service.id === resolvedServiceId)?.title
+      : undefined;
+
     const profile = getBusinessProfile(businessOwner);
     const totalGalleryImages = galleryItems.reduce(
       (count, item) => count + item.images.length,
       0,
     );
-    const profileUrl = buildPublicProfileUrl(businessOwner.username)!;
-    const legacyProfileUrl = buildLegacyProfileUrl(businessOwner.id, serviceId);
+    const profileUrl = serviceSlug
+      ? buildPublicServiceProfileUrl(
+          businessOwner.username,
+          viewedServiceTitle,
+        )!
+      : buildPublicProfileUrl(businessOwner.username)!;
+    const legacyProfileUrl = buildLegacyProfileUrl(
+      businessOwner.id,
+      resolvedServiceId,
+    );
 
     return {
       profileUrl,
