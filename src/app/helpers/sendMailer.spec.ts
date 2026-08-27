@@ -14,6 +14,8 @@ jest.mock('../config', () => ({
       address: 'mailer@example.com',
       pass: 'secret',
       from: 'sender@example.com',
+      publicFrom: 'noreply@sidequote.com',
+      replyTo: 'noreply@sidequote.com',
     },
   },
 }));
@@ -35,6 +37,8 @@ describe('sendMailer', () => {
 
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
+        from: '"SideQuote" <noreply@sidequote.com>',
+        replyTo: '"SideQuote No Reply" <noreply@sidequote.com>',
         attachments: expect.arrayContaining([
           expect.objectContaining({
             filename: 'logo.webp',
