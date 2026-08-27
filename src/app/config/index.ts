@@ -33,6 +33,8 @@ export default {
     pass: process.env.EMAIL_PASS,
     from: process.env.EMAIL_FROM,
     displayFrom: process.env.EMAIL_DISPLAY_FROM,
+    publicFrom: process.env.EMAIL_PUBLIC_FROM || 'noreply@sidequote.com',
+    replyTo: process.env.EMAIL_REPLY_TO || 'noreply@sidequote.com',
     to: process.env.EMAIL_TO,
     admin: process.env.ADMIN_EMAIL,
   },
