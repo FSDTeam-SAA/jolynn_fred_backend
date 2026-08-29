@@ -989,7 +989,9 @@ export class UserService {
     );
     const [services, galleryItems, reviewSummary] = await Promise.all([
       this.serviceModel
-        .find({ ownerId: businessOwnerId, status: 'active' })
+        .find({ ownerId: businessOwnerId })
+        .populate('subcategories', 'serviceId subcategory createdAt updatedAt')
+        .select('title description logo viewCount createdAt')
         .sort({ createdAt: -1 }),
       this.gallaryModel
         .find({ userId: businessOwnerId })

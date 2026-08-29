@@ -59,3 +59,11 @@ export const BusinessServiceSchema =
   SchemaFactory.createForClass(BusinessService);
 
 BusinessServiceSchema.index({ ownerId: 1, title: 1 }, { unique: true });
+BusinessServiceSchema.virtual('subcategories', {
+  ref: 'SubCategory',
+  localField: '_id',
+  foreignField: 'serviceId',
+  justOne: false,
+});
+BusinessServiceSchema.set('toJSON', { virtuals: true });
+BusinessServiceSchema.set('toObject', { virtuals: true });

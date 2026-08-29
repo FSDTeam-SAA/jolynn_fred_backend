@@ -25,6 +25,7 @@ import { CategoryModule } from './app/module/category/category.module';
 import { NewsletterModule } from './app/module/newsletter/newsletter.module';
 import { SearchDataModule } from './app/module/search-data/search-data.module';
 import { MessageModule } from './app/module/message/message.module';
+import { SubCategoryModule } from './app/module/sub-category/sub-category.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -50,6 +51,7 @@ import { MessageModule } from './app/module/message/message.module';
     NewsletterModule,
     SearchDataModule,
     MessageModule,
+    SubCategoryModule,
   ],
 
   controllers: [AppController],
