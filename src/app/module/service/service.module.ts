@@ -15,11 +15,13 @@ import {
   ServiceCategorySchema,
 } from '../service-category/entities/service-category.entity';
 import { SearchDataModule } from '../search-data/search-data.module';
+import { SubCategoryModule } from '../sub-category/sub-category.module';
 
 @Module({
   imports: [
     SearchDataModule,
     ServiceCategoryModule,
+    SubCategoryModule,
     MongooseModule.forFeature([
       { name: BusinessService.name, schema: BusinessServiceSchema },
       { name: User.name, schema: UserSchema },

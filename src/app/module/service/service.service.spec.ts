@@ -20,6 +20,7 @@ const createQuery = <T>(value: T) => {
 
   query.select = jest.fn(() => query);
   query.sort = jest.fn(() => query);
+  query.populate = jest.fn(() => query);
   query.distinct = jest.fn().mockResolvedValue(value);
   query.then = promise.then.bind(promise);
   query.catch = promise.catch.bind(promise);
@@ -33,7 +34,10 @@ describe('ServiceService global business search', () => {
     const ownerId = new Types.ObjectId();
     const serviceModel = {
       findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockImplementation((payload) => payload),
+      create: jest.fn().mockImplementation((payload) => ({
+        ...payload,
+        populate: jest.fn().mockResolvedValue(payload),
+      })),
     };
     const serviceCategoryService = {
       resolveCategorySelection: jest.fn().mockResolvedValue({
@@ -48,6 +52,7 @@ describe('ServiceService global business search', () => {
       {} as any,
       {} as any,
       serviceCategoryService as any,
+      {} as any,
     );
 
     await service.createService(ownerId.toString(), {
@@ -110,6 +115,9 @@ describe('ServiceService global business search', () => {
       reviewModel as any,
       serviceCategoryModel as any,
       {} as any,
+      {
+        findMatchingServiceIds: jest.fn().mockResolvedValue([]),
+      } as any,
     );
 
     const result = await service.searchBusinessOwnersByService(
@@ -212,6 +220,9 @@ describe('ServiceService global business search', () => {
       reviewModel as any,
       serviceCategoryModel as any,
       {} as any,
+      {
+        findMatchingServiceIds: jest.fn().mockResolvedValue([]),
+      } as any,
     );
 
     const result = await service.searchBusinessOwnersByService(
@@ -231,6 +242,69 @@ describe('ServiceService global business search', () => {
         $or: expect.arrayContaining([
           { keywords: { $regex: expect.any(RegExp) } },
         ]),
+      }),
+    );
+  });
+
+  it('returns a business owner matched by an assigned subcategory', async () => {
+    const categoryId = new Types.ObjectId();
+    const subCategoryServiceId = new Types.ObjectId();
+    const ownerId = new Types.ObjectId();
+    const matchedService = {
+      id: subCategoryServiceId.toString(),
+      _id: subCategoryServiceId,
+      ownerId,
+      title: 'Plumbing',
+      description: 'Residential plumbing repairs',
+      createdAt: new Date(),
+    };
+    const owner = {
+      id: ownerId.toString(),
+      email: 'plumber@example.com',
+      businessName: 'Reliable Plumbing',
+      role: 'businessOwner',
+      status: 'active',
+      createdAt: new Date(),
+    };
+    const serviceModel = {
+      find: jest.fn().mockReturnValue(createQuery([matchedService])),
+    };
+    const userModel = {
+      find: jest
+        .fn()
+        .mockReturnValueOnce(createQuery([]))
+        .mockReturnValueOnce(createQuery([owner])),
+    };
+    const serviceCategoryModel = {
+      find: jest
+        .fn()
+        .mockReturnValueOnce(createQuery([categoryId]))
+        .mockReturnValueOnce(createQuery([])),
+    };
+    const subCategoryService = {
+      findMatchingServiceIds: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([subCategoryServiceId]),
+    };
+    const service = new ServiceService(
+      serviceModel as any,
+      userModel as any,
+      { aggregate: jest.fn().mockResolvedValue([]) } as any,
+      serviceCategoryModel as any,
+      {} as any,
+      subCategoryService as any,
+    );
+
+    const result = await service.searchBusinessOwnersByService(
+      { searchTerm: 'Drain Cleaning' },
+      { page: 1, limit: 10 },
+    );
+
+    expect(result.meta.total).toBe(1);
+    expect(serviceModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        $or: expect.arrayContaining([{ _id: { $in: [subCategoryServiceId] } }]),
       }),
     );
   });
