@@ -14,9 +14,6 @@ import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
 import { ServiceCategoryService } from '../service-category/service-category.service';
 import { ServiceCategory } from '../service-category/entities/service-category.entity';
 import { User, UserDocument } from '../user/entities/user.entity';
-import sendMailer from 'src/app/helpers/sendMailer';
-import { createNotificationEmailTemplate } from 'src/app/helpers/template';
-import config from 'src/app/config';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import {HelpWantedCounter, HelpWantedCounterDocument,} from './entities/help-wanted-counter.entity';
 const helpWantedSearchAbleFields = [
@@ -383,21 +380,29 @@ export class HelpWantedService {
     imageFiles?: Express.Multer.File[],
   ) {
     const jobId = await this.generateJobId();
-    const serviceCategory =
-      await this.serviceCategoryService.resolveCategorySelection(
-        createHelpWantedDto.category,
-        createHelpWantedDto.requestedCategory,
-        'help_wanted',
-        userId,
-      );
     const usesOtherCategory = this.isOtherCategory(
       createHelpWantedDto.category,
     );
-    const isPendingCategory = serviceCategory.status === 'pending';
-    const isPendingOtherCategory = usesOtherCategory && isPendingCategory;
-    const categoryName = isPendingOtherCategory
-      ? createHelpWantedDto.category
-      : serviceCategory.name;
+    const customCategory = createHelpWantedDto.requestedCategory?.trim();
+
+    if (usesOtherCategory && !customCategory) {
+      throw new HttpException(
+        'Requested category is required when category is Other',
+        400,
+      );
+    }
+
+    const serviceCategory = usesOtherCategory
+      ? null
+      : await this.serviceCategoryService.resolveCategorySelection(
+          createHelpWantedDto.category,
+          undefined,
+          'help_wanted',
+          userId,
+        );
+    const categoryName = usesOtherCategory
+      ? customCategory!
+      : serviceCategory!.name;
     const images = await this.uploadImages(imageFiles);
     const helpWanted = await this.helpWantedModel.create({
       ...createHelpWantedDto,
@@ -405,42 +410,12 @@ export class HelpWantedService {
       images,
       userId,
       category: categoryName,
-      requestedCategory: isPendingOtherCategory
-        ? createHelpWantedDto.requestedCategory
-        : null,
-      serviceCategoryId: serviceCategory?._id,
-      status: isPendingCategory ? 'pending' : 'active',
+      requestedCategory: usesOtherCategory ? customCategory : null,
+      ...(serviceCategory
+        ? { serviceCategoryId: serviceCategory._id }
+        : {}),
+      status: 'active',
     });
-
-    if (isPendingOtherCategory && config.email.admin) {
-      sendMailer(
-        config.email.admin,
-        'Help Wanted Post Requires Category Approval',
-        createNotificationEmailTemplate({
-          heading: 'Category Approval Needed',
-          subheading: 'A new Help Wanted post is waiting for review.',
-          introText:
-            'A user submitted a Help Wanted post using a new category. Please review and approve the requested category before publishing this post on the platform.',
-          details: [
-            {
-              label: 'Requested Category',
-              value: createHelpWantedDto.requestedCategory!,
-            },
-            { label: 'Posted By', value: createHelpWantedDto.username },
-            { label: 'Post Email', value: createHelpWantedDto.email },
-            { label: 'Post Message', value: createHelpWantedDto.message },
-          ],
-          noteTitle: 'Action required',
-          noteText:
-            'Approve or reject the requested category from the admin dashboard.',
-        }),
-      ).catch((error) =>
-        console.error(
-          'Failed to send help wanted category approval email:',
-          error,
-        ),
-      );
-    }
 
     return helpWanted;
   }
