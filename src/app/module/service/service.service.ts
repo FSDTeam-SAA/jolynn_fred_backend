@@ -18,6 +18,7 @@ import { ServiceCategory } from '../service-category/entities/service-category.e
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
+import { SubCategoryService } from '../sub-category/sub-category.service';
 import {
   activeBusinessOwnerFilter,
   getBusinessProfile,
@@ -70,6 +71,7 @@ export class ServiceService {
     @InjectModel(ServiceCategory.name)
     private readonly serviceCategoryModel: Model<ServiceCategory>,
     private readonly serviceCategoryService: ServiceCategoryService,
+    private readonly subCategoryService: SubCategoryService,
   ) {}
 
   private normalizePayload<T extends CreateServiceDto | UpdateServiceDto>(
@@ -242,6 +244,7 @@ export class ServiceService {
     const total = await this.serviceModel.countDocuments(whereConditions);
     const services = await this.serviceModel
       .find(whereConditions)
+      .populate('subcategories', 'serviceId subcategory createdAt updatedAt')
       .skip(skip)
       .limit(limit)
       .sort({ [sortBy]: sortOrder } as any)
@@ -430,6 +433,7 @@ export class ServiceService {
               title: service.title,
               description: service.description,
               logo: service.logo,
+              subcategories: (service as any).subcategories ?? [],
             }
           : null,
       };
@@ -542,7 +546,11 @@ export class ServiceService {
       );
     }
 
-    return this.serviceModel.create(servicePayload);
+    const service = await this.serviceModel.create(servicePayload);
+    return service.populate(
+      'subcategories',
+      'serviceId subcategory createdAt updatedAt',
+    );
   }
 
   async getMyServices(
@@ -554,7 +562,11 @@ export class ServiceService {
   }
 
   async getOwnServiceById(serviceId: string, ownerId: string) {
-    return this.getOwnedServiceOrThrow(serviceId, ownerId);
+    const service = await this.getOwnedServiceOrThrow(serviceId, ownerId);
+    return service.populate(
+      'subcategories',
+      'serviceId subcategory createdAt updatedAt',
+    );
   }
 
   async recordPublicServiceView(serviceId: string) {
@@ -605,6 +617,7 @@ export class ServiceService {
     const total = await this.serviceModel.countDocuments(whereConditions);
     const services = await this.serviceModel
       .find(whereConditions)
+      .populate('subcategories', 'serviceId subcategory createdAt updatedAt')
       .skip(skip)
       .limit(limit)
       .sort({ [sortBy]: sortOrder } as any)
@@ -681,9 +694,16 @@ export class ServiceService {
       findMatchingCategoryIds(globalSearchRegex),
     ]);
 
+    const [serviceSubCategoryServiceIds, globalSubCategoryServiceIds] =
+      await Promise.all([
+        this.subCategoryService.findMatchingServiceIds(serviceRegex),
+        this.subCategoryService.findMatchingServiceIds(globalSearchRegex),
+      ]);
+
     const findMatchingServices = (
       searchRegex: RegExp | null,
       matchingCategoryIds: Types.ObjectId[],
+      matchingSubCategoryServiceIds: Types.ObjectId[],
     ) =>
       searchRegex
         ? this.serviceModel
@@ -697,16 +717,31 @@ export class ServiceService {
                 ...(matchingCategoryIds.length
                   ? [{ serviceCategoryId: { $in: matchingCategoryIds } }]
                   : []),
+                ...(matchingSubCategoryServiceIds.length
+                  ? [{ _id: { $in: matchingSubCategoryServiceIds } }]
+                  : []),
               ],
             })
+            .populate(
+              'subcategories',
+              'serviceId subcategory createdAt updatedAt',
+            )
             .sort({ createdAt: -1 })
             .select('ownerId title description logo createdAt')
         : Promise.resolve([] as BusinessServiceDocument[]);
 
     const [serviceMatchingServices, globalMatchingServices] = await Promise.all(
       [
-        findMatchingServices(serviceRegex, serviceCategoryIds),
-        findMatchingServices(globalSearchRegex, globalCategoryIds),
+        findMatchingServices(
+          serviceRegex,
+          serviceCategoryIds,
+          serviceSubCategoryServiceIds,
+        ),
+        findMatchingServices(
+          globalSearchRegex,
+          globalCategoryIds,
+          globalSubCategoryServiceIds,
+        ),
       ],
     );
 
@@ -793,6 +828,10 @@ export class ServiceService {
                 ),
               },
             })
+            .populate(
+              'subcategories',
+              'serviceId subcategory createdAt updatedAt',
+            )
             .sort({ createdAt: -1 })
             .select('ownerId title description logo createdAt');
 
@@ -835,6 +874,7 @@ export class ServiceService {
         title: selectedService.title,
         status: 'active',
       })
+      .populate('subcategories', 'serviceId subcategory createdAt updatedAt')
       .select('ownerId title description logo createdAt');
 
     const ownerIds = [
@@ -928,7 +968,12 @@ export class ServiceService {
       { new: true, runValidators: true },
     );
 
-    return updatedService;
+    return updatedService
+      ? updatedService.populate(
+          'subcategories',
+          'serviceId subcategory createdAt updatedAt',
+        )
+      : updatedService;
   }
 
   async deleteOwnService(serviceId: string, ownerId: string) {
@@ -939,6 +984,7 @@ export class ServiceService {
     }
 
     await this.serviceModel.findByIdAndDelete(service._id);
+    await this.subCategoryService.deleteByServiceId(service._id);
 
     return service;
   }
