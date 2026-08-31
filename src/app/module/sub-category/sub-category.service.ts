@@ -159,6 +159,59 @@ export class SubCategoryService {
     };
   }
 
+  async getMySubCategories(
+    ownerId: string,
+    params: IFilterParams,
+    options: IOptions,
+  ) {
+    const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
+    const serviceConditions: Record<string, unknown> = {
+      ownerId: this.toObjectId(ownerId, 'owner'),
+    };
+
+    if (params.serviceId) {
+      serviceConditions._id = this.toObjectId(
+        String(params.serviceId),
+        'service',
+      );
+    }
+
+    const ownedServiceIds = await this.businessServiceModel.distinct(
+      '_id',
+      serviceConditions,
+    );
+    const whereConditions: Record<string, unknown> = {
+      serviceId: { $in: ownedServiceIds },
+    };
+
+    if (params.searchTerm && typeof params.searchTerm === 'string') {
+      const escapedSearchTerm = params.searchTerm
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      whereConditions.subcategory = {
+        $regex: new RegExp(escapedSearchTerm, 'i'),
+      };
+    }
+
+    const [total, subcategories] = await Promise.all([
+      this.subCategoryModel.countDocuments(whereConditions),
+      this.subCategoryModel
+        .find(whereConditions)
+        .populate(
+          'serviceId',
+          'ownerId title serviceCategoryId status createdAt',
+        )
+        .skip(skip)
+        .limit(limit)
+        .sort({ [sortBy]: sortOrder } as any),
+    ]);
+
+    return {
+      meta: { page, limit, total },
+      data: subcategories,
+    };
+  }
+
   async getSingleSubCategory(id: string) {
     const subcategory = await this.subCategoryModel
       .findById(this.toObjectId(id, 'subcategory'))
