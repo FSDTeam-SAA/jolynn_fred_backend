@@ -84,6 +84,39 @@ export class SubCategoryController {
     };
   }
 
+  @Get('my-sub-categories')
+  @ApiOperation({
+    summary: 'Get subcategories owned by the logged in business',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('businessOwner', 'admin'))
+  @ApiQuery({ name: 'serviceId', required: false, type: String })
+  @ApiQuery({ name: 'searchTerm', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+  })
+  @HttpCode(HttpStatus.OK)
+  async getMySubCategories(@Req() req: Request) {
+    const params = pick(req.query, ['serviceId', 'searchTerm']);
+    const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
+    const result = await this.subCategoryService.getMySubCategories(
+      req.user!.id,
+      params,
+      options,
+    );
+
+    return {
+      message: 'Subcategories fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a subcategory by id' })
   @ApiParam({ name: 'id', type: String })

@@ -84,4 +84,49 @@ describe('SubCategoryService', () => {
       'You are not allowed to manage subcategories for this service',
     );
   });
+
+  it('returns only subcategories belonging to the logged in owner services', async () => {
+    const ownerId = new Types.ObjectId();
+    const serviceId = new Types.ObjectId();
+    const ownedSubcategory = {
+      _id: new Types.ObjectId(),
+      serviceId,
+      subcategory: 'Drain Cleaning',
+    };
+    const resultQuery = {
+      populate: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      sort: jest.fn().mockResolvedValue([ownedSubcategory]),
+    };
+    const subCategoryModel = {
+      countDocuments: jest.fn().mockResolvedValue(1),
+      find: jest.fn().mockReturnValue(resultQuery),
+    };
+    const businessServiceModel = {
+      distinct: jest.fn().mockResolvedValue([serviceId]),
+    };
+    const service = new SubCategoryService(
+      subCategoryModel as any,
+      businessServiceModel as any,
+    );
+
+    const result = await service.getMySubCategories(
+      ownerId.toString(),
+      { searchTerm: 'Drain' },
+      { page: 1, limit: 20 },
+    );
+
+    expect(businessServiceModel.distinct).toHaveBeenCalledWith('_id', {
+      ownerId,
+    });
+    expect(subCategoryModel.find).toHaveBeenCalledWith({
+      serviceId: { $in: [serviceId] },
+      subcategory: { $regex: /Drain/i },
+    });
+    expect(result).toEqual({
+      meta: { page: 1, limit: 20, total: 1 },
+      data: [ownedSubcategory],
+    });
+  });
 });
