@@ -21,6 +21,7 @@ jest.mock('../report/entities/report.entity', () => ({
 }));
 
 import { Types } from 'mongoose';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 import { UserService } from './user.service';
 
 const createQuery = <T>(value: T) => {
@@ -28,6 +29,8 @@ const createQuery = <T>(value: T) => {
   const promise = Promise.resolve(value);
 
   query.sort = jest.fn(() => query);
+  query.select = jest.fn(() => query);
+  query.populate = jest.fn(() => query);
   query.then = promise.then.bind(promise);
   query.catch = promise.catch.bind(promise);
 
@@ -63,6 +66,13 @@ describe('UserService profile isolation', () => {
     };
     const service = new UserService(
       userModel as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -113,10 +123,279 @@ describe('UserService profile isolation', () => {
   });
 });
 
+describe('UserService profile deletion', () => {
+  const accountId = new Types.ObjectId();
+  const serviceId = new Types.ObjectId();
+  const quoteId = new Types.ObjectId();
+  const conversationId = new Types.ObjectId();
+  const helpWantedId = new Types.ObjectId();
+
+  function createDeletionService() {
+    const account = {
+      _id: accountId,
+      id: accountId.toString(),
+      email: 'member@example.com',
+      role: 'user',
+      roles: ['user', 'businessOwner'],
+      defaultRole: 'user',
+      userProfile: {
+        firstName: 'Personal',
+        profilePicture:
+          'https://res.cloudinary.com/demo/image/upload/v1/healthcare_app/personal.jpg',
+      },
+      businessProfile: {
+        businessName: 'Business',
+        profilePicture:
+          'https://res.cloudinary.com/demo/image/upload/v1/healthcare_app/business.jpg',
+      },
+    };
+    const userModel = {
+      findById: jest.fn().mockResolvedValue(account),
+      findByIdAndUpdate: jest.fn().mockResolvedValue(account),
+      findByIdAndDelete: jest.fn().mockResolvedValue(account),
+    };
+    const serviceModel = {
+      find: jest
+        .fn()
+        .mockReturnValue(
+          createQuery([
+            { _id: serviceId, logo: { publicId: 'services/logo' } },
+          ]),
+        ),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const serviceCategoryModel = {
+      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+    };
+    const reviewModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+    };
+    const galleryModel = {
+      find: jest
+        .fn()
+        .mockReturnValue(
+          createQuery([{ images: [{ publicId: 'gallery/image' }] }]),
+        ),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const quoteModel = {
+      find: jest.fn().mockReturnValue(createQuery([{ _id: quoteId }])),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const saveQuoteModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const reportModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const quoteReplyModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const conversationModel = {
+      find: jest.fn().mockReturnValue(createQuery([{ _id: conversationId }])),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const messageModel = {
+      find: jest.fn().mockReturnValue(createQuery([{ attachments: [] }])),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const helpWantedModel = {
+      find: jest
+        .fn()
+        .mockReturnValue(createQuery([{ _id: helpWantedId, images: [] }])),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const jobReportModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const subCategoryModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const contactModel = {
+      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+    };
+    const userService = new UserService(
+      userModel as any,
+      serviceModel as any,
+      serviceCategoryModel as any,
+      reviewModel as any,
+      galleryModel as any,
+      quoteModel as any,
+      saveQuoteModel as any,
+      reportModel as any,
+      quoteReplyModel as any,
+      conversationModel as any,
+      messageModel as any,
+      helpWantedModel as any,
+      jobReportModel as any,
+      subCategoryModel as any,
+      contactModel as any,
+    );
+
+    return {
+      account,
+      userService,
+      userModel,
+      serviceModel,
+      reviewModel,
+      galleryModel,
+      quoteModel,
+      saveQuoteModel,
+      reportModel,
+      quoteReplyModel,
+      conversationModel,
+      messageModel,
+      helpWantedModel,
+      jobReportModel,
+      subCategoryModel,
+      contactModel,
+    };
+  }
+
+  beforeEach(() => {
+    jest
+      .spyOn(fileUpload, 'deleteResourceFromCloudinary')
+      .mockResolvedValue(undefined);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('deletes only personal-profile relations when a business profile remains', async () => {
+    const models = createDeletionService();
+
+    const result = await models.userService.deleteOwnProfile(
+      accountId.toString(),
+      'user',
+    );
+
+    expect(result).toMatchObject({
+      deletedProfile: 'user',
+      accountDeleted: false,
+    });
+    expect(models.reviewModel.deleteMany).toHaveBeenCalledWith({
+      reviewerId: accountId,
+    });
+    expect(models.quoteModel.deleteMany).toHaveBeenCalledWith({
+      userId: accountId,
+    });
+    expect(models.quoteReplyModel.deleteMany).toHaveBeenCalledWith({
+      qouteId: { $in: [quoteId] },
+    });
+    expect(models.conversationModel.deleteMany).toHaveBeenCalledWith({
+      userId: accountId,
+    });
+    expect(models.helpWantedModel.deleteMany).toHaveBeenCalledWith({
+      userId: accountId,
+    });
+    expect(models.serviceModel.deleteMany).not.toHaveBeenCalled();
+    expect(models.galleryModel.deleteMany).not.toHaveBeenCalled();
+    expect(models.userModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      accountId,
+      expect.objectContaining({
+        $set: expect.objectContaining({ roles: ['businessOwner'] }),
+        $unset: expect.objectContaining({ userProfile: 1 }),
+      }),
+      { new: true, runValidators: true },
+    );
+  });
+
+  it('deletes business children and keeps the personal profile', async () => {
+    const models = createDeletionService();
+
+    const result = await models.userService.deleteOwnProfile(
+      accountId.toString(),
+      'businessOwner',
+    );
+
+    expect(result).toMatchObject({
+      deletedProfile: 'businessOwner',
+      accountDeleted: false,
+    });
+    expect(models.subCategoryModel.deleteMany).toHaveBeenCalledWith({
+      serviceId: { $in: [serviceId] },
+    });
+    expect(models.serviceModel.deleteMany).toHaveBeenCalledWith({
+      ownerId: accountId,
+    });
+    expect(models.reviewModel.deleteMany).toHaveBeenCalledWith({
+      businessId: accountId,
+    });
+    expect(models.quoteModel.deleteMany).toHaveBeenCalledWith({
+      businessOwnerId: accountId,
+    });
+    expect(models.conversationModel.deleteMany).toHaveBeenCalledWith({
+      businessOwnerId: accountId,
+    });
+    expect(models.userModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      accountId,
+      expect.objectContaining({
+        $set: expect.objectContaining({ roles: ['user'] }),
+        $unset: expect.objectContaining({ businessProfile: 1 }),
+      }),
+      { new: true, runValidators: true },
+    );
+    expect(fileUpload.deleteResourceFromCloudinary).toHaveBeenCalledWith(
+      'services/logo',
+      undefined,
+    );
+    expect(fileUpload.deleteResourceFromCloudinary).toHaveBeenCalledWith(
+      'gallery/image',
+      undefined,
+    );
+  });
+
+  it('requires admins to select a profile for a dual-profile account', async () => {
+    const { userService } = createDeletionService();
+
+    await expect(userService.deleteUser(accountId.toString())).rejects.toThrow(
+      'profileRole is required when the account has multiple profiles',
+    );
+  });
+
+  it('deletes the account and both-side references when its last profile is deleted', async () => {
+    const models = createDeletionService();
+    models.account.roles = ['user'];
+    models.account.businessProfile = undefined as any;
+
+    const result = await models.userService.deleteOwnProfile(
+      accountId.toString(),
+      'user',
+    );
+
+    expect(result).toMatchObject({
+      deletedProfile: 'user',
+      accountDeleted: true,
+    });
+    expect(models.quoteModel.deleteMany).toHaveBeenCalledWith({
+      userId: accountId,
+    });
+    expect(models.quoteModel.deleteMany).toHaveBeenCalledWith({
+      businessOwnerId: accountId,
+    });
+    expect(models.messageModel.deleteMany).toHaveBeenCalledWith({
+      $or: [{ senderId: accountId }, { recipientId: accountId }],
+    });
+    expect(models.contactModel.updateMany).toHaveBeenCalledWith(
+      { repliedById: accountId },
+      expect.any(Object),
+    );
+    expect(models.userModel.findByIdAndDelete).toHaveBeenCalledWith(accountId);
+    expect(models.userModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
 describe('UserService public username profile', () => {
   it('resolves a public service slug without exposing the service id', () => {
     const serviceId = new Types.ObjectId().toString();
     const service = new UserService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -202,6 +481,13 @@ describe('UserService public username profile', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
 
     const result = await service.getPublicBusinessProfileByUsername('JOLYNN');
@@ -213,7 +499,6 @@ describe('UserService public username profile', () => {
     );
     expect(serviceModel.find).toHaveBeenCalledWith({
       ownerId,
-      status: 'active',
     });
     expect(result).toEqual(
       expect.objectContaining({

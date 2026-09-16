@@ -494,10 +494,31 @@ export class UserController {
     };
   }
 
+  @Delete('profile')
+  @ApiOperation({
+    summary: 'Delete the active personal or business profile and all its data',
+  })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('user', 'businessOwner'))
+  @HttpCode(HttpStatus.OK)
+  async deleteOwnProfile(@Req() req: Request) {
+    const result = await this.userService.deleteOwnProfile(
+      req.user!.id,
+      req.user!.role,
+    );
+
+    return {
+      message: result.accountDeleted
+        ? 'Account and all related data deleted successfully.'
+        : `${result.deletedProfile === 'user' ? 'Personal' : 'Business'} profile and all related data deleted successfully.`,
+      data: result.user,
+    };
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary:
-      'Delete a user or remove a business profile while preserving the user account',
+      'Delete a selected personal or business profile and all related data',
   })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('admin'))
@@ -514,12 +535,16 @@ export class UserController {
     @Param('id') id: string,
     @Body() deleteUserDto: DeleteUserDto,
   ) {
-    const result = await this.userService.deleteUser(id, deleteUserDto.reason);
+    const result = await this.userService.deleteUser(
+      id,
+      deleteUserDto.reason,
+      deleteUserDto.profileRole,
+    );
 
     return {
-      message: result.businessProfileDeleted
-        ? 'Business profile and related business data deleted successfully. User profile remains active.'
-        : 'User deleted successfully',
+      message: result.accountDeleted
+        ? 'Account and all related data deleted successfully.'
+        : `${result.deletedProfile === 'user' ? 'Personal' : 'Business'} profile and all related data deleted successfully.`,
       data: result.user,
     };
   }

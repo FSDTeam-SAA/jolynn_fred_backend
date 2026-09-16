@@ -29,6 +29,28 @@ import {
   SaveQuoteDocument,
 } from '../save-quote/entities/save-quote.entity';
 import { Report, ReportDocument } from '../report/entities/report.entity';
+import {
+  QouteReply,
+  QouteReplyDocument,
+} from '../qoute/entities/qoute-reply.entity';
+import {
+  Conversation,
+  ConversationDocument,
+} from '../message/entities/conversation.entity';
+import { Message, MessageDocument } from '../message/entities/message.entity';
+import {
+  HelpWanted,
+  HelpWantedDocument,
+} from '../help-wanted/entities/help-wanted.entity';
+import {
+  JobReport,
+  JobReportDocument,
+} from '../job-report/entities/job-report.entity';
+import {
+  SubCategory,
+  SubCategoryDocument,
+} from '../sub-category/entities/sub-category.entity';
+import { Contact, ContactDocument } from '../contact/entities/contact.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -59,6 +81,12 @@ type CreateUserFiles = {
 type ProfileUpdateFiles = {
   profilePicture?: Express.Multer.File;
   backgroundImage?: Express.Multer.File;
+};
+
+type DeletableProfileRole = Extract<UserRole, 'user' | 'businessOwner'>;
+type CloudinaryAsset = {
+  publicId?: string;
+  resourceType?: 'image' | 'video' | 'raw';
 };
 
 const userSearchAbleFields = [
@@ -109,6 +137,20 @@ export class UserService {
     private readonly saveQuoteModel: Model<SaveQuoteDocument>,
     @InjectModel(Report.name)
     private readonly reportModel: Model<ReportDocument>,
+    @InjectModel(QouteReply.name)
+    private readonly qouteReplyModel: Model<QouteReplyDocument>,
+    @InjectModel(Conversation.name)
+    private readonly conversationModel: Model<ConversationDocument>,
+    @InjectModel(Message.name)
+    private readonly messageModel: Model<MessageDocument>,
+    @InjectModel(HelpWanted.name)
+    private readonly helpWantedModel: Model<HelpWantedDocument>,
+    @InjectModel(JobReport.name)
+    private readonly jobReportModel: Model<JobReportDocument>,
+    @InjectModel(SubCategory.name)
+    private readonly subCategoryModel: Model<SubCategoryDocument>,
+    @InjectModel(Contact.name)
+    private readonly contactModel: Model<ContactDocument>,
   ) {}
 
   private toObjectId(id: string, label = 'user id') {
@@ -535,6 +577,7 @@ export class UserService {
       username: businessOwner.username,
       role: 'businessOwner',
       status: profile.status,
+      isReported: profile.isReported ?? false,
       rating: reviewSummary.averageRating,
       totalReviews: reviewSummary.totalReviews,
       reviewSummary,
@@ -678,11 +721,13 @@ export class UserService {
     user: UserDocument,
     action:
       | 'account deletion'
+      | 'user profile deletion'
       | 'business profile deletion'
       | 'account rejection',
     reason?: string,
   ) {
     const isAccountDeletion = action === 'account deletion';
+    const isUserProfileDeletion = action === 'user profile deletion';
     const isRejection = action === 'account rejection';
     const personalProfile = getPersonalProfile(user);
     const businessProfile = getBusinessProfile(user);
@@ -699,18 +744,24 @@ export class UserService {
         ? 'Your account application was rejected'
         : isAccountDeletion
           ? 'Your account has been deleted'
-          : 'Your business profile has been deleted',
+          : isUserProfileDeletion
+            ? 'Your personal profile has been deleted'
+            : 'Your business profile has been deleted',
       createNotificationEmailTemplate({
         heading: isRejection
           ? 'Account Application Rejected'
           : isAccountDeletion
             ? 'Account Deleted'
-            : 'Business Profile Deleted',
+            : isUserProfileDeletion
+              ? 'Personal Profile Deleted'
+              : 'Business Profile Deleted',
         subheading: isRejection
           ? 'Your account application was not approved by the Jolynn team.'
           : isAccountDeletion
             ? 'Your account is no longer available on Jolynn.'
-            : 'Your business profile is no longer active on Jolynn.',
+            : isUserProfileDeletion
+              ? 'Your personal profile is no longer active on Jolynn.'
+              : 'Your business profile is no longer active on Jolynn.',
         greetingName:
           personalProfile.firstName ||
           businessProfile.ownerName ||
@@ -720,7 +771,9 @@ export class UserService {
           ? 'Your account application was rejected by an administrator or the support team.'
           : isAccountDeletion
             ? 'Your account was deleted by an administrator or the support team.'
-            : 'Your business profile and its related business data were deleted by an administrator or the support team. Your personal user account remains active.',
+            : isUserProfileDeletion
+              ? 'Your personal profile and its related data were deleted by an administrator or the support team. Any remaining business profile stays active.'
+              : 'Your business profile and its related business data were deleted by an administrator or the support team. Any remaining personal profile stays active.',
         details,
         noteTitle: 'Need help?',
         noteText:
@@ -731,87 +784,393 @@ export class UserService {
     });
   }
 
-  async deleteUser(id: string, reason?: string) {
+  private getDeletionRole(
+    user: UserDocument,
+    requestedRole?: DeletableProfileRole,
+  ): DeletableProfileRole {
+    if (requestedRole) {
+      if (!hasProfileRole(user, requestedRole)) {
+        throw new HttpException('Profile not found', 404);
+      }
+      return requestedRole;
+    }
+
+    const availableProfiles = getAvailableRoles(user).filter(
+      (role): role is DeletableProfileRole =>
+        role === 'user' || role === 'businessOwner',
+    );
+    if (availableProfiles.length !== 1) {
+      throw new HttpException(
+        'profileRole is required when the account has multiple profiles',
+        400,
+      );
+    }
+    return availableProfiles[0];
+  }
+
+  private getProfileImagePublicIds(
+    user: UserDocument,
+    profileRole: DeletableProfileRole,
+  ) {
+    const targetProfile =
+      profileRole === 'user'
+        ? getPersonalProfile(user)
+        : getBusinessProfile(user);
+    const otherProfile =
+      profileRole === 'user'
+        ? getBusinessProfile(user)
+        : getPersonalProfile(user);
+    const otherRole: DeletableProfileRole =
+      profileRole === 'user' ? 'businessOwner' : 'user';
+    const otherUrls = hasProfileRole(user, otherRole)
+      ? new Set([otherProfile.profilePicture, otherProfile.backgroundImage])
+      : new Set<string | undefined>();
+
+    return [targetProfile.profilePicture, targetProfile.backgroundImage]
+      .filter((url): url is string => Boolean(url) && !otherUrls.has(url))
+      .map((url) => fileUpload.getCloudinaryPublicIdFromUrl(url))
+      .filter((publicId): publicId is string => Boolean(publicId));
+  }
+
+  private async deleteCloudinaryAssets(assets: CloudinaryAsset[]) {
+    const uniqueAssets = [
+      ...new Map(
+        assets
+          .filter((asset) => Boolean(asset.publicId))
+          .map((asset) => [
+            `${asset.resourceType ?? 'image'}:${asset.publicId}`,
+            asset,
+          ]),
+      ).values(),
+    ];
+
+    await Promise.all(
+      uniqueAssets.map((asset) =>
+        fileUpload.deleteResourceFromCloudinary(
+          asset.publicId!,
+          asset.resourceType,
+        ),
+      ),
+    );
+  }
+
+  private async deleteConversations(
+    accountId: Types.ObjectId,
+    profileRole: DeletableProfileRole,
+  ) {
+    const field = profileRole === 'user' ? 'userId' : 'businessOwnerId';
+    const conversations = await this.conversationModel
+      .find({ [field]: accountId })
+      .select('_id');
+    const conversationIds = conversations.map(
+      (conversation) => conversation._id,
+    );
+    const messages = conversationIds.length
+      ? await this.messageModel
+          .find({ conversationId: { $in: conversationIds } })
+          .select('attachments')
+      : [];
+
+    await this.deleteCloudinaryAssets(
+      messages.flatMap((message) =>
+        message.attachments.flatMap<CloudinaryAsset>((attachment) => {
+          if (attachment.mimetype.startsWith('image/')) {
+            return [
+              {
+                publicId: attachment.public_id,
+                resourceType: 'image' as const,
+              },
+            ];
+          }
+          if (attachment.mimetype.startsWith('video/')) {
+            return [
+              {
+                publicId: attachment.public_id,
+                resourceType: 'video' as const,
+              },
+            ];
+          }
+          return [
+            { publicId: attachment.public_id, resourceType: 'raw' as const },
+            { publicId: attachment.public_id, resourceType: 'image' as const },
+          ];
+        }),
+      ),
+    );
+
+    if (conversationIds.length) {
+      await this.messageModel.deleteMany({
+        conversationId: { $in: conversationIds },
+      });
+    }
+    await this.conversationModel.deleteMany({ [field]: accountId });
+  }
+
+  private async deleteQuotes(
+    accountId: Types.ObjectId,
+    profileRole: DeletableProfileRole,
+  ) {
+    const field = profileRole === 'user' ? 'userId' : 'businessOwnerId';
+    const quotes = await this.qouteModel
+      .find({ [field]: accountId })
+      .select('_id');
+    const quoteIds = quotes.map((quote) => quote._id);
+
+    if (quoteIds.length) {
+      await this.qouteReplyModel.deleteMany({ qouteId: { $in: quoteIds } });
+    }
+    await this.qouteModel.deleteMany({ [field]: accountId });
+  }
+
+  private async deletePersonalProfileData(
+    user: UserDocument,
+    accountId: Types.ObjectId,
+  ) {
+    const helpWantedPosts = await this.helpWantedModel
+      .find({ userId: accountId })
+      .select('_id images');
+    const helpWantedIds = helpWantedPosts.map((post) => post._id);
+
+    await this.deleteCloudinaryAssets([
+      ...this.getProfileImagePublicIds(user, 'user').map((publicId) => ({
+        publicId,
+      })),
+      ...helpWantedPosts.flatMap((post) =>
+        post.images.map((image) => ({ publicId: image.publicId })),
+      ),
+    ]);
+    await Promise.all([
+      this.deleteQuotes(accountId, 'user'),
+      this.deleteConversations(accountId, 'user'),
+    ]);
+    await Promise.all([
+      this.reviewModel.deleteMany({ reviewerId: accountId }),
+      this.saveQuoteModel.deleteMany({ userId: accountId }),
+      this.reportModel.deleteMany({ userId: accountId }),
+      this.jobReportModel.deleteMany({
+        $or: [
+          { userId: accountId },
+          ...(helpWantedIds.length
+            ? [{ helpWantedId: { $in: helpWantedIds } }]
+            : []),
+        ],
+      }),
+      this.helpWantedModel.deleteMany({ userId: accountId }),
+      this.serviceCategoryModel.updateMany(
+        { requestedByUserId: accountId, source: 'help_wanted' },
+        { $unset: { requestedByUserId: 1 } },
+      ),
+    ]);
+  }
+
+  private async deleteBusinessProfileData(
+    user: UserDocument,
+    accountId: Types.ObjectId,
+  ) {
+    const [services, galleries] = await Promise.all([
+      this.serviceModel.find({ ownerId: accountId }).select('_id logo'),
+      this.gallaryModel.find({ userId: accountId }).select('images'),
+    ]);
+    const serviceIds = services.map((service) => service._id);
+
+    await this.deleteCloudinaryAssets([
+      ...this.getProfileImagePublicIds(user, 'businessOwner').map(
+        (publicId) => ({ publicId }),
+      ),
+      ...services.map((service) => ({ publicId: service.logo?.publicId })),
+      ...galleries.flatMap((gallery) =>
+        gallery.images.map((image) => ({ publicId: image.publicId })),
+      ),
+    ]);
+    await Promise.all([
+      this.deleteQuotes(accountId, 'businessOwner'),
+      this.deleteConversations(accountId, 'businessOwner'),
+    ]);
+    await Promise.all([
+      serviceIds.length
+        ? this.subCategoryModel.deleteMany({ serviceId: { $in: serviceIds } })
+        : Promise.resolve(),
+      this.serviceModel.deleteMany({ ownerId: accountId }),
+      this.gallaryModel.deleteMany({ userId: accountId }),
+      this.reviewModel.deleteMany({ businessId: accountId }),
+      this.saveQuoteModel.deleteMany({ businessOwnerId: accountId }),
+      this.reportModel.deleteMany({ ownerId: accountId }),
+      this.serviceCategoryModel.updateMany(
+        {
+          requestedByUserId: accountId,
+          source: { $in: ['business_registration', 'service_creation'] },
+        },
+        { $unset: { requestedByUserId: 1 } },
+      ),
+    ]);
+  }
+
+  private async removeFinalAccountReferences(accountId: Types.ObjectId) {
+    await Promise.all([
+      this.qouteReplyModel.deleteMany({
+        $or: [{ senderId: accountId }, { recipientId: accountId }],
+      }),
+      this.messageModel.deleteMany({
+        $or: [{ senderId: accountId }, { recipientId: accountId }],
+      }),
+      this.reviewModel.updateMany(
+        { 'reply.repliedById': accountId },
+        { $unset: { reply: 1 } },
+      ),
+      this.contactModel.updateMany(
+        { repliedById: accountId },
+        {
+          $set: { isReplied: false },
+          $unset: {
+            repliedById: 1,
+            repliedAt: 1,
+            replySubject: 1,
+            replyDescription: 1,
+          },
+        },
+      ),
+      this.serviceCategoryModel.updateMany(
+        { requestedByUserId: accountId },
+        { $unset: { requestedByUserId: 1 } },
+      ),
+      this.serviceCategoryModel.updateMany(
+        { approvedByAdminId: accountId },
+        { $unset: { approvedByAdminId: 1 } },
+      ),
+      this.serviceCategoryModel.updateMany(
+        { rejectedByAdminId: accountId },
+        { $unset: { rejectedByAdminId: 1 } },
+      ),
+    ]);
+  }
+
+  private buildProfileUnset(
+    user: UserDocument,
+    profileRole: DeletableProfileRole,
+  ) {
+    const sharedLegacyFields = {
+      phoneNumber: 1,
+      country: 1,
+      city: 1,
+      state: 1,
+      address: 1,
+      postcode: 1,
+      profilePicture: 1,
+      backgroundImage: 1,
+      bio: 1,
+    };
+
+    if (profileRole === 'user') {
+      return {
+        userProfile: 1,
+        firstName: 1,
+        lastName: 1,
+        gender: 1,
+        dateOfBirth: 1,
+        tag: 1,
+        ...(user.businessProfile ? sharedLegacyFields : {}),
+      };
+    }
+
+    return {
+      businessProfile: 1,
+      businessName: 1,
+      businessEmail: 1,
+      businessWebsiteUrl: 1,
+      serviceArea: 1,
+      category: 1,
+      requestedCategory: 1,
+      serviceCategoryId: 1,
+      isReported: 1,
+      stripeAccountId: 1,
+      ...(user.userProfile ? sharedLegacyFields : {}),
+    };
+  }
+
+  private async deleteProfile(
+    id: string,
+    profileRole: DeletableProfileRole | undefined,
+    reason?: string,
+    notifyUser = false,
+  ) {
+    const accountId = this.toObjectId(id);
     const user = await this.userModel.findById(id);
     if (!user) {
       throw new HttpException('User not found', 404);
     }
-    if (!hasProfileRole(user, 'businessOwner')) {
-      const result = await this.userModel.findByIdAndDelete(id);
-      this.sendAdminActionEmail(user, 'account deletion', reason);
-      return { user: result, businessProfileDeleted: false };
+    const resolvedRole = this.getDeletionRole(user, profileRole);
+    const remainingRoles = getAvailableRoles(user).filter(
+      (role) => role !== resolvedRole,
+    );
+    const remainingProfileRoles = remainingRoles.filter(
+      (role) => role === 'user' || role === 'businessOwner',
+    );
+
+    if (remainingProfileRoles.length) {
+      if (resolvedRole === 'user') {
+        await this.deletePersonalProfileData(user, accountId);
+      } else {
+        await this.deleteBusinessProfileData(user, accountId);
+      }
+    } else {
+      await this.deletePersonalProfileData(user, accountId);
+      await this.deleteBusinessProfileData(user, accountId);
+      await this.removeFinalAccountReferences(accountId);
     }
 
-    const businessOwnerId = this.toObjectId(id, 'business owner id');
-    const [services, galleries] = await Promise.all([
-      this.serviceModel.find({ ownerId: businessOwnerId }).select('logo'),
-      this.gallaryModel.find({ userId: businessOwnerId }).select('images'),
-    ]);
-
-    const cloudinaryPublicIds = [
-      ...services.map((service) => service.logo?.publicId),
-      ...galleries.flatMap((gallery) =>
-        gallery.images.map((image) => image.publicId),
-      ),
-    ].filter((publicId): publicId is string => Boolean(publicId));
-
-    await Promise.all(
-      cloudinaryPublicIds.map((publicId) =>
-        fileUpload.deleteFromCloudinary(publicId),
-      ),
-    );
-
-    await Promise.all([
-      this.serviceModel.deleteMany({ ownerId: businessOwnerId }),
-      this.gallaryModel.deleteMany({ userId: businessOwnerId }),
-      this.reviewModel.deleteMany({ businessId: businessOwnerId }),
-      this.qouteModel.deleteMany({ businessOwnerId: businessOwnerId }),
-      this.saveQuoteModel.deleteMany({ businessOwnerId: businessOwnerId }),
-      this.reportModel.deleteMany({ ownerId: businessOwnerId }),
-    ]);
-
-    const remainingRoles = getAvailableRoles(user).filter(
-      (role) => role !== 'businessOwner',
-    );
     const updatedUser = remainingRoles.length
       ? await this.userModel.findByIdAndUpdate(
-          businessOwnerId,
+          accountId,
           {
             $set: {
               roles: remainingRoles,
-              role:
-                user.role === 'businessOwner' ? remainingRoles[0] : user.role,
+              role: user.role === resolvedRole ? remainingRoles[0] : user.role,
               defaultRole:
-                getDefaultRole(user) === 'businessOwner'
+                getDefaultRole(user) === resolvedRole
                   ? remainingRoles[0]
                   : getDefaultRole(user),
             },
-            $unset: {
-              businessProfile: 1,
-              businessName: 1,
-              businessEmail: 1,
-              businessWebsiteUrl: 1,
-              serviceArea: 1,
-              category: 1,
-              requestedCategory: 1,
-              serviceCategoryId: 1,
-              stripeAccountId: 1,
-            },
+            $unset: this.buildProfileUnset(user, resolvedRole),
           },
           { new: true, runValidators: true },
         )
-      : await this.userModel.findByIdAndDelete(businessOwnerId);
+      : await this.userModel.findByIdAndDelete(accountId);
 
-    this.sendAdminActionEmail(
-      user,
-      remainingRoles.length ? 'business profile deletion' : 'account deletion',
-      reason,
-    );
+    if (notifyUser) {
+      this.sendAdminActionEmail(
+        user,
+        remainingRoles.length
+          ? resolvedRole === 'user'
+            ? 'user profile deletion'
+            : 'business profile deletion'
+          : 'account deletion',
+        reason,
+      );
+    }
 
     return {
       user: updatedUser,
-      businessProfileDeleted: remainingRoles.length > 0,
+      deletedProfile: resolvedRole,
+      accountDeleted: remainingRoles.length === 0,
     };
+  }
+
+  async deleteOwnProfile(id: string, profileRole: UserRole) {
+    if (profileRole !== 'user' && profileRole !== 'businessOwner') {
+      throw new HttpException(
+        'Only user and business profiles can be deleted',
+        403,
+      );
+    }
+    return this.deleteProfile(id, profileRole);
+  }
+
+  async deleteUser(
+    id: string,
+    reason?: string,
+    profileRole?: DeletableProfileRole,
+  ) {
+    return this.deleteProfile(id, profileRole, reason, true);
   }
 
   async getProfile(id: string, activeRole: UserRole) {
@@ -1054,6 +1413,7 @@ export class UserService {
         postcode: profile.postcode,
         role: 'businessOwner',
         status: profile.status,
+        isReported: profile.isReported ?? false,
         createdAt: businessOwner.get('createdAt'),
         updatedAt: businessOwner.get('updatedAt'),
       },

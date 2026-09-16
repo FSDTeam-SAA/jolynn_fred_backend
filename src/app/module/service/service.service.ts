@@ -432,6 +432,7 @@ export class ServiceService {
         bio: profile.bio,
         businessWebsiteUrl: profile.businessWebsiteUrl,
         phoneNumber: profile.phoneNumber,
+        isReported: profile.isReported ?? false,
         rating: reviewSummary.averageRating,
         totalReviews: reviewSummary.totalReviews,
         createdAt: (owner as any).createdAt,
@@ -607,7 +608,7 @@ export class ServiceService {
     return this.getServicesByOwner(ownerId, params, options);
   }
 
-    async getAllPublicServices(params: IFilterParams, options: IOptions) {
+  async getAllPublicServices(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper({
       sortBy: 'viewCount',
       sortOrder: 'desc',

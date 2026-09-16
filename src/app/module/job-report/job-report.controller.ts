@@ -135,7 +135,9 @@ export class JobReportController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get single job report by id (public)' })
+  @ApiOperation({ summary: 'Review a job report by id (admin only)' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('admin'))
   @ApiParam({
     name: 'id',
     required: true,

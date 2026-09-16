@@ -24,6 +24,9 @@ export class JobReport {
     trim: true,
   })
   message: string;
+
+  @Prop({ default: false, index: true })
+  isRead: boolean;
 }
 
 export const JobReportSchema = SchemaFactory.createForClass(JobReport);
