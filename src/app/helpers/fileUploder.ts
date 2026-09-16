@@ -228,6 +228,41 @@ const deleteFromCloudinary = async (public_id: string): Promise<void> => {
   }
 };
 
+const getCloudinaryPublicIdFromUrl = (url?: string): string | undefined => {
+  if (!url || !/res\.cloudinary\.com/i.test(url)) return undefined;
+
+  try {
+    const uploadPath = new URL(url).pathname.split('/upload/')[1];
+    if (!uploadPath) return undefined;
+
+    const segments = uploadPath.split('/');
+    const versionIndex = segments.findIndex((segment) =>
+      /^v\d+$/.test(segment),
+    );
+    const assetPath = segments
+      .slice(versionIndex >= 0 ? versionIndex + 1 : 0)
+      .join('/');
+
+    return decodeURIComponent(assetPath).replace(/\.[^/.]+$/, '') || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const deleteResourceFromCloudinary = async (
+  public_id: string,
+  resourceType: 'image' | 'video' | 'raw' = 'image',
+): Promise<void> => {
+  if (!public_id) return;
+
+  const result = await cloudinary.uploader.destroy(public_id, {
+    resource_type: resourceType,
+  });
+  if (!['ok', 'not found'].includes(result?.result)) {
+    throw new Error(`Cloudinary delete failed for ${public_id}`);
+  }
+};
+
 const deleteVideoFromCloudinary = async (public_id: string): Promise<void> => {
   if (!public_id) return;
   try {
@@ -243,6 +278,8 @@ export const fileUpload = {
   uploadMessageAttachmentToCloudinary,
   uploadImageSourceToCloudinary,
   deleteFromCloudinary,
+  deleteResourceFromCloudinary,
+  getCloudinaryPublicIdFromUrl,
   deleteVideoFromCloudinary,
   uploadConfig,
 };

@@ -12,10 +12,6 @@ import {
   BusinessServiceSchema,
 } from 'src/app/module/service/entities/service.entity';
 import {
-  ServiceCategory,
-  ServiceCategorySchema,
-} from 'src/app/module/service-category/entities/service-category.entity';
-import {
   Gallary,
   GallarySchema,
 } from 'src/app/module/gallary/entities/gallary.entity';
@@ -28,6 +24,10 @@ import {
   SponsorVisit,
   SponsorVisitSchema,
 } from 'src/app/module/sponsor/entities/sponsor-visit.entity';
+import {
+  JobReport,
+  JobReportSchema,
+} from 'src/app/module/job-report/entities/job-report.entity';
 
 @Module({
   imports: [
@@ -35,14 +35,11 @@ import {
       { name: User.name, schema: UserSchema },
       { name: Report.name, schema: ReportSchema },
       { name: BusinessService.name, schema: BusinessServiceSchema },
-      {
-        name: ServiceCategory.name,
-        schema: ServiceCategorySchema,
-      },
       { name: Gallary.name, schema: GallarySchema },
       { name: Review.name, schema: ReviewSchema },
       { name: Qoute.name, schema: QouteSchema },
       { name: SponsorVisit.name, schema: SponsorVisitSchema },
+      { name: JobReport.name, schema: JobReportSchema },
     ]),
   ],
   controllers: [DashboardController],

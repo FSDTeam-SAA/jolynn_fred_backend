@@ -104,6 +104,9 @@ export class HelpWanted {
     default: 'active',
   })
   status: 'active' | 'pending';
+
+  @Prop({ default: false })
+  isReported: boolean;
 }
 
 export const HelpWantedSchema = SchemaFactory.createForClass(HelpWanted);

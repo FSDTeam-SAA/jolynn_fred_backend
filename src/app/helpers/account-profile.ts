@@ -92,6 +92,7 @@ export function getBusinessProfile(user: UserLike): BusinessProfile {
     backgroundImage: user.backgroundImage,
     bio: user.bio,
     status: user.status,
+    isReported: user.isReported,
     stripeAccountId: user.stripeAccountId,
   };
 }

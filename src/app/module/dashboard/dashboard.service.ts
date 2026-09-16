@@ -11,10 +11,6 @@ import {
   ReportDocument,
 } from 'src/app/module/report/entities/report.entity';
 import {
-  ServiceCategory,
-  ServiceCategoryDocument,
-} from 'src/app/module/service-category/entities/service-category.entity';
-import {
   BusinessService,
   BusinessServiceDocument,
 } from 'src/app/module/service/entities/service.entity';
@@ -34,6 +30,10 @@ import {
   SponsorVisit,
   SponsorVisitDocument,
 } from 'src/app/module/sponsor/entities/sponsor-visit.entity';
+import {
+  JobReport,
+  JobReportDocument,
+} from 'src/app/module/job-report/entities/job-report.entity';
 
 const MONTH_NAMES = [
   'Jan',
@@ -67,8 +67,6 @@ export class DashboardService {
     private readonly reportModel: Model<ReportDocument>,
     @InjectModel(BusinessService.name)
     private readonly serviceModel: Model<BusinessServiceDocument>,
-    @InjectModel(ServiceCategory.name)
-    private readonly serviceCategoryModel: Model<ServiceCategoryDocument>,
     @InjectModel(Gallary.name)
     private readonly gallaryModel: Model<GallaryDocument>,
     @InjectModel(Review.name)
@@ -77,6 +75,8 @@ export class DashboardService {
     private readonly qouteModel: Model<QouteDocument>,
     @InjectModel(SponsorVisit.name)
     private readonly sponsorVisitModel: Model<SponsorVisitDocument>,
+    @InjectModel(JobReport.name)
+    private readonly jobReportModel: Model<JobReportDocument>,
   ) {}
 
   private toObjectId(id: string, label = 'user id') {
@@ -92,7 +92,10 @@ export class DashboardService {
       totalBusinesses,
       pendingApprovals,
       activeUsers,
-      totalServiceCategory,
+      totalBusinessReports,
+      totalJobReports,
+      unreadBusinessReports,
+      unreadJobReports,
     ] = await Promise.all([
       this.userModel.countDocuments(businessOwnerMembershipFilter),
       this.userModel.countDocuments({
@@ -112,14 +115,21 @@ export class DashboardService {
           { accountStatus: { $exists: false }, status: 'active' },
         ],
       }),
-      this.serviceCategoryModel.countDocuments(),
+      this.reportModel.countDocuments(),
+      this.jobReportModel.countDocuments(),
+      this.reportModel.countDocuments({ isRead: { $ne: true } }),
+      this.jobReportModel.countDocuments({ isRead: { $ne: true } }),
     ]);
+
+    const unreadReports = unreadBusinessReports + unreadJobReports;
 
     return {
       totalBusinesses,
       pendingApprovals,
       activeUsers,
-      totalServiceCategory,
+      totalReports: totalBusinessReports + totalJobReports,
+      unreadReports,
+      hasUnreadReports: unreadReports > 0,
     };
   }
 

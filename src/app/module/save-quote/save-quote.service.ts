@@ -228,6 +228,7 @@ export class SaveQuoteService {
             bio: profile.bio,
             businessWebsiteUrl: profile.businessWebsiteUrl,
             phoneNumber: profile.phoneNumber,
+            isReported: profile.isReported ?? false,
             rating: reviewSummary.averageRating,
             totalReviews: reviewSummary.totalReviews,
             service: service

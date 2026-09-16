@@ -124,6 +124,9 @@ export class BusinessProfile {
   @Prop({ type: String, enum: USER_STATUSES, default: 'active' })
   status?: UserStatus;
 
+  @Prop({ default: false })
+  isReported?: boolean;
+
   @Prop()
   stripeAccountId?: string;
 }
@@ -208,6 +211,12 @@ export class User {
 
   @Prop({ type: Types.ObjectId, ref: 'ServiceCategory' })
   serviceCategoryId?: Types.ObjectId;
+
+  @Prop({ default: false })
+  isReported?: boolean;
+
+  @Prop({ default: 0, min: 0 })
+  reportCount: number;
 
   @Prop()
   country: string;

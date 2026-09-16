@@ -15,7 +15,12 @@ import { ServiceCategoryService } from '../service-category/service-category.ser
 import { ServiceCategory } from '../service-category/entities/service-category.entity';
 import { User, UserDocument } from '../user/entities/user.entity';
 import { fileUpload } from 'src/app/helpers/fileUploder';
-import {HelpWantedCounter, HelpWantedCounterDocument,} from './entities/help-wanted-counter.entity';
+import {
+  HelpWantedCounter,
+  HelpWantedCounterDocument,
+} from './entities/help-wanted-counter.entity';
+import sendMailer from 'src/app/helpers/sendMailer';
+import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 const helpWantedSearchAbleFields = [
   'username',
   'email',
@@ -374,7 +379,7 @@ export class HelpWantedService {
     return andConditions.length ? { $and: andConditions } : {};
   }
 
-   async createHelpWanted(
+  async createHelpWanted(
     createHelpWantedDto: CreateHelpWantedDto,
     userId?: string,
     imageFiles?: Express.Multer.File[],
@@ -411,9 +416,7 @@ export class HelpWantedService {
       userId,
       category: categoryName,
       requestedCategory: usesOtherCategory ? customCategory : null,
-      ...(serviceCategory
-        ? { serviceCategoryId: serviceCategory._id }
-        : {}),
+      ...(serviceCategory ? { serviceCategoryId: serviceCategory._id } : {}),
       status: 'active',
     });
 
@@ -532,6 +535,32 @@ export class HelpWantedService {
 
     await this.deleteImages(helpWanted.images);
     const result = await this.helpWantedModel.findByIdAndDelete(id);
+
+    if (isAdmin && helpWanted.email) {
+      try {
+        await sendMailer(
+          helpWanted.email,
+          'Your job post was removed',
+          createNotificationEmailTemplate({
+            heading: 'Job Post Removed',
+            subheading: 'Your job post is no longer available on SideQuote.',
+            greetingName: helpWanted.username || 'there',
+            introText:
+              'An administrator removed your job post because it violated our community standards.',
+            details: [
+              { label: 'Job ID', value: helpWanted.jobId },
+              { label: 'Category', value: helpWanted.category },
+            ],
+            noteTitle: 'Why was this removed?',
+            noteText:
+              'Posts that violate our community standards may be removed to keep the platform safe and trustworthy.',
+          }),
+        );
+      } catch (error) {
+        console.error('Failed to send removed job post email:', error);
+      }
+    }
+
     return result;
   }
 }
