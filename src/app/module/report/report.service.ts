@@ -57,6 +57,13 @@ export class ReportService {
       message: createReportDto.message,
     });
 
+    await this.userModel.findByIdAndUpdate(owner._id, {
+      $set: owner.businessProfile
+        ? { 'businessProfile.isReported': true }
+        : { isReported: true },
+      $inc: { reportCount: 1 },
+    });
+
     // const emailBody = `<p>A new report has been submitted.</p>
     //    <p><strong>Reported Business Owner:</strong> ${owner.firstName || ''} ${owner.lastName || ''} (${owner.email})</p>
     //    <p><strong>Message:</strong> ${createReportDto.message}</p>`;
@@ -168,7 +175,13 @@ export class ReportService {
   }
 
   async getSingleReport(id: string) {
-    const report = await this.reportModel.findById(id).populate(populateFields);
+    const report = await this.reportModel
+      .findByIdAndUpdate(
+        id,
+        { $set: { isRead: true } },
+        { new: true, runValidators: true },
+      )
+      .populate(populateFields);
     if (!report) {
       throw new HttpException('Report not found', 404);
     }

@@ -14,6 +14,7 @@ import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import config from 'src/app/config';
+import { User, UserDocument } from '../user/entities/user.entity';
 const jobReportSearchAbleFields = ['message'];
 
 const populateFields = [
@@ -31,6 +32,8 @@ export class JobReportService {
     private readonly jobReportModel: Model<JobReportDocument>,
     @InjectModel(HelpWanted.name)
     private readonly helpWantedModel: Model<HelpWantedDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   async createJobReport(
@@ -48,6 +51,15 @@ export class JobReportService {
       ...createJobReportDto,
       userId,
     });
+
+    await this.helpWantedModel.findByIdAndUpdate(post._id, {
+      $set: { isReported: true },
+    });
+    if (post.userId) {
+      await this.userModel.findByIdAndUpdate(post.userId, {
+        $inc: { reportCount: 1 },
+      });
+    }
 
     if (config.email.admin) {
       sendMailer(
@@ -145,7 +157,11 @@ export class JobReportService {
 
   async getSingleJobReport(id: string) {
     const jobReport = await this.jobReportModel
-      .findById(id)
+      .findByIdAndUpdate(
+        id,
+        { $set: { isRead: true } },
+        { new: true, runValidators: true },
+      )
       .populate(populateFields);
     if (!jobReport) {
       throw new HttpException('Job report not found', 404);

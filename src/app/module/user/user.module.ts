@@ -19,6 +19,28 @@ import {
   SaveQuoteSchema,
 } from '../save-quote/entities/save-quote.entity';
 import { Report, ReportSchema } from '../report/entities/report.entity';
+import {
+  QouteReply,
+  QouteReplySchema,
+} from '../qoute/entities/qoute-reply.entity';
+import {
+  Conversation,
+  ConversationSchema,
+} from '../message/entities/conversation.entity';
+import { Message, MessageSchema } from '../message/entities/message.entity';
+import {
+  HelpWanted,
+  HelpWantedSchema,
+} from '../help-wanted/entities/help-wanted.entity';
+import {
+  JobReport,
+  JobReportSchema,
+} from '../job-report/entities/job-report.entity';
+import {
+  SubCategory,
+  SubCategorySchema,
+} from '../sub-category/entities/sub-category.entity';
+import { Contact, ContactSchema } from '../contact/entities/contact.entity';
 
 @Module({
   imports: [
@@ -31,6 +53,13 @@ import { Report, ReportSchema } from '../report/entities/report.entity';
       { name: Qoute.name, schema: QouteSchema },
       { name: SaveQuote.name, schema: SaveQuoteSchema },
       { name: Report.name, schema: ReportSchema },
+      { name: QouteReply.name, schema: QouteReplySchema },
+      { name: Conversation.name, schema: ConversationSchema },
+      { name: Message.name, schema: MessageSchema },
+      { name: HelpWanted.name, schema: HelpWantedSchema },
+      { name: JobReport.name, schema: JobReportSchema },
+      { name: SubCategory.name, schema: SubCategorySchema },
+      { name: Contact.name, schema: ContactSchema },
     ]),
   ],
   controllers: [UserController],
