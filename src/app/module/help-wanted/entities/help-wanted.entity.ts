@@ -42,10 +42,10 @@ export class HelpWanted {
   email: string;
 
   @Prop({
-    required: [true, 'Zipcode is required'],
+    required: [false, 'Zipcode is not required'],
     trim: true,
   })
-  zipcode: string;
+  zipcode?: string;
 
   @Prop({
     trim: true,
