@@ -21,11 +21,10 @@ export class CreateHelpWantedDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: '10001' })
+  @ApiPropertyOptional({ example: '10001' })
   @Transform(normalizeString)
   @IsString()
-  @IsNotEmpty()
-  zipcode: string;
+  zipcode?: string;
 
   @ApiPropertyOptional({ example: 'New York' })
   @IsOptional()
