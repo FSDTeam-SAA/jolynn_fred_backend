@@ -1,42 +1,15 @@
-// import nodemailer from 'nodemailer';
-// import config from '../config';
-
-// const sendMailer = async (email: string, subject?: string, html?: string) => {
-//   const transporter = nodemailer.createTransport({
-//     host: config.email.host,
-//     port: Number(config.email.port),
-//     secure: false,
-//     auth: {
-//       user: config.email.address,
-//       pass: config.email.pass,
-//     },
-//   });
-//   const info = await transporter.sendMail({
-//     from: `"YELO HEAT" ${config.email.from}`,
-//     to: email,
-//     subject,
-//     html,
-//   });
-
-//   console.log('Message sent:', info.messageId);
-// };
-
-// export default sendMailer;
-import nodemailer, { Transporter } from 'nodemailer';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
+import { Resend } from 'resend';
 import config from '../config';
 import { SIDEQUOTE_EMAIL_LOGO_CID } from './template';
-
-let transporter: Transporter | undefined;
 
 type MailAttachment = {
   filename: string;
   content: Buffer;
   contentType?: string;
   cid?: string;
-  contentDisposition?: 'attachment' | 'inline';
 };
 
 let sideQuoteLogoAttachment: MailAttachment | null | undefined;
@@ -57,7 +30,6 @@ const getSideQuoteLogoAttachment = () => {
     content: fs.readFileSync(logoPath),
     contentType: 'image/webp',
     cid: SIDEQUOTE_EMAIL_LOGO_CID,
-    contentDisposition: 'inline',
   };
 
   return sideQuoteLogoAttachment;
@@ -69,76 +41,52 @@ const sendMailer = async (
   html?: string,
   attachments?: MailAttachment[],
 ) => {
-  const port = Number(config.email.port || 587);
-  const authUser = config.email.address || config.email.from;
-  const authPass = config.email.pass;
-  const sender = config.email.publicFrom;
+  const apiKey = config.email.resendApiKey;
+  const sender = config.email.from;
   const replyTo = config.email.replyTo;
 
-  if (!config.email.host || !authUser || !authPass || !sender) {
-    throw new Error(
-      'Email config is incomplete. Please set EMAIL_HOST, EMAIL_PORT, EMAIL_ADDRESS/EMAIL_FROM and EMAIL_PASS.',
-    );
+  if (!apiKey || !sender) {
+    throw new Error('Email config is incomplete. Please set RESEND_API_KEY.');
   }
 
-  transporter ??= nodemailer.createTransport({
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-    host: config.email.host,
-    port,
-    secure: port === 465,
-    auth: {
-      user: authUser,
-      pass: authPass,
-    },
-    // Keep dev flexible for local SMTP providers; production should validate certs.
-    tls: {
-      rejectUnauthorized: config.env === 'production',
-    },
+  const resend = new Resend(apiKey);
+
+  const logoAttachment = getSideQuoteLogoAttachment();
+  const logoCid = `${SIDEQUOTE_EMAIL_LOGO_CID}-${randomUUID()}@sidequote.cloud`;
+  const emailHtml = logoAttachment
+    ? html?.replaceAll(`cid:${SIDEQUOTE_EMAIL_LOGO_CID}`, `cid:${logoCid}`)
+    : html;
+  const { data, error } = await resend.emails.send({
+    from: `"SideQuote" <${sender}>`,
+    replyTo,
+    to: email,
+    subject: subject || '',
+    html: emailHtml || '',
+    attachments: [
+      ...(logoAttachment
+        ? [
+            {
+              filename: logoAttachment.filename,
+              content: logoAttachment.content,
+              contentType: logoAttachment.contentType,
+              contentId: logoCid,
+            },
+          ]
+        : []),
+      ...(attachments ?? []).map((attachment) => ({
+        filename: attachment.filename,
+        content: attachment.content,
+        contentType: attachment.contentType,
+        contentId: attachment.cid,
+      })),
+    ],
   });
 
-  try {
-    const logoAttachment = getSideQuoteLogoAttachment();
-    const logoCid = `${SIDEQUOTE_EMAIL_LOGO_CID}-${randomUUID()}@sidequote.cloud`;
-    const emailHtml = logoAttachment
-      ? html?.replaceAll(`cid:${SIDEQUOTE_EMAIL_LOGO_CID}`, `cid:${logoCid}`)
-      : html;
-    const info = await transporter.sendMail({
-      from: `"SideQuote" <${sender}>`,
-      replyTo: `"SideQuote No Reply" <${replyTo}>`,
-      to: email,
-      subject,
-      html: emailHtml,
-      attachments: [
-        ...(logoAttachment ? [{ ...logoAttachment, cid: logoCid }] : []),
-        ...(attachments ?? []),
-      ],
-    });
-
-    console.log('Message sent:', info.messageId);
-  } catch (error: unknown) {
-    const smtpError = error as {
-      response?: unknown;
-      message?: unknown;
-      code?: unknown;
-    };
-    const response = String(smtpError.response || '').toLowerCase();
-    const message = String(smtpError.message || '');
-
-    if (
-      smtpError.code === 'EAUTH' ||
-      response.includes('535') ||
-      response.includes('authentication rejected') ||
-      message.toLowerCase().includes('invalid login')
-    ) {
-      throw new Error(
-        'Email login failed (SMTP 535). Check EMAIL_ADDRESS/EMAIL_PASS and use provider app-password if required.',
-      );
-    }
-
-    throw error;
+  if (error) {
+    throw new Error(`Resend failed to send email: ${error.message}`);
   }
+
+  console.log('Message sent:', data?.id);
 };
 
 export default sendMailer;

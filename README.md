@@ -31,6 +31,18 @@
 $ npm install
 ```
 
+## Email (Resend)
+
+All transactional email is sent through Resend. Add these values to the deployment environment (and `.env` for local development):
+
+```env
+RESEND_API_KEY=re_your_resend_api_key
+RESEND_FROM_EMAIL=noreply@sidequote.cloud
+RESEND_REPLY_TO=noreply@sidequote.cloud
+```
+
+Before sending, add and verify the `sidequote.cloud` domain in Resend. Create a sending API key and keep it server-side only; never expose it to the frontend.
+
 ## Compile and run the project
 
 ```bash
