@@ -84,7 +84,7 @@ describe('UserService profile isolation', () => {
     return { service, userModel };
   }
 
-  it('updates only businessProfile fields in business mode', async () => {
+  it('replaces business profile fields while preserving internal state', async () => {
     const { service, userModel } = createService();
 
     await service.updateMyProfile('account-id', 'businessOwner', {
@@ -96,14 +96,17 @@ describe('UserService profile isolation', () => {
       'account-id',
       {
         $set: {
-          'businessProfile.businessName': 'Updated Business',
+          businessProfile: {
+            businessName: 'Updated Business',
+            status: 'active',
+          },
         },
       },
       { new: true, runValidators: true },
     );
   });
 
-  it('updates only userProfile fields in user mode', async () => {
+  it('replaces the user profile with only the submitted personal fields', async () => {
     const { service, userModel } = createService();
 
     await service.updateMyProfile('account-id', 'user', {
@@ -115,7 +118,9 @@ describe('UserService profile isolation', () => {
       'account-id',
       {
         $set: {
-          'userProfile.firstName': 'Updated Personal',
+          userProfile: {
+            firstName: 'Updated Personal',
+          },
         },
       },
       { new: true, runValidators: true },
