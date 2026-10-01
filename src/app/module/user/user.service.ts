@@ -1269,11 +1269,11 @@ export class UserService {
       activeRole === 'businessOwner' ? 'businessProfile' : 'userProfile';
     const allowedFields =
       activeRole === 'businessOwner' ? businessFields : personalFields;
-    const setPayload: Record<string, unknown> = {};
+    const replacementProfile: Record<string, unknown> = {};
 
     for (const [field, value] of Object.entries(incomingFields)) {
       if (allowedFields.has(field) && value !== undefined) {
-        setPayload[`${targetProfile}.${field}`] =
+        replacementProfile[field] =
           field === 'businessEmail' && typeof value === 'string'
             ? value.toLowerCase()
             : value;
@@ -1281,43 +1281,32 @@ export class UserService {
     }
 
     for (const [field, value] of Object.entries(uploadedFields)) {
-      setPayload[`${targetProfile}.${field}`] = value;
+      replacementProfile[field] = value;
     }
 
-    if (!Object.keys(setPayload).length) {
-      return this.getProfile(id, activeRole);
-    }
-
-    const hasStoredProfile =
-      activeRole === 'businessOwner'
-        ? Boolean(user.businessProfile)
-        : Boolean(user.userProfile);
-    if (!hasStoredProfile) {
-      const migratedProfile = {
-        ...(activeRole === 'businessOwner'
-          ? getBusinessProfile(user)
-          : getPersonalProfile(user)),
-      } as Record<string, unknown>;
-      for (const [path, value] of Object.entries(setPayload)) {
-        migratedProfile[path.slice(targetProfile.length + 1)] = value;
+    if (activeRole === 'businessOwner') {
+      const currentProfile = getBusinessProfile(user) as Record<
+        string,
+        unknown
+      >;
+      const internalFields = [
+        'category',
+        'requestedCategory',
+        'serviceCategoryId',
+        'status',
+        'isReported',
+        'stripeAccountId',
+      ];
+      for (const field of internalFields) {
+        if (currentProfile[field] !== undefined) {
+          replacementProfile[field] = currentProfile[field];
+        }
       }
-      for (const [field, value] of Object.entries(uploadedFields)) {
-        migratedProfile[field] = value;
-      }
-      const migratedUser = await this.userModel.findByIdAndUpdate(
-        id,
-        { $set: { [targetProfile]: migratedProfile } },
-        { new: true, runValidators: true },
-      );
-      if (!migratedUser) {
-        throw new HttpException('User not found', 404);
-      }
-      return this.getProfile(id, activeRole);
     }
 
     const result = await this.userModel.findByIdAndUpdate(
       id,
-      { $set: setPayload },
+      { $set: { [targetProfile]: replacementProfile } },
       { new: true, runValidators: true },
     );
     if (!result) {
