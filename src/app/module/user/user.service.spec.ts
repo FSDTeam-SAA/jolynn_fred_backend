@@ -19,6 +19,12 @@ jest.mock('../save-quote/entities/save-quote.entity', () => ({
 jest.mock('../report/entities/report.entity', () => ({
   Report: class Report {},
 }));
+jest.mock('../business-referral/entities/business-referral.entity', () => ({
+  BusinessReferral: class BusinessReferral {},
+}));
+jest.mock('../business-referral/entities/business-claim.entity', () => ({
+  BusinessClaim: class BusinessClaim {},
+}));
 
 import { Types } from 'mongoose';
 import { fileUpload } from 'src/app/helpers/fileUploder';
@@ -66,6 +72,8 @@ describe('UserService profile isolation', () => {
     };
     const service = new UserService(
       userModel as any,
+      {} as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -220,6 +228,15 @@ describe('UserService profile deletion', () => {
     const contactModel = {
       updateMany: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
     };
+    const businessReferralModel = {
+      findOne: jest.fn().mockResolvedValue(null),
+      find: jest.fn().mockReturnValue(createQuery([])),
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+    };
+    const businessClaimModel = {
+      deleteMany: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
     const userService = new UserService(
       userModel as any,
       serviceModel as any,
@@ -236,6 +253,8 @@ describe('UserService profile deletion', () => {
       jobReportModel as any,
       subCategoryModel as any,
       contactModel as any,
+      businessReferralModel as any,
+      businessClaimModel as any,
     );
 
     return {
@@ -255,6 +274,8 @@ describe('UserService profile deletion', () => {
       jobReportModel,
       subCategoryModel,
       contactModel,
+      businessReferralModel,
+      businessClaimModel,
     };
   }
 
@@ -280,7 +301,22 @@ describe('UserService profile deletion', () => {
     });
     expect(models.reviewModel.deleteMany).toHaveBeenCalledWith({
       reviewerId: accountId,
+      sourceReferralId: { $exists: false },
     });
+    expect(models.reviewModel.updateMany).toHaveBeenCalledWith(
+      { reviewerId: accountId, sourceReferralId: { $exists: true } },
+      {
+        $set: { reviewerName: 'Community member' },
+        $unset: { reviewerId: 1, reviewerAvatar: 1 },
+      },
+    );
+    expect(models.businessReferralModel.updateMany).toHaveBeenCalledWith(
+      { referredByUserId: accountId },
+      {
+        $set: { referrerName: 'Community member' },
+        $unset: { referredByUserId: 1, referrerAvatar: 1 },
+      },
+    );
     expect(models.quoteModel.deleteMany).toHaveBeenCalledWith({
       userId: accountId,
     });
@@ -307,6 +343,15 @@ describe('UserService profile deletion', () => {
 
   it('deletes business children and keeps the personal profile', async () => {
     const models = createDeletionService();
+    const referralId = new Types.ObjectId();
+    models.businessReferralModel.find.mockReturnValue(
+      createQuery([
+        {
+          _id: referralId,
+          image: { publicId: 'business-referrals/referral-image' },
+        },
+      ]),
+    );
 
     const result = await models.userService.deleteOwnProfile(
       accountId.toString(),
@@ -325,6 +370,12 @@ describe('UserService profile deletion', () => {
     });
     expect(models.reviewModel.deleteMany).toHaveBeenCalledWith({
       businessId: accountId,
+    });
+    expect(models.businessClaimModel.deleteMany).toHaveBeenCalledWith({
+      referralId: { $in: [referralId] },
+    });
+    expect(models.businessReferralModel.deleteMany).toHaveBeenCalledWith({
+      _id: { $in: [referralId] },
     });
     expect(models.quoteModel.deleteMany).toHaveBeenCalledWith({
       businessOwnerId: accountId,
@@ -346,6 +397,10 @@ describe('UserService profile deletion', () => {
     );
     expect(fileUpload.deleteResourceFromCloudinary).toHaveBeenCalledWith(
       'gallery/image',
+      undefined,
+    );
+    expect(fileUpload.deleteResourceFromCloudinary).toHaveBeenCalledWith(
+      'business-referrals/referral-image',
       undefined,
     );
   });
@@ -394,6 +449,8 @@ describe('UserService public username profile', () => {
   it('resolves a public service slug without exposing the service id', () => {
     const serviceId = new Types.ObjectId().toString();
     const service = new UserService(
+      {} as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -477,6 +534,20 @@ describe('UserService public username profile', () => {
     const gallaryModel = {
       find: jest.fn().mockReturnValue(createQuery(gallery)),
     };
+    const referralId = new Types.ObjectId();
+    const businessReferralModel = {
+      findOne: jest.fn().mockResolvedValue({
+        _id: referralId,
+        id: referralId.toString(),
+        slug: 'jolynn-services-dhaka-12345678',
+        referredByUserId: new Types.ObjectId(),
+        referrerName: 'Helpful Member',
+        referrerAvatar: 'referrer.jpg',
+        rating: 5,
+        review: 'Excellent and dependable service.',
+        claimedAt: new Date('2026-03-01T00:00:00.000Z'),
+      }),
+    };
     const service = new UserService(
       userModel as any,
       serviceModel as any,
@@ -492,6 +563,8 @@ describe('UserService public username profile', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
+      businessReferralModel as any,
       {} as any,
     );
 
@@ -534,6 +607,12 @@ describe('UserService public username profile', () => {
         services,
         gallery,
         viewedService: null,
+        referral: expect.objectContaining({
+          id: referralId.toString(),
+          profileUrl: '/business-referrals/jolynn-services-dhaka-12345678',
+          referredBy: expect.objectContaining({ name: 'Helpful Member' }),
+          rating: 5,
+        }),
       }),
     );
   });

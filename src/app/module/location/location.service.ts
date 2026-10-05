@@ -354,4 +354,62 @@ export class LocationService {
       cities,
     };
   }
+
+  async validateStateAndCity(stateName: string, cityName: string) {
+    const normalizedState = stateName.trim();
+    const normalizedCity = cityName.trim();
+    const states = await this.getStates({ searchTerm: normalizedState });
+    const state = states.find(
+      (item) => item.name?.toLowerCase() === normalizedState.toLowerCase(),
+    );
+
+    if (!state?.mongoId) {
+      throw new HttpException('Selected state is not valid', 400);
+    }
+
+    try {
+      const cityResult = await this.getCitiesByState(state.mongoId, {
+        searchTerm: normalizedCity,
+        limit: 20,
+      });
+
+      if (
+        cityResult.dataSource !== 'unavailable' &&
+        !cityResult.cities.some(
+          (city) => city.toLowerCase() === normalizedCity.toLowerCase(),
+        )
+      ) {
+        throw new HttpException(
+          'Selected city does not belong to the selected state',
+          400,
+        );
+      }
+    } catch (error) {
+      if (error instanceof HttpException && error.getStatus() !== 404) {
+        throw error;
+      }
+      const knownCities =
+        state.countryCode && state.iso2
+          ? City.getCitiesOfState(state.countryCode, state.iso2)
+          : [];
+      if (
+        knownCities.length > 0 &&
+        !knownCities.some(
+          (city) => city.name.toLowerCase() === normalizedCity.toLowerCase(),
+        )
+      ) {
+        throw new HttpException(
+          'Selected city does not belong to the selected state',
+          400,
+        );
+      }
+      // Some deployments do not have a complete city dataset. State validation
+      // still applies and the submitted city is accepted in that case.
+    }
+
+    return {
+      state: state.name ?? normalizedState,
+      city: normalizedCity,
+    };
+  }
 }

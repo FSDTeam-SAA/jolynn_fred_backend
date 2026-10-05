@@ -34,6 +34,16 @@ const ReviewReplySchema = SchemaFactory.createForClass(ReviewReply);
 
 @Schema({ timestamps: true })
 export class Review {
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'BusinessReferral',
+  })
+  sourceReferralId?: Types.ObjectId;
+
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
@@ -45,10 +55,9 @@ export class Review {
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
-    required: [true, 'Reviewer id is required'],
     index: true,
   })
-  reviewerId: Types.ObjectId;
+  reviewerId?: Types.ObjectId;
 
   @Prop({
     required: [true, 'Reviewer name is required'],
@@ -91,3 +100,4 @@ export const ReviewSchema = SchemaFactory.createForClass(Review);
 
 ReviewSchema.index({ businessId: 1, createdAt: -1 });
 ReviewSchema.index({ businessId: 1, reviewerId: 1 }, { unique: true });
+ReviewSchema.index({ sourceReferralId: 1 }, { unique: true, sparse: true });

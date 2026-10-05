@@ -70,6 +70,9 @@ export const PersonalProfileSchema =
 
 @Schema({ _id: false })
 export class BusinessProfile {
+  @Prop({ type: Types.ObjectId, ref: 'BusinessReferral' })
+  sourceReferralId?: Types.ObjectId;
+
   @Prop({ trim: true })
   businessName?: string;
 
@@ -288,6 +291,7 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ roles: 1, 'businessProfile.status': 1 });
 UserSchema.index({ 'businessProfile.serviceCategoryId': 1 });
+UserSchema.index({ 'businessProfile.sourceReferralId': 1 });
 UserSchema.index({
   'businessProfile.category': 1,
   'businessProfile.state': 1,

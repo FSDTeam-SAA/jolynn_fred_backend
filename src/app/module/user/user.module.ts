@@ -41,6 +41,14 @@ import {
   SubCategorySchema,
 } from '../sub-category/entities/sub-category.entity';
 import { Contact, ContactSchema } from '../contact/entities/contact.entity';
+import {
+  BusinessReferral,
+  BusinessReferralSchema,
+} from '../business-referral/entities/business-referral.entity';
+import {
+  BusinessClaim,
+  BusinessClaimSchema,
+} from '../business-referral/entities/business-claim.entity';
 
 @Module({
   imports: [
@@ -60,6 +68,8 @@ import { Contact, ContactSchema } from '../contact/entities/contact.entity';
       { name: JobReport.name, schema: JobReportSchema },
       { name: SubCategory.name, schema: SubCategorySchema },
       { name: Contact.name, schema: ContactSchema },
+      { name: BusinessReferral.name, schema: BusinessReferralSchema },
+      { name: BusinessClaim.name, schema: BusinessClaimSchema },
     ]),
   ],
   controllers: [UserController],

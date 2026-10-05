@@ -66,6 +66,7 @@ export class ServiceCategory {
   logo?: ServiceCategoryLogo;
 
   @Prop({
+    type: String,
     enum: SERVICE_CATEGORY_STATUSES,
     default: 'pending',
     index: true,
@@ -73,6 +74,7 @@ export class ServiceCategory {
   status: ServiceCategoryStatus;
 
   @Prop({
+    type: String,
     enum: SERVICE_CATEGORY_SOURCES,
     default: 'admin',
     index: true,
