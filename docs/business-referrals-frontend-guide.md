@@ -94,8 +94,11 @@ GET /locations/states/:stateIdentifier/cities?countryName=United%20States&limit=
 ```
 
 Only allow selection of a category returned by the public categories endpoint.
-Keep the selected category's `_id`/`id` as `serviceCategoryId`. Submit the
-state and city names returned by the location API.
+Each category now includes `businessOwnerCount`, the same distinct-owner count
+shown in the admin category API. The frontend may display it as, for example,
+`Plumbing (24 businesses)`. Keep the selected category's `_id`/`id` as
+`serviceCategoryId`. Submit the state and city names returned by the location
+API.
 
 ### Create referral request
 

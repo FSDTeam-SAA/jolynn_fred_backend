@@ -80,6 +80,66 @@ describe('ServiceCategoryService', () => {
     expect(serviceCategoryModel.findOne).toHaveBeenCalledTimes(1);
   });
 
+  it('adds the same distinct business-owner count to public category results', async () => {
+    const categoryId = new Types.ObjectId();
+    const categoryQuery = {
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      sort: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue([
+        {
+          _id: categoryId,
+          name: 'Plumbing',
+          viewCount: 12,
+        },
+      ]),
+    };
+    const serviceCategoryModel = {
+      countDocuments: jest.fn().mockResolvedValue(1),
+      find: jest.fn().mockReturnValue(categoryQuery),
+    };
+    const businessServiceModel = {
+      aggregate: jest
+        .fn()
+        .mockResolvedValue([{ _id: categoryId, businessOwnerCount: 3 }]),
+    };
+    const service = new ServiceCategoryService(
+      serviceCategoryModel as any,
+      businessServiceModel as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await service.getPublicServiceCategories(
+      {},
+      { page: 1, limit: 50 },
+    );
+
+    expect(result).toEqual({
+      meta: { page: 1, limit: 50, total: 1 },
+      data: [
+        expect.objectContaining({
+          _id: categoryId,
+          name: 'Plumbing',
+          viewCount: 12,
+          businessOwnerCount: 3,
+        }),
+      ],
+    });
+    expect(businessServiceModel.aggregate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          $group: expect.objectContaining({
+            _id: expect.objectContaining({
+              serviceCategoryId: '$serviceCategoryId',
+              ownerId: '$ownerId',
+            }),
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('emails every affected business owner when an Other category is approved', async () => {
     const categoryId = new Types.ObjectId();
     const firstOwnerId = new Types.ObjectId();
