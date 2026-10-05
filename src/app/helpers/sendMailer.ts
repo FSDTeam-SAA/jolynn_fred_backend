@@ -87,6 +87,7 @@ const sendMailer = async (
   }
 
   console.log('Message sent:', data?.id);
+  return data;
 };
 
 export default sendMailer;

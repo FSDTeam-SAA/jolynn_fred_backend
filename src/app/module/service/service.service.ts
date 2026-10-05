@@ -415,6 +415,8 @@ export class ServiceService {
       const legacyProfileUrl = buildLegacyProfileUrl(owner.id, service?.id);
 
       return {
+        listingId: owner.id,
+        listingType: 'registered' as const,
         businessOwnerId: owner.id,
         username: owner.username,
         profileUrl: buildPublicProfileUrl(owner.username) ?? legacyProfileUrl,
@@ -432,6 +434,14 @@ export class ServiceService {
         bio: profile.bio,
         businessWebsiteUrl: profile.businessWebsiteUrl,
         phoneNumber: profile.phoneNumber,
+        image: profile.profilePicture ?? service?.logo?.url,
+        serviceCategoryId: profile.serviceCategoryId
+          ? String(profile.serviceCategoryId)
+          : service?.serviceCategoryId
+            ? String(service.serviceCategoryId)
+            : undefined,
+        claimStatus: 'claimed' as const,
+        isClaimable: false,
         isReported: profile.isReported ?? false,
         rating: reviewSummary.averageRating,
         totalReviews: reviewSummary.totalReviews,
@@ -736,7 +746,9 @@ export class ServiceService {
               'serviceId subcategory createdAt updatedAt',
             )
             .sort({ createdAt: -1 })
-            .select('ownerId title description logo createdAt')
+            .select(
+              'ownerId title description logo serviceCategoryId createdAt',
+            )
         : Promise.resolve([] as BusinessServiceDocument[]);
 
     const [serviceMatchingServices, globalMatchingServices] = await Promise.all(
@@ -842,7 +854,9 @@ export class ServiceService {
               'serviceId subcategory createdAt updatedAt',
             )
             .sort({ createdAt: -1 })
-            .select('ownerId title description logo createdAt');
+            .select(
+              'ownerId title description logo serviceCategoryId createdAt',
+            );
 
     for (const service of servicesForCards) {
       const ownerId = service.ownerId.toString();
@@ -871,6 +885,29 @@ export class ServiceService {
     return this.sortAndPaginateBusinessOwnerCards(cards, options);
   }
 
+  /**
+   * Reuses the established public-business matching rules but returns every
+   * matching card so another public surface can apply one shared pagination
+   * and ordering policy across multiple listing types.
+   */
+  async findBusinessOwnerDiscoveryCards(params: IFilterParams) {
+    const result = await this.searchBusinessOwnersByService(params, {
+      page: 1,
+      limit: Number.MAX_SAFE_INTEGER,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    });
+
+    if (!params.serviceCategoryId) {
+      return result.data;
+    }
+
+    const serviceCategoryId = String(params.serviceCategoryId);
+    return result.data.filter(
+      (card) => card.serviceCategoryId === serviceCategoryId,
+    );
+  }
+
   async getBusinessOwnersByService(
     serviceId: string,
     params: IFilterParams,
@@ -884,7 +921,7 @@ export class ServiceService {
         status: 'active',
       })
       .populate('subcategories', 'serviceId subcategory createdAt updatedAt')
-      .select('ownerId title description logo createdAt');
+      .select('ownerId title description logo serviceCategoryId createdAt');
 
     const ownerIds = [
       ...new Set(matchingServices.map((service) => service.ownerId.toString())),

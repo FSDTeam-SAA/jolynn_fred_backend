@@ -43,6 +43,7 @@ import {
   hasProfileRole,
   toPlainProfile,
 } from 'src/app/helpers/account-profile';
+import { BusinessProfileProvisioningService } from './business-profile-provisioning.service';
 @Injectable()
 export class AuthService {
   constructor(
@@ -51,6 +52,7 @@ export class AuthService {
     private readonly businessServiceModel: Model<BusinessServiceDocument>,
     private readonly jwtService: jwt.JwtService,
     private readonly serviceCategoryService: ServiceCategoryService,
+    private readonly businessProfileProvisioningService: BusinessProfileProvisioningService,
   ) {}
 
   private isOtherCategory(category?: string) {
@@ -523,47 +525,38 @@ export class AuthService {
       isPendingCategory;
 
     const personalProfile = getPersonalProfile(existingUser);
-    const businessDetails = Object.fromEntries(
-      Object.entries({
-        businessName: registerBusinessOwnerDto.businessName,
-        ownerName:
-          [personalProfile.firstName, personalProfile.lastName]
-            .filter(Boolean)
-            .join(' ') || existingUser.username,
-        businessEmail: registerBusinessOwnerDto.businessEmail?.toLowerCase(),
-        businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
-        bio: registerBusinessOwnerDto.bio,
-        address: registerBusinessOwnerDto.address,
-        serviceArea: registerBusinessOwnerDto.serviceArea,
-        category: isOtherCategory
-          ? registerBusinessOwnerDto.category
-          : serviceCategory.name,
-        requestedCategory: isOtherCategory
-          ? registerBusinessOwnerDto.requestedCategory
-          : null,
-        serviceCategoryId: serviceCategory._id,
-        state: registerBusinessOwnerDto.state,
-        city: registerBusinessOwnerDto.city,
-        status: isPendingCategory ? 'pending' : 'active',
-      }).filter(([, value]) => value !== undefined),
-    );
-
-    const updatedUser = await this.userModel.findByIdAndUpdate(
-      existingUser._id,
-      {
-        $set: { businessProfile: businessDetails },
-        $addToSet: {
-          roles: {
-            $each: [...getAvailableRoles(existingUser), 'businessOwner'],
-          },
+    const ownerName =
+      [personalProfile.firstName, personalProfile.lastName]
+        .filter(Boolean)
+        .join(' ') ||
+      existingUser.username ||
+      existingUser.email;
+    const { user: updatedUser } =
+      await this.businessProfileProvisioningService.provisionForExistingAccount(
+        existingUser._id,
+        {
+          businessName: registerBusinessOwnerDto.businessName,
+          ownerName,
+          businessEmail: (
+            registerBusinessOwnerDto.businessEmail || existingUser.email
+          ).toLowerCase(),
+          businessWebsiteUrl: registerBusinessOwnerDto.businessWebsiteUrl,
+          bio: registerBusinessOwnerDto.bio,
+          address: registerBusinessOwnerDto.address,
+          serviceArea: registerBusinessOwnerDto.serviceArea,
+          category: isOtherCategory
+            ? registerBusinessOwnerDto.category
+            : serviceCategory.name,
+          requestedCategory: isOtherCategory
+            ? registerBusinessOwnerDto.requestedCategory
+            : null,
+          serviceCategoryId: serviceCategory._id,
+          state: registerBusinessOwnerDto.state,
+          city: registerBusinessOwnerDto.city,
+          status: isPendingCategory ? 'pending' : 'active',
+          keywords: registerBusinessOwnerDto.keywords,
         },
-      },
-      { new: true, runValidators: true },
-    );
-
-    if (!updatedUser) {
-      throw new HttpException('User not found', 404);
-    }
+      );
 
     if (isOtherCategory && isPendingCategory) {
       this.notifyAdminAboutCategoryApproval({
@@ -577,25 +570,6 @@ export class AuthService {
         email: updatedUser.email,
         type: 'Business profile creation',
       });
-    }
-
-    try {
-      await this.createBusinessProfileService(
-        updatedUser._id,
-        registerBusinessOwnerDto.category,
-        registerBusinessOwnerDto.requestedCategory,
-        serviceCategory,
-        registerBusinessOwnerDto.keywords,
-      );
-    } catch (error) {
-      await this.userModel.updateOne(
-        { _id: updatedUser._id },
-        {
-          $unset: { businessProfile: 1 },
-          $pull: { roles: 'businessOwner' },
-        },
-      );
-      throw error;
     }
 
     // await this.sendRegistrationConfirmation(

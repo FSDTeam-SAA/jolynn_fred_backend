@@ -1,4 +1,5 @@
 import {
+  createBusinessReferralClaimEmailTemplate,
   createForgotPasswordEmailTemplate,
   createNewsletterEmailTemplate,
   createNotificationEmailTemplate,
@@ -32,6 +33,18 @@ describe('email templates', () => {
         heading: 'Notification',
         introText: 'Notification content',
       }),
+      createBusinessReferralClaimEmailTemplate({
+        businessName: 'Acme Plumbing',
+        referrerName: 'Test User',
+        categoryName: 'Plumbing',
+        city: 'Austin',
+        state: 'Texas',
+        publicProfileUrl:
+          'https://sidequote.cloud/business-referrals/acme-plumbing',
+        claimUrl:
+          'https://sidequote.cloud/business-referrals/claim?token=secret',
+        expiryHours: 72,
+      }),
     ];
 
     for (const template of templates) {
@@ -39,5 +52,24 @@ describe('email templates', () => {
       expect(template).toContain('alt="SideQuote"');
       expect(template).not.toContain('&ldquo;');
     }
+  });
+
+  it('escapes referral content and includes the secure claim action', () => {
+    const template = createBusinessReferralClaimEmailTemplate({
+      businessName: '<Acme & Sons>',
+      referrerName: 'Helpful User',
+      categoryName: 'Plumbing',
+      city: 'Austin',
+      state: 'Texas',
+      publicProfileUrl:
+        'https://sidequote.cloud/business-referrals/acme-plumbing',
+      claimUrl: 'https://sidequote.cloud/business-referrals/claim?token=secret',
+      expiryHours: 72,
+    });
+
+    expect(template).toContain('&lt;Acme &amp; Sons&gt;');
+    expect(template).toContain('Claim this business');
+    expect(template).toContain('token=secret');
+    expect(template).toContain('expires in 72 hours');
   });
 });

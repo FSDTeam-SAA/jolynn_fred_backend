@@ -20,7 +20,7 @@ export function handleMulterError(err: MulterError): {
   const message =
     MULTER_ERROR_MESSAGES[err.code] ?? `File upload error: ${err.message}`;
   return {
-    statusCode: 400,
+    statusCode: err.code === 'LIMIT_FILE_SIZE' ? 413 : 400,
     message: 'File Upload Error',
     errorSources: [{ path: err.field ?? 'file', message }],
   };

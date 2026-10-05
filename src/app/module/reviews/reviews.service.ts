@@ -314,7 +314,7 @@ export class ReviewsService {
   ) {
     const review = await this.getReviewOrThrow(reviewId);
 
-    if (review.reviewerId.toString() !== reviewerId) {
+    if (!review.reviewerId || review.reviewerId.toString() !== reviewerId) {
       throw new HttpException('You are not allowed to update this review', 403);
     }
 
@@ -335,7 +335,7 @@ export class ReviewsService {
   async deleteOwnReview(reviewId: string, reviewerId: string) {
     const review = await this.getReviewOrThrow(reviewId);
 
-    if (review.reviewerId.toString() !== reviewerId) {
+    if (!review.reviewerId || review.reviewerId.toString() !== reviewerId) {
       throw new HttpException('You are not allowed to delete this review', 403);
     }
 

@@ -51,6 +51,14 @@ import {
   SubCategoryDocument,
 } from '../sub-category/entities/sub-category.entity';
 import { Contact, ContactDocument } from '../contact/entities/contact.entity';
+import {
+  BusinessReferral,
+  BusinessReferralDocument,
+} from '../business-referral/entities/business-referral.entity';
+import {
+  BusinessClaim,
+  BusinessClaimDocument,
+} from '../business-referral/entities/business-claim.entity';
 import sendMailer from 'src/app/helpers/sendMailer';
 import { createNotificationEmailTemplate } from 'src/app/helpers/template';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -151,6 +159,10 @@ export class UserService {
     private readonly subCategoryModel: Model<SubCategoryDocument>,
     @InjectModel(Contact.name)
     private readonly contactModel: Model<ContactDocument>,
+    @InjectModel(BusinessReferral.name)
+    private readonly businessReferralModel: Model<BusinessReferralDocument>,
+    @InjectModel(BusinessClaim.name)
+    private readonly businessClaimModel: Model<BusinessClaimDocument>,
   ) {}
 
   private toObjectId(id: string, label = 'user id') {
@@ -944,7 +956,24 @@ export class UserService {
       this.deleteConversations(accountId, 'user'),
     ]);
     await Promise.all([
-      this.reviewModel.deleteMany({ reviewerId: accountId }),
+      this.reviewModel.deleteMany({
+        reviewerId: accountId,
+        sourceReferralId: { $exists: false },
+      }),
+      this.reviewModel.updateMany(
+        { reviewerId: accountId, sourceReferralId: { $exists: true } },
+        {
+          $set: { reviewerName: 'Community member' },
+          $unset: { reviewerId: 1, reviewerAvatar: 1 },
+        },
+      ),
+      this.businessReferralModel.updateMany(
+        { referredByUserId: accountId },
+        {
+          $set: { referrerName: 'Community member' },
+          $unset: { referredByUserId: 1, referrerAvatar: 1 },
+        },
+      ),
       this.saveQuoteModel.deleteMany({ userId: accountId }),
       this.reportModel.deleteMany({ userId: accountId }),
       this.jobReportModel.deleteMany({
@@ -967,11 +996,15 @@ export class UserService {
     user: UserDocument,
     accountId: Types.ObjectId,
   ) {
-    const [services, galleries] = await Promise.all([
+    const [services, galleries, linkedReferrals] = await Promise.all([
       this.serviceModel.find({ ownerId: accountId }).select('_id logo'),
       this.gallaryModel.find({ userId: accountId }).select('images'),
+      this.businessReferralModel
+        .find({ claimedByUserId: accountId, claimStatus: 'claimed' })
+        .select('_id image'),
     ]);
     const serviceIds = services.map((service) => service._id);
+    const referralIds = linkedReferrals.map((referral) => referral._id);
 
     await this.deleteCloudinaryAssets([
       ...this.getProfileImagePublicIds(user, 'businessOwner').map(
@@ -981,6 +1014,9 @@ export class UserService {
       ...galleries.flatMap((gallery) =>
         gallery.images.map((image) => ({ publicId: image.publicId })),
       ),
+      ...linkedReferrals.map((referral) => ({
+        publicId: referral.image?.publicId,
+      })),
     ]);
     await Promise.all([
       this.deleteQuotes(accountId, 'businessOwner'),
@@ -993,6 +1029,16 @@ export class UserService {
       this.serviceModel.deleteMany({ ownerId: accountId }),
       this.gallaryModel.deleteMany({ userId: accountId }),
       this.reviewModel.deleteMany({ businessId: accountId }),
+      referralIds.length
+        ? this.businessClaimModel.deleteMany({
+            referralId: { $in: referralIds },
+          })
+        : Promise.resolve(),
+      referralIds.length
+        ? this.businessReferralModel.deleteMany({
+            _id: { $in: referralIds },
+          })
+        : Promise.resolve(),
       this.saveQuoteModel.deleteMany({ businessOwnerId: accountId }),
       this.reportModel.deleteMany({ ownerId: accountId }),
       this.serviceCategoryModel.updateMany(
@@ -1290,6 +1336,7 @@ export class UserService {
         unknown
       >;
       const internalFields = [
+        'sourceReferralId',
         'category',
         'requestedCategory',
         'serviceCategoryId',
@@ -1335,17 +1382,26 @@ export class UserService {
       businessOwner.id,
       'business owner id',
     );
-    const [services, galleryItems, reviewSummary] = await Promise.all([
-      this.serviceModel
-        .find({ ownerId: businessOwnerId })
-        .populate('subcategories', 'serviceId subcategory createdAt updatedAt')
-        .select('title description logo viewCount createdAt')
-        .sort({ createdAt: -1 }),
-      this.gallaryModel
-        .find({ userId: businessOwnerId })
-        .sort({ createdAt: -1 }),
-      this.getBusinessReviewSummary(businessOwnerId),
-    ]);
+    const [services, galleryItems, reviewSummary, claimedReferral] =
+      await Promise.all([
+        this.serviceModel
+          .find({ ownerId: businessOwnerId })
+          .populate(
+            'subcategories',
+            'serviceId subcategory createdAt updatedAt',
+          )
+          .select('title description logo viewCount createdAt')
+          .sort({ createdAt: -1 }),
+        this.gallaryModel
+          .find({ userId: businessOwnerId })
+          .sort({ createdAt: -1 }),
+        this.getBusinessReviewSummary(businessOwnerId),
+        this.businessReferralModel.findOne({
+          claimedByUserId: businessOwnerId,
+          claimStatus: 'claimed',
+          listingStatus: 'published',
+        }),
+      ]);
 
     const resolvedServiceId =
       serviceId || this.resolveServiceIdBySlug(services, serviceSlug);
@@ -1414,6 +1470,23 @@ export class UserService {
       services,
       gallery: galleryItems,
       viewedService,
+      referral: claimedReferral
+        ? {
+            id: claimedReferral.id,
+            slug: claimedReferral.slug,
+            profileUrl: `/business-referrals/${claimedReferral.slug}`,
+            referredBy: {
+              id: claimedReferral.referredByUserId
+                ? String(claimedReferral.referredByUserId)
+                : undefined,
+              name: claimedReferral.referrerName,
+              avatar: claimedReferral.referrerAvatar,
+            },
+            rating: claimedReferral.rating,
+            review: claimedReferral.review,
+            claimedAt: claimedReferral.claimedAt,
+          }
+        : undefined,
     };
   }
 }

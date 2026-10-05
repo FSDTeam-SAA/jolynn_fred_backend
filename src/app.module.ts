@@ -26,6 +26,8 @@ import { NewsletterModule } from './app/module/newsletter/newsletter.module';
 import { SearchDataModule } from './app/module/search-data/search-data.module';
 import { MessageModule } from './app/module/message/message.module';
 import { SubCategoryModule } from './app/module/sub-category/sub-category.module';
+import { BusinessReferralModule } from './app/module/business-referral/business-referral.module';
+import { BusinessDiscoveryModule } from './app/module/business-discovery/business-discovery.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -52,6 +54,8 @@ import { SubCategoryModule } from './app/module/sub-category/sub-category.module
     SearchDataModule,
     MessageModule,
     SubCategoryModule,
+    BusinessReferralModule,
+    BusinessDiscoveryModule,
   ],
 
   controllers: [AppController],
