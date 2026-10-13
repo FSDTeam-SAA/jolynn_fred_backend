@@ -9,6 +9,7 @@ import {
   BusinessService,
   BusinessServiceSchema,
 } from '../service/entities/service.entity';
+import { BusinessProfileProvisioningService } from './business-profile-provisioning.service';
 
 @Global()
 @Module({
@@ -23,7 +24,12 @@ import {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [JwtModule, AuthService, MongooseModule],
+  providers: [AuthService, BusinessProfileProvisioningService],
+  exports: [
+    JwtModule,
+    AuthService,
+    BusinessProfileProvisioningService,
+    MongooseModule,
+  ],
 })
 export class AuthModule {}

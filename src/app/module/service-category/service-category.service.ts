@@ -360,6 +360,43 @@ export class ServiceCategoryService {
     return existingCategory;
   }
 
+  private async getBusinessOwnerCountsByCategoryIds(
+    categoryIds: Types.ObjectId[],
+  ) {
+    if (!categoryIds.length) {
+      return new Map<string, number>();
+    }
+
+    const ownerCounts = await this.businessServiceModel.aggregate<{
+      _id: Types.ObjectId;
+      businessOwnerCount: number;
+    }>([
+      {
+        $match: {
+          serviceCategoryId: { $in: categoryIds },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            serviceCategoryId: '$serviceCategoryId',
+            ownerId: '$ownerId',
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$_id.serviceCategoryId',
+          businessOwnerCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    return new Map(
+      ownerCounts.map((item) => [item._id.toString(), item.businessOwnerCount]),
+    );
+  }
+
   async getAllServiceCategories(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper(options);
     const whereConditions = buildWhereConditions(
@@ -377,35 +414,8 @@ export class ServiceCategoryService {
       .lean();
 
     const categoryIds = categories.map((category) => category._id);
-    const ownerCounts = categoryIds.length
-      ? await this.businessServiceModel.aggregate<{
-          _id: Types.ObjectId;
-          businessOwnerCount: number;
-        }>([
-          {
-            $match: {
-              serviceCategoryId: { $in: categoryIds },
-            },
-          },
-          {
-            $group: {
-              _id: {
-                serviceCategoryId: '$serviceCategoryId',
-                ownerId: '$ownerId',
-              },
-            },
-          },
-          {
-            $group: {
-              _id: '$_id.serviceCategoryId',
-              businessOwnerCount: { $sum: 1 },
-            },
-          },
-        ])
-      : [];
-    const ownerCountByCategoryId = new Map(
-      ownerCounts.map((item) => [item._id.toString(), item.businessOwnerCount]),
-    );
+    const ownerCountByCategoryId =
+      await this.getBusinessOwnerCountsByCategoryIds(categoryIds);
 
     return {
       meta: {
@@ -421,7 +431,7 @@ export class ServiceCategoryService {
     };
   }
 
-   async getPublicServiceCategories(params: IFilterParams, options: IOptions) {
+  async getPublicServiceCategories(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper({
       limit: 50,
       sortBy: 'viewCount',
@@ -445,6 +455,10 @@ export class ServiceCategoryService {
       .limit(limit)
       .sort({ [sortBy]: sortOrder } as any)
       .lean();
+    const ownerCountByCategoryId =
+      await this.getBusinessOwnerCountsByCategoryIds(
+        categories.map((category) => category._id),
+      );
 
     return {
       meta: {
@@ -455,6 +469,8 @@ export class ServiceCategoryService {
       data: categories.map((category) => ({
         ...category,
         viewCount: category.viewCount ?? 0,
+        businessOwnerCount:
+          ownerCountByCategoryId.get(category._id.toString()) ?? 0,
       })),
     };
   }
