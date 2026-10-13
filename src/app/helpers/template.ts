@@ -7,6 +7,8 @@ type NotificationEmailParams = {
   noteTitle?: string;
   noteText?: string;
   footerText?: string;
+  actionUrl?: string;
+  actionLabel?: string;
 };
 
 type PasswordResetTemplateParams = {
@@ -439,6 +441,8 @@ export const createNotificationEmailTemplate = ({
   noteTitle,
   noteText,
   footerText,
+  actionUrl,
+  actionLabel,
 }: NotificationEmailParams) => {
   const detailsRows = details
     .map(
@@ -491,6 +495,23 @@ export const createNotificationEmailTemplate = ({
             }
 
             ${
+              actionUrl
+                ? `<tr>
+              <td align="center" style="padding:0 34px 34px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="${sideQuoteBrand.primary}" style="border-radius:10px;background:${sideQuoteBrand.primary};background-image:linear-gradient(90deg,${sideQuoteBrand.primary},${sideQuoteBrand.secondary});">
+                      <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 30px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.2;font-weight:800;">${actionLabel ?? 'View details &rarr;'}</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:18px 0 0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.6;word-break:break-all;">${actionUrl}</p>
+              </td>
+            </tr>`
+                : ''
+            }
+
+            ${
               noteTitle || noteText
                 ? `<tr>
               <td style="padding:0 34px 34px;">
@@ -521,6 +542,48 @@ export const createNotificationEmailTemplate = ({
   </body>
 </html>`;
 };
+
+export const createBusinessReferralClaimEmailTemplate = ({
+  businessName,
+  referrerName,
+  categoryName,
+  city,
+  state,
+  publicProfileUrl,
+  claimUrl,
+  expiryHours,
+}: {
+  businessName: string;
+  referrerName: string;
+  categoryName: string;
+  city: string;
+  state: string;
+  publicProfileUrl: string;
+  claimUrl: string;
+  expiryHours: number;
+}) =>
+  createNotificationEmailTemplate({
+    heading: 'Your business was referred',
+    subheading: 'A customer recommended your business on SideQuote.',
+    introText:
+      'A public referral profile has been created for your business. Review the listing and use the secure link below if you are the business owner.',
+    details: [
+      { label: 'Business', value: escapeHtml(businessName) },
+      { label: 'Referred by', value: escapeHtml(referrerName) },
+      { label: 'Category', value: escapeHtml(categoryName) },
+      { label: 'Location', value: escapeHtml(`${city}, ${state}`) },
+      {
+        label: 'Public profile',
+        value: `<a href="${escapeHtml(publicProfileUrl)}" target="_blank" style="color:${sideQuoteBrand.secondary};">View referral profile</a>`,
+      },
+    ],
+    actionUrl: escapeHtml(claimUrl),
+    actionLabel: 'Claim this business &rarr;',
+    noteTitle: 'Secure claim link',
+    noteText: `This link expires in ${expiryHours} hours and can be used only for this business. If you do not own this business, you can ignore this email.`,
+    footerText:
+      'You received this message because your business email was submitted with a public recommendation.',
+  });
 
 export const createBusinessCategoryApprovedEmailTemplate = ({
   displayName,

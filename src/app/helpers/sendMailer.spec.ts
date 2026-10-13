@@ -22,7 +22,7 @@ describe('sendMailer', () => {
     const send = jest.fn().mockResolvedValue({ data: { id: 'message-1' } });
     (Resend as jest.Mock).mockImplementation(() => ({ emails: { send } }));
 
-    await sendMailer(
+    const result = await sendMailer(
       'recipient@example.com',
       'Test email',
       `<img src="cid:${SIDEQUOTE_EMAIL_LOGO_CID}" alt="SideQuote" />`,
@@ -50,8 +50,7 @@ describe('sendMailer', () => {
         ]),
       }),
     );
-    expect(mailOptions.html).toContain(
-      `src="cid:${logoAttachment.contentId}"`,
-    );
+    expect(mailOptions.html).toContain(`src="cid:${logoAttachment.contentId}"`);
+    expect(result).toEqual({ id: 'message-1' });
   });
 });

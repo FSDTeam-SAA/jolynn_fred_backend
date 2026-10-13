@@ -86,6 +86,30 @@ const uploadToCloudinary = async (
   });
 };
 
+const uploadBusinessReferralImage = async (
+  file: Express.Multer.File,
+): Promise<{ url: string; public_id: string }> => {
+  if (!file || !file.buffer?.length) {
+    throw new HttpException('Business image is required', 400);
+  }
+
+  if (!file.mimetype?.startsWith('image/')) {
+    throw new HttpException('Only image files are allowed', 400);
+  }
+
+  return uploadBufferToCloudinary(file.buffer, {
+    folder: 'healthcare_app/business-referrals',
+    resourceType: 'image',
+    transformation: {
+      width: 1200,
+      height: 1200,
+      crop: 'limit',
+      quality: 'auto',
+      fetch_format: 'auto',
+    },
+  });
+};
+
 const uploadVideoToCloudinary = async (
   file: Express.Multer.File,
 ): Promise<{ url: string; public_id: string }> => {
@@ -274,6 +298,7 @@ const deleteVideoFromCloudinary = async (public_id: string): Promise<void> => {
 
 export const fileUpload = {
   uploadToCloudinary,
+  uploadBusinessReferralImage,
   uploadVideoToCloudinary,
   uploadMessageAttachmentToCloudinary,
   uploadImageSourceToCloudinary,
