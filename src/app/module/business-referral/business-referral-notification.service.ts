@@ -145,6 +145,10 @@ export class BusinessReferralNotificationService {
           categoryName: referral.categoryName,
           city: referral.city,
           state: referral.state,
+          imageUrl: referral.image.url,
+          rating: referral.rating,
+          review: referral.review,
+          source: referral.source ?? 'customer',
           publicProfileUrl,
           claimUrl,
           expiryHours: BUSINESS_REFERRAL_CLAIM_TOKEN_TTL_HOURS,
@@ -170,9 +174,14 @@ export class BusinessReferralNotificationService {
   }
 
   async resendClaimNotification(referralId: string, referrerId: string) {
+    const creatorId = this.toObjectId(referrerId, 'referrer id');
     const referral = await this.businessReferralModel.findOne({
       _id: this.toObjectId(referralId),
-      referredByUserId: this.toObjectId(referrerId, 'referrer id'),
+      $or: [
+        { createdByUserId: creatorId },
+        // Supports customer referrals created before createdByUserId existed.
+        { referredByUserId: creatorId },
+      ],
       listingStatus: 'published',
     });
 

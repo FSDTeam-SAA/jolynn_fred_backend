@@ -25,6 +25,7 @@ import {
   BusinessReferralDocument,
 } from './entities/business-referral.entity';
 import { BusinessReferralNotificationService } from './business-referral-notification.service';
+import { type BusinessReferralSource } from './constants/business-referral.constants';
 
 type ReferralListOptions = {
   includePrivate?: boolean;
@@ -73,13 +74,22 @@ export class BusinessReferralService {
     return new RegExp(`^\\D*${value.split('').join('\\D*')}\\D*$`);
   }
 
-  private async getReferrerOrThrow(userId: string) {
+  private async getCreatorOrThrow(
+    userId: string,
+    source: BusinessReferralSource,
+  ) {
     const user = await this.userModel.findById(
       this.toObjectId(userId, 'referrer id'),
     );
 
-    if (!user || !hasProfileRole(user, 'user')) {
-      throw new HttpException('Personal user profile not found', 404);
+    const requiredRole = source === 'admin' ? 'admin' : 'user';
+    if (!user || !hasProfileRole(user, requiredRole)) {
+      throw new HttpException(
+        source === 'admin'
+          ? 'Administrator account not found'
+          : 'Personal user profile not found',
+        404,
+      );
     }
 
     return user;
@@ -230,6 +240,7 @@ export class BusinessReferralService {
       rating: raw.rating,
       totalReviews: 1,
       review: raw.review,
+      source: raw.source ?? 'customer',
       listingStatus: raw.listingStatus,
       claimStatus: raw.claimStatus,
       isVerified: raw.claimStatus === 'claimed',
@@ -345,13 +356,14 @@ export class BusinessReferralService {
   }
 
   async createReferral(
-    referrerId: string,
+    creatorId: string,
     dto: CreateBusinessReferralDto,
     imageFile: Express.Multer.File,
+    source: BusinessReferralSource = 'customer',
   ) {
     const businessPhone = this.normalizePhone(dto.businessPhone);
-    const [referrer, category, location] = await Promise.all([
-      this.getReferrerOrThrow(referrerId),
+    const [creator, category, location] = await Promise.all([
+      this.getCreatorOrThrow(creatorId, source),
       this.getApprovedCategoryOrThrow(dto.serviceCategoryId),
       this.locationService.validateStateAndCity(dto.state, dto.city),
     ]);
@@ -368,7 +380,8 @@ export class BusinessReferralService {
       await fileUpload.uploadBusinessReferralImage(imageFile);
 
     try {
-      const personalProfile = getPersonalProfile(referrer);
+      const personalProfile =
+        source === 'customer' ? getPersonalProfile(creator) : undefined;
       const referral = await this.businessReferralModel.create({
         businessName: dto.businessName,
         normalizedBusinessName: this.normalizeIdentity(dto.businessName),
@@ -387,14 +400,20 @@ export class BusinessReferralService {
         },
         rating: dto.rating,
         review: dto.review,
-        referredByUserId: referrer._id,
-        referrerName:
-          [personalProfile.firstName, personalProfile.lastName]
-            .filter(Boolean)
-            .join(' ') ||
-          referrer.username ||
-          'Community member',
-        referrerAvatar: personalProfile.profilePicture,
+        source,
+        createdByUserId: creator._id,
+        ...(source === 'customer'
+          ? {
+              referredByUserId: creator._id,
+              referrerName:
+                [personalProfile?.firstName, personalProfile?.lastName]
+                  .filter(Boolean)
+                  .join(' ') ||
+                creator.username ||
+                'Community member',
+              referrerAvatar: personalProfile?.profilePicture,
+            }
+          : { referrerName: 'SideQuote Admin' }),
         listingStatus: 'published',
         claimStatus: 'unclaimed',
         emailDeliveryStatus: 'pending',
@@ -430,7 +449,7 @@ export class BusinessReferralService {
   }
 
   async getMyReferrals(referrerId: string, query: MyBusinessReferralsQueryDto) {
-    await this.getReferrerOrThrow(referrerId);
+    await this.getCreatorOrThrow(referrerId, 'customer');
     return this.listReferrals(query, {
       includePrivate: true,
       referredByUserId: this.toObjectId(referrerId, 'referrer id'),
@@ -451,7 +470,11 @@ export class BusinessReferralService {
 
     const referral = await this.businessReferralModel.findOne({
       _id: referralObjectId,
-      referredByUserId: referrerObjectId,
+      $or: [
+        { createdByUserId: referrerObjectId },
+        // Supports customer referrals created before createdByUserId existed.
+        { referredByUserId: referrerObjectId },
+      ],
       listingStatus: 'published',
       claimStatus: 'unclaimed',
     });
@@ -479,7 +502,10 @@ export class BusinessReferralService {
     const updatedReferral = await this.businessReferralModel.findOneAndUpdate(
       {
         _id: referral._id,
-        referredByUserId: referrerObjectId,
+        $or: [
+          { createdByUserId: referrerObjectId },
+          { referredByUserId: referrerObjectId },
+        ],
         listingStatus: 'published',
         claimStatus: 'unclaimed',
       },

@@ -32,6 +32,10 @@ export const REFERRAL_EMAIL_DELIVERY_STATUSES = [
 export type ReferralEmailDeliveryStatus =
   (typeof REFERRAL_EMAIL_DELIVERY_STATUSES)[number];
 
+export const BUSINESS_REFERRAL_SOURCES = ['customer', 'admin'] as const;
+
+export type BusinessReferralSource = (typeof BUSINESS_REFERRAL_SOURCES)[number];
+
 export const BUSINESS_REFERRAL_SORT_FIELDS = [
   'createdAt',
   'rating',
