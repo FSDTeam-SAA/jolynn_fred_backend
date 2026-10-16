@@ -28,6 +28,10 @@ describe('BusinessReferralNotificationService', () => {
       categoryName: 'Plumbing',
       city: 'Austin',
       state: 'Texas',
+      image: { url: 'https://example.com/referral.jpg' },
+      rating: 5,
+      review: 'Excellent and dependable plumbing service.',
+      source: 'customer',
       listingStatus: 'published',
       claimStatus: 'unclaimed',
     };
@@ -112,6 +116,20 @@ describe('BusinessReferralNotificationService', () => {
       }),
       { new: true },
     );
+  });
+
+  it('uses the stored referral source and includes referral content', async () => {
+    referral.source = 'admin';
+
+    await service.sendClaimNotification(referralId);
+
+    const emailHtml = (sendMailer as jest.Mock).mock.calls[0][2] as string;
+    expect(emailHtml).toContain(
+      'You&rsquo;ve been added to the business directory!',
+    );
+    expect(emailHtml).toContain('https://example.com/referral.jpg');
+    expect(emailHtml).toContain('5/5');
+    expect(emailHtml).toContain('Excellent and dependable plumbing service.');
   });
 
   it('validates an unexpired token without consuming it', async () => {

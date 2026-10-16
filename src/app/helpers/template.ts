@@ -9,6 +9,19 @@ type NotificationEmailParams = {
   footerText?: string;
   actionUrl?: string;
   actionLabel?: string;
+  contentBeforeFooter?: string;
+  theme?: NotificationEmailTheme;
+};
+
+type NotificationEmailTheme = {
+  primary: string;
+  secondary: string;
+  pale: string;
+  panel: string;
+  ink: string;
+  muted: string;
+  border: string;
+  headerText: string;
 };
 
 type PasswordResetTemplateParams = {
@@ -68,6 +81,37 @@ const sideQuoteBrand = {
   ink: '#171b4b',
   muted: '#5f6b7a',
   border: '#dce7f2',
+};
+
+const defaultNotificationTheme: NotificationEmailTheme = {
+  ...sideQuoteBrand,
+  headerText: '#eaf7ff',
+};
+
+const referralEmailThemes: Record<
+  'customer' | 'admin',
+  NotificationEmailTheme
+> = {
+  customer: {
+    primary: '#078bd6',
+    secondary: '#55b8e8',
+    pale: '#edf8fe',
+    panel: '#ffffff',
+    ink: '#17324d',
+    muted: '#5f6b7a',
+    border: '#cfe8f6',
+    headerText: '#f3fbff',
+  },
+  admin: {
+    primary: '#171b4b',
+    secondary: '#30377e',
+    pale: '#eef0f8',
+    panel: '#ffffff',
+    ink: '#171b4b',
+    muted: '#5f667d',
+    border: '#d7daea',
+    headerText: '#f1f2ff',
+  },
 };
 
 const sideQuoteLegalLinksHtml = `
@@ -443,12 +487,14 @@ export const createNotificationEmailTemplate = ({
   footerText,
   actionUrl,
   actionLabel,
+  contentBeforeFooter,
+  theme = defaultNotificationTheme,
 }: NotificationEmailParams) => {
   const detailsRows = details
     .map(
       (item) => `
-                      <p style="margin:0 0 12px;color:${sideQuoteBrand.muted};font-size:14px;line-height:1.8;font-weight:700;">${item.label}</p>
-                      <p style="margin:0 0 16px;color:${sideQuoteBrand.ink};font-size:16px;line-height:1.7;">${item.value}</p>`,
+                      <p style="margin:0 0 12px;color:${theme.muted};font-size:14px;line-height:1.8;font-weight:700;">${item.label}</p>
+                      <p style="margin:0 0 16px;color:${theme.ink};font-size:16px;line-height:1.7;">${item.value}</p>`,
     )
     .join('');
 
@@ -460,23 +506,23 @@ export const createNotificationEmailTemplate = ({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${heading}</title>
   </head>
-  <body style="margin:0;padding:0;background:${sideQuoteBrand.pale};font-family:Arial,Helvetica,sans-serif;color:${sideQuoteBrand.ink};">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:${sideQuoteBrand.pale};margin:0;padding:36px 14px;">
+  <body style="margin:0;padding:0;background:${theme.pale};font-family:Arial,Helvetica,sans-serif;color:${theme.ink};">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:${theme.pale};margin:0;padding:36px 14px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${sideQuoteBrand.panel};border:1px solid ${sideQuoteBrand.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${theme.panel};border:1px solid ${theme.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
-              <td style="background:${sideQuoteBrand.primary};background-image:linear-gradient(135deg,${sideQuoteBrand.primary} 0%,${sideQuoteBrand.secondary} 100%);padding:34px 34px 30px;text-align:center;">
+              <td style="background:${theme.primary};background-image:linear-gradient(135deg,${theme.primary} 0%,${theme.secondary} 100%);padding:34px 34px 30px;text-align:center;">
                 ${sideQuoteEmailLogoHtml}
                 <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:800;">${heading}</h1>
-                ${subheading ? `<p style="margin:10px 0 0;color:#eaf7ff;font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
+                ${subheading ? `<p style="margin:10px 0 0;color:${theme.headerText};font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
               </td>
             </tr>
 
             <tr>
               <td style="padding:36px 34px 10px;">
-                ${greetingName ? `<p style="margin:0 0 16px;color:${sideQuoteBrand.ink};font-size:16px;line-height:1.7;font-weight:700;">Hello ${greetingName},</p>` : ''}
-                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:15px;line-height:1.8;">${introText}</p>
+                ${greetingName ? `<p style="margin:0 0 16px;color:${theme.ink};font-size:16px;line-height:1.7;font-weight:700;">Hello ${greetingName},</p>` : ''}
+                <p style="margin:0;color:${theme.muted};font-size:15px;line-height:1.8;">${introText}</p>
               </td>
             </tr>
 
@@ -484,7 +530,7 @@ export const createNotificationEmailTemplate = ({
               details.length
                 ? `<tr>
               <td style="padding:26px 34px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f9fd;border:1px solid ${sideQuoteBrand.border};border-radius:14px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.pale};border:1px solid ${theme.border};border-radius:14px;">
                   <tr>
                     <td style="padding:24px 26px;">${detailsRows}</td>
                   </tr>
@@ -500,12 +546,12 @@ export const createNotificationEmailTemplate = ({
               <td align="center" style="padding:0 34px 34px;">
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                   <tr>
-                    <td align="center" bgcolor="${sideQuoteBrand.primary}" style="border-radius:10px;background:${sideQuoteBrand.primary};background-image:linear-gradient(90deg,${sideQuoteBrand.primary},${sideQuoteBrand.secondary});">
+                    <td align="center" bgcolor="${theme.primary}" style="border-radius:10px;background:${theme.primary};background-image:linear-gradient(90deg,${theme.primary},${theme.secondary});">
                       <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 30px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.2;font-weight:800;">${actionLabel ?? 'View details &rarr;'}</a>
                     </td>
                   </tr>
                 </table>
-                <p style="margin:18px 0 0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.6;word-break:break-all;">${actionUrl}</p>
+                <p style="margin:18px 0 0;color:${theme.muted};font-size:12px;line-height:1.6;word-break:break-all;">${actionUrl}</p>
               </td>
             </tr>`
                 : ''
@@ -515,11 +561,11 @@ export const createNotificationEmailTemplate = ({
               noteTitle || noteText
                 ? `<tr>
               <td style="padding:0 34px 34px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f9fd;border-left:4px solid ${sideQuoteBrand.secondary};border-radius:10px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.pale};border-left:4px solid ${theme.secondary};border-radius:10px;">
                   <tr>
                     <td style="padding:18px 18px;">
-                      ${noteTitle ? `<p style="margin:0;color:${sideQuoteBrand.ink};font-size:14px;line-height:1.7;font-weight:700;">${noteTitle}</p>` : ''}
-                      ${noteText ? `<p style="margin:6px 0 0;color:${sideQuoteBrand.muted};font-size:14px;line-height:1.7;">${noteText}</p>` : ''}
+                      ${noteTitle ? `<p style="margin:0;color:${theme.ink};font-size:14px;line-height:1.7;font-weight:700;">${noteTitle}</p>` : ''}
+                      ${noteText ? `<p style="margin:6px 0 0;color:${theme.muted};font-size:14px;line-height:1.7;">${noteText}</p>` : ''}
                     </td>
                   </tr>
                 </table>
@@ -528,11 +574,13 @@ export const createNotificationEmailTemplate = ({
                 : ''
             }
 
+            ${contentBeforeFooter ?? ''}
+
             <tr>
-              <td style="background:#f7fbfd;border-top:1px solid ${sideQuoteBrand.border};padding:22px 34px;text-align:center;">
-                <p style="margin:0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
+              <td style="background:${theme.pale};border-top:1px solid ${theme.border};padding:22px 34px;text-align:center;">
+                <p style="margin:0;color:${theme.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
                 ${sideQuoteLegalLinksHtml}
-                <p style="margin:8px 0 0;color:${sideQuoteBrand.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
+                <p style="margin:8px 0 0;color:${theme.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
               </td>
             </tr>
           </table>
@@ -549,6 +597,10 @@ export const createBusinessReferralClaimEmailTemplate = ({
   categoryName,
   city,
   state,
+  imageUrl,
+  rating,
+  review,
+  source = 'customer',
   publicProfileUrl,
   claimUrl,
   expiryHours,
@@ -558,15 +610,51 @@ export const createBusinessReferralClaimEmailTemplate = ({
   categoryName: string;
   city: string;
   state: string;
+  imageUrl: string;
+  rating: number;
+  review: string;
+  source?: 'customer' | 'admin';
   publicProfileUrl: string;
   claimUrl: string;
   expiryHours: number;
-}) =>
-  createNotificationEmailTemplate({
+}) => {
+  const theme = referralEmailThemes[source];
+  const normalizedRating = Math.min(5, Math.max(1, Math.round(rating)));
+  const ratingStars = Array.from({ length: 5 }, (_, index) =>
+    index < normalizedRating ? '&#9733;' : '&#9734;',
+  ).join('');
+  const safeReview = escapeHtml(review).replace(/\r?\n/g, '<br />');
+  const referralContent = `
+            <tr data-referral-content="true">
+              <td style="padding:0 34px 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.panel};border:1px solid ${theme.border};border-radius:14px;overflow:hidden;">
+                  <tr>
+                    <td style="padding:0;">
+                      <img src="${escapeHtml(imageUrl)}" width="570" alt="${escapeHtml(businessName)} referral" style="display:block;width:100%;max-width:570px;height:auto;border:0;outline:none;text-decoration:none;" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:22px 24px;">
+                      <p style="margin:0 0 8px;color:${theme.ink};font-size:14px;line-height:1.6;font-weight:800;">Customer rating</p>
+                      <p aria-label="${normalizedRating} out of 5 stars" style="margin:0 0 18px;color:${theme.secondary};font-size:24px;line-height:1.2;letter-spacing:2px;">${ratingStars} <span style="color:${theme.muted};font-size:13px;letter-spacing:0;">${normalizedRating}/5</span></p>
+                      <p style="margin:0 0 8px;color:${theme.ink};font-size:14px;line-height:1.6;font-weight:800;">Referral review</p>
+                      <p style="margin:0;color:${theme.muted};font-size:15px;line-height:1.8;">${safeReview}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>`;
+
+  return createNotificationEmailTemplate({
     heading: 'Your business was referred',
-    subheading: 'A customer recommended your business on SideQuote.',
+    subheading:
+      source === 'admin'
+        ? 'You&rsquo;ve been added to the business directory! Claim your business now.<br />By being part of the SideQuote business directory platform you can reach new customers without the overhead.'
+        : 'A customer recommended your business on SideQuote.',
     introText:
-      'A public referral profile has been created for your business. Review the listing and use the secure link below if you are the business owner.',
+      source === 'admin'
+        ? 'SideQuote is the largest business directory for small business owners. Your business was added to the directory by the admin, please claim this business to interact with customers.'
+        : 'Congrats! A customer has given you a referral. Review the listing and use the secure link to claim this business and update your business profile.',
     details: [
       { label: 'Business', value: escapeHtml(businessName) },
       { label: 'Referred by', value: escapeHtml(referrerName) },
@@ -574,7 +662,7 @@ export const createBusinessReferralClaimEmailTemplate = ({
       { label: 'Location', value: escapeHtml(`${city}, ${state}`) },
       {
         label: 'Public profile',
-        value: `<a href="${escapeHtml(publicProfileUrl)}" target="_blank" style="color:${sideQuoteBrand.secondary};">View referral profile</a>`,
+        value: `<a href="${escapeHtml(publicProfileUrl)}" target="_blank" style="color:${theme.secondary};">View referral profile</a>`,
       },
     ],
     actionUrl: escapeHtml(claimUrl),
@@ -582,8 +670,13 @@ export const createBusinessReferralClaimEmailTemplate = ({
     noteTitle: 'Secure claim link',
     noteText: `This link expires in ${expiryHours} hours and can be used only for this business. If you do not own this business, you can ignore this email.`,
     footerText:
-      'You received this message because your business email was submitted with a public recommendation.',
+      source === 'admin'
+        ? 'You received this message because your business was added to the SideQuote directory.'
+        : 'You received this message because your business email was submitted with a public recommendation.',
+    contentBeforeFooter: referralContent,
+    theme,
   });
+};
 
 export const createBusinessCategoryApprovedEmailTemplate = ({
   displayName,

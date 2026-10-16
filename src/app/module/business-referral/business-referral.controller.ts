@@ -49,11 +49,11 @@ export class BusinessReferralController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Refer a business using a personal user profile' })
+  @ApiOperation({ summary: 'Refer a business as a customer or administrator' })
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: CreateBusinessReferralDto })
-  @UseGuards(AuthGuard('user'))
+  @UseGuards(AuthGuard('user', 'admin'))
   @UseInterceptors(
     FileInterceptor('image', {
       ...fileUpload.uploadConfig,
@@ -80,6 +80,7 @@ export class BusinessReferralController {
       req.user!.id,
       dto,
       image,
+      req.user!.role === 'admin' ? 'admin' : 'customer',
     );
 
     return {
@@ -138,7 +139,7 @@ export class BusinessReferralController {
   @ApiOperation({ summary: 'Resend the owner claim email for your referral' })
   @ApiBearerAuth('access-token')
   @ApiParam({ name: 'id', description: 'Business referral id' })
-  @UseGuards(AuthGuard('user'))
+  @UseGuards(AuthGuard('user', 'admin'))
   @HttpCode(HttpStatus.OK)
   async resendClaimNotification(@Param('id') id: string, @Req() req: Request) {
     const result = await this.notificationService.resendClaimNotification(
@@ -163,7 +164,7 @@ export class BusinessReferralController {
   @ApiBearerAuth('access-token')
   @ApiParam({ name: 'id', description: 'Business referral id' })
   @ApiBody({ type: UpdateReferralEmailDto })
-  @UseGuards(AuthGuard('user'))
+  @UseGuards(AuthGuard('user', 'admin'))
   @HttpCode(HttpStatus.OK)
   async updateReferralEmail(
     @Param('id') id: string,

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -165,6 +166,19 @@ export class MessageController {
         dto,
         files,
       ),
+    };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a message sent by the logged-in account' })
+  @ApiBearerAuth('access-token')
+  @ApiParam({ name: 'id', description: 'Message id' })
+  @UseGuards(AuthGuard('user', 'businessOwner'))
+  @HttpCode(HttpStatus.OK)
+  async deleteOwnMessage(@Param('id') id: string, @Req() req: Request) {
+    return {
+      message: 'Message deleted successfully',
+      data: await this.messageService.deleteOwnMessage(id, req.user!.id),
     };
   }
 }

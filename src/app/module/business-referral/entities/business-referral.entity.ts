@@ -3,9 +3,11 @@ import { HydratedDocument, Types } from 'mongoose';
 import {
   BUSINESS_REFERRAL_CLAIM_STATUSES,
   BUSINESS_REFERRAL_LISTING_STATUSES,
+  BUSINESS_REFERRAL_SOURCES,
   REFERRAL_EMAIL_DELIVERY_STATUSES,
   type BusinessReferralClaimStatus,
   type BusinessReferralListingStatus,
+  type BusinessReferralSource,
   type ReferralEmailDeliveryStatus,
 } from '../constants/business-referral.constants';
 
@@ -72,6 +74,17 @@ export class BusinessReferral {
 
   @Prop({ required: true, trim: true, minlength: 10, maxlength: 1500 })
   review: string;
+
+  @Prop({
+    type: String,
+    enum: BUSINESS_REFERRAL_SOURCES,
+    default: 'customer',
+    index: true,
+  })
+  source: BusinessReferralSource;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', index: true })
+  createdByUserId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'User', index: true })
   referredByUserId?: Types.ObjectId;

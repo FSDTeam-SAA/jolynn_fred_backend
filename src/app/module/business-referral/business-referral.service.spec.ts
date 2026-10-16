@@ -116,6 +116,8 @@ describe('BusinessReferralService', () => {
         businessPhone: '15125550100',
         categoryName: 'Plumbing',
         referrerName: 'Helpful User',
+        source: 'customer',
+        createdByUserId: referrerId,
         claimStatus: 'unclaimed',
       }),
     );
@@ -129,6 +131,53 @@ describe('BusinessReferralService', () => {
     expect(result).not.toHaveProperty('image.publicId');
     expect(notificationService.sendClaimNotification).toHaveBeenCalledWith(
       expect.any(Types.ObjectId),
+    );
+  });
+
+  it('creates an admin referral without treating the admin as a customer reviewer', async () => {
+    userModel.findById.mockResolvedValue({
+      _id: referrerId,
+      id: referrerId.toString(),
+      email: 'admin@sidequote.cloud',
+      role: 'admin',
+      roles: ['admin'],
+    });
+    jest.spyOn(fileUpload, 'uploadBusinessReferralImage').mockResolvedValue({
+      url: 'https://example.com/referral.jpg',
+      public_id: 'business-referrals/referral',
+    });
+    referralModel.create.mockImplementation(async (payload) => {
+      const _id = new Types.ObjectId();
+      return {
+        _id,
+        toObject: () => ({ _id, ...payload }),
+      };
+    });
+
+    await service.createReferral(
+      referrerId.toString(),
+      {
+        businessName: 'Acme Plumbing',
+        serviceCategoryId: categoryId.toString(),
+        state: 'Texas',
+        city: 'Austin',
+        businessEmail: 'owner@acme.example',
+        rating: 5,
+        review: 'Verified by the SideQuote directory team.',
+      },
+      { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any,
+      'admin',
+    );
+
+    expect(referralModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'admin',
+        createdByUserId: referrerId,
+        referrerName: 'SideQuote Admin',
+      }),
+    );
+    expect(referralModel.create.mock.calls[0][0]).not.toHaveProperty(
+      'referredByUserId',
     );
   });
 
@@ -329,8 +378,11 @@ describe('BusinessReferralService', () => {
     expect(referralModel.findOneAndUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         _id: referralId,
-        referredByUserId: referrerId,
         claimStatus: 'unclaimed',
+        $or: expect.arrayContaining([
+          { createdByUserId: referrerId },
+          { referredByUserId: referrerId },
+        ]),
       }),
       expect.objectContaining({
         $set: expect.objectContaining({

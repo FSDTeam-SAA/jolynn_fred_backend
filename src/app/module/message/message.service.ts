@@ -217,6 +217,27 @@ export class MessageService implements OnApplicationBootstrap {
     );
   }
 
+  private async deleteAttachments(
+    attachments: Message['attachments'] = [],
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      attachments.map((attachment) =>
+        fileUpload.deleteResourceFromCloudinary(
+          attachment.public_id,
+          attachment.mimetype.startsWith('image/') ? 'image' : 'raw',
+        ),
+      ),
+    );
+    const failedCount = results.filter(
+      (result) => result.status === 'rejected',
+    ).length;
+    if (failedCount) {
+      this.logger.warn(
+        `Failed to delete ${failedCount} attachment(s) for a deleted message`,
+      );
+    }
+  }
+
   private async getConversationOrThrow(
     id: string,
     userId: string,
@@ -408,5 +429,63 @@ export class MessageService implements OnApplicationBootstrap {
       { new: true },
     );
     return { conversation: updatedConversation, message };
+  }
+
+  async deleteOwnMessage(messageId: string, senderId: string) {
+    const deletedMessage = await this.messageModel.findOneAndDelete({
+      _id: this.toObjectId(messageId, 'message id'),
+      senderId: this.toObjectId(senderId, 'sender id'),
+    });
+    if (!deletedMessage) {
+      throw new HttpException('Message not found', 404);
+    }
+
+    const conversationId = deletedMessage.conversationId;
+    const [conversation, latestMessage] = await Promise.all([
+      this.conversationModel.findById(conversationId),
+      this.messageModel
+        .findOne({ conversationId })
+        .sort({ createdAt: -1, _id: -1 })
+        .lean(),
+    ]);
+
+    let conversationDeleted = false;
+    if (conversation && latestMessage) {
+      const [unreadForUser, unreadForBusinessOwner] = await Promise.all([
+        this.messageModel.countDocuments({
+          conversationId,
+          recipientId: conversation.userId,
+          read: false,
+        }),
+        this.messageModel.countDocuments({
+          conversationId,
+          recipientId: conversation.businessOwnerId,
+          read: false,
+        }),
+      ]);
+      const latestWithTimestamp = latestMessage as typeof latestMessage & {
+        createdAt?: Date;
+      };
+
+      await this.conversationModel.findByIdAndUpdate(conversationId, {
+        $set: {
+          lastMessage: latestMessage.message,
+          lastMessageAt: latestWithTimestamp.createdAt ?? new Date(),
+          unreadForUser,
+          unreadForBusinessOwner,
+        },
+      });
+    } else if (!latestMessage) {
+      await this.conversationModel.findByIdAndDelete(conversationId);
+      conversationDeleted = true;
+    }
+
+    await this.deleteAttachments(deletedMessage.attachments);
+
+    return {
+      deletedMessageId: String(deletedMessage._id),
+      conversationId: String(conversationId),
+      conversationDeleted,
+    };
   }
 }
