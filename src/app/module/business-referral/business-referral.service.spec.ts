@@ -181,6 +181,7 @@ describe('BusinessReferralService', () => {
     );
   });
 
+<<<<<<< HEAD
   it('uploads and exposes up to three referral images while preserving the primary image', async () => {
     const uploadedImages = [1, 2, 3].map((index) => ({
       url: `https://example.com/referral-${index}.jpg`,
@@ -299,6 +300,8 @@ describe('BusinessReferralService', () => {
     expect(referralModel.create).not.toHaveBeenCalled();
   });
 
+=======
+>>>>>>> 667d3907234a3e90fbfbbd45cbb55973fbedbf6f
   it('keeps a published referral when notification delivery throws', async () => {
     jest.spyOn(fileUpload, 'uploadBusinessReferralImage').mockResolvedValue({
       url: 'https://example.com/referral.jpg',
