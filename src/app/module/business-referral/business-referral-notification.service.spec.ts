@@ -124,12 +124,28 @@ describe('BusinessReferralNotificationService', () => {
     await service.sendClaimNotification(referralId);
 
     const emailHtml = (sendMailer as jest.Mock).mock.calls[0][2] as string;
+    expect(emailHtml).toContain('Good News!');
     expect(emailHtml).toContain(
-      'You&rsquo;ve been added to the business directory!',
+      'Your business has been added to SideQuote! Claim your free listing now',
     );
     expect(emailHtml).toContain('https://example.com/referral.jpg');
-    expect(emailHtml).toContain('5/5');
+    expect(emailHtml).toContain('5.0');
     expect(emailHtml).toContain('Excellent and dependable plumbing service.');
+  });
+
+  it('includes every uploaded image and the business email in a customer referral', async () => {
+    referral.images = [1, 2, 3].map((index) => ({
+      url: `https://example.com/referral-${index}.jpg`,
+    }));
+
+    await service.sendClaimNotification(referralId);
+
+    const emailHtml = (sendMailer as jest.Mock).mock.calls[0][2] as string;
+    expect(emailHtml).toContain('https://example.com/referral-1.jpg');
+    expect(emailHtml).toContain('https://example.com/referral-2.jpg');
+    expect(emailHtml).toContain('https://example.com/referral-3.jpg');
+    expect(emailHtml).toContain('mailto:owner@acme.example');
+    expect(emailHtml).toContain('Claim this Business');
   });
 
   it('validates an unexpired token without consuming it', async () => {

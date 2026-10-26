@@ -105,7 +105,7 @@ describe('BusinessReferralService', () => {
         rating: 5,
         review: 'Excellent and dependable plumbing service.',
       },
-      { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any,
+      [{ buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any],
     );
 
     expect(referralModel.create).toHaveBeenCalledWith(
@@ -165,7 +165,7 @@ describe('BusinessReferralService', () => {
         rating: 5,
         review: 'Verified by the SideQuote directory team.',
       },
-      { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any,
+      [{ buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any],
       'admin',
     );
 
@@ -179,6 +179,124 @@ describe('BusinessReferralService', () => {
     expect(referralModel.create.mock.calls[0][0]).not.toHaveProperty(
       'referredByUserId',
     );
+  });
+
+  it('uploads and exposes up to three referral images while preserving the primary image', async () => {
+    const uploadedImages = [1, 2, 3].map((index) => ({
+      url: `https://example.com/referral-${index}.jpg`,
+      public_id: `business-referrals/referral-${index}`,
+    }));
+    const uploadSpy = jest.spyOn(fileUpload, 'uploadBusinessReferralImage');
+    uploadedImages.forEach((image) => uploadSpy.mockResolvedValueOnce(image));
+    referralModel.create.mockImplementation(async (payload) => {
+      const _id = new Types.ObjectId();
+      return {
+        _id,
+        toObject: () => ({ _id, ...payload }),
+      };
+    });
+
+    const result = await service.createReferral(
+      referrerId.toString(),
+      {
+        businessName: 'Acme Plumbing',
+        serviceCategoryId: categoryId.toString(),
+        state: 'Texas',
+        city: 'Austin',
+        businessEmail: 'owner@acme.example',
+        rating: 5,
+        review: 'Excellent and dependable plumbing service.',
+      },
+      [1, 2, 3].map(
+        (index) =>
+          ({
+            buffer: Buffer.from(`image-${index}`),
+            mimetype: 'image/jpeg',
+            size: 1024,
+          }) as any,
+      ),
+    );
+
+    expect(uploadSpy).toHaveBeenCalledTimes(3);
+    expect(referralModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image: {
+          url: uploadedImages[0].url,
+          publicId: uploadedImages[0].public_id,
+        },
+        images: uploadedImages.map((image) => ({
+          url: image.url,
+          publicId: image.public_id,
+        })),
+      }),
+    );
+    expect(result).toMatchObject({
+      image: uploadedImages[0].url,
+      images: uploadedImages.map((image) => image.url),
+    });
+  });
+
+  it('creates a referral without images when the optional image field is omitted', async () => {
+    const uploadSpy = jest.spyOn(fileUpload, 'uploadBusinessReferralImage');
+    referralModel.create.mockImplementation(async (payload) => {
+      const _id = new Types.ObjectId();
+      return {
+        _id,
+        toObject: () => ({ _id, ...payload }),
+      };
+    });
+
+    const result = await service.createReferral(
+      referrerId.toString(),
+      {
+        businessName: 'Acme Plumbing',
+        serviceCategoryId: categoryId.toString(),
+        state: 'Texas',
+        city: 'Austin',
+        businessEmail: 'owner@acme.example',
+        rating: 5,
+        review: 'Excellent and dependable plumbing service.',
+      },
+      [],
+    );
+
+    expect(uploadSpy).not.toHaveBeenCalled();
+    expect(referralModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ images: [] }),
+    );
+    expect(referralModel.create.mock.calls[0][0]).not.toHaveProperty('image');
+    expect(result).toMatchObject({ images: [] });
+    expect(result.image).toBeUndefined();
+  });
+
+  it('rejects more than three referral images before uploading', async () => {
+    const uploadSpy = jest.spyOn(fileUpload, 'uploadBusinessReferralImage');
+
+    await expect(
+      service.createReferral(
+        referrerId.toString(),
+        {
+          businessName: 'Acme Plumbing',
+          serviceCategoryId: categoryId.toString(),
+          state: 'Texas',
+          city: 'Austin',
+          businessEmail: 'owner@acme.example',
+          rating: 5,
+          review: 'Excellent and dependable plumbing service.',
+        },
+        [1, 2, 3, 4].map(
+          () =>
+            ({
+              buffer: Buffer.from('image'),
+              mimetype: 'image/jpeg',
+              size: 1024,
+            }) as any,
+        ),
+      ),
+    ).rejects.toMatchObject<HttpException>({ status: 400 });
+
+    expect(uploadSpy).not.toHaveBeenCalled();
+    expect(referralModel.create).not.toHaveBeenCalled();
   });
 
   it('keeps a published referral when notification delivery throws', async () => {
@@ -212,7 +330,7 @@ describe('BusinessReferralService', () => {
           rating: 5,
           review: 'Excellent and dependable plumbing service.',
         },
-        { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any,
+        [{ buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any],
       ),
     ).resolves.toMatchObject({
       businessName: 'Acme Plumbing',
@@ -243,7 +361,7 @@ describe('BusinessReferralService', () => {
           rating: 5,
           review: 'Excellent and dependable plumbing service.',
         },
-        { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any,
+        [{ buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any],
       ),
     ).rejects.toMatchObject<HttpException>({ status: 409 });
     expect(uploadSpy).not.toHaveBeenCalled();
@@ -271,7 +389,7 @@ describe('BusinessReferralService', () => {
           rating: 5,
           review: 'Excellent and dependable plumbing service.',
         },
-        { buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any,
+        [{ buffer: Buffer.from('image'), mimetype: 'image/jpeg' } as any],
       ),
     ).rejects.toThrow('database unavailable');
     expect(deleteSpy).toHaveBeenCalledWith('business-referrals/referral');
