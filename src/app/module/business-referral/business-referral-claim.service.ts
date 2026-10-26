@@ -254,7 +254,8 @@ export class BusinessReferralClaimService {
                 state: referral.state,
                 address: dto.address,
                 postcode: dto.postcode,
-                profilePicture: referral.image.url,
+                profilePicture:
+                  referral.images?.[0]?.url ?? referral.image?.url,
                 bio: dto.bio,
                 category: referral.categoryName,
                 requestedCategory: null,
