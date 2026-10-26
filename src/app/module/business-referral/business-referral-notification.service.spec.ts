@@ -133,6 +133,7 @@ describe('BusinessReferralNotificationService', () => {
     expect(emailHtml).toContain('Excellent and dependable plumbing service.');
   });
 
+<<<<<<< HEAD
   it('includes every uploaded image and the business email in a customer referral', async () => {
     referral.images = [1, 2, 3].map((index) => ({
       url: `https://example.com/referral-${index}.jpg`,
@@ -148,6 +149,8 @@ describe('BusinessReferralNotificationService', () => {
     expect(emailHtml).toContain('Claim this Business');
   });
 
+=======
+>>>>>>> 667d3907234a3e90fbfbbd45cbb55973fbedbf6f
   it('validates an unexpired token without consuming it', async () => {
     const token = 'a'.repeat(64);
     claimModel.findOne.mockReturnValue({
