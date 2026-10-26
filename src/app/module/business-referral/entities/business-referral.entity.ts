@@ -66,8 +66,18 @@ export class BusinessReferral {
   @Prop({ trim: true })
   businessPhone?: string;
 
-  @Prop({ type: BusinessReferralImageSchema, required: true })
-  image: BusinessReferralImage;
+  @Prop({ type: BusinessReferralImageSchema })
+  image?: BusinessReferralImage;
+
+  @Prop({
+    type: [BusinessReferralImageSchema],
+    default: [],
+    validate: {
+      validator: (images: BusinessReferralImage[]) => images.length <= 3,
+      message: 'A business referral can have a maximum of 3 images',
+    },
+  })
+  images: BusinessReferralImage[];
 
   @Prop({ required: true, min: 1, max: 5 })
   rating: number;

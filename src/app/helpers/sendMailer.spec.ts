@@ -18,7 +18,7 @@ import sendMailer from './sendMailer';
 import { SIDEQUOTE_EMAIL_LOGO_CID } from './template';
 
 describe('sendMailer', () => {
-  it('embeds logo.webp inline in every outgoing email', async () => {
+  it('embeds the transparent SideQuote logo in every outgoing email', async () => {
     const send = jest.fn().mockResolvedValue({ data: { id: 'message-1' } });
     (Resend as jest.Mock).mockImplementation(() => ({ emails: { send } }));
 
@@ -31,7 +31,7 @@ describe('sendMailer', () => {
     const mailOptions = send.mock.calls[0][0];
     const logoAttachment = mailOptions.attachments.find(
       (attachment: { filename?: string }) =>
-        attachment.filename === 'logo.webp',
+        attachment.filename === 'logo-email.png',
     );
 
     expect(send).toHaveBeenCalledWith(
@@ -40,9 +40,9 @@ describe('sendMailer', () => {
         replyTo: 'noreply@sidequote.cloud',
         attachments: expect.arrayContaining([
           expect.objectContaining({
-            filename: 'logo.webp',
+            filename: 'logo-email.png',
             content: expect.any(Buffer),
-            contentType: 'image/webp',
+            contentType: 'image/png',
             contentId: expect.stringMatching(
               /^sidequote-logo-.+@sidequote\.cloud$/,
             ),
