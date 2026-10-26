@@ -19,16 +19,16 @@ const getSideQuoteLogoAttachment = () => {
     return sideQuoteLogoAttachment;
   }
 
-  const logoPath = join(process.cwd(), 'logo.webp');
+  const logoPath = join(process.cwd(), 'logo-email.png');
   if (!fs.existsSync(logoPath)) {
     sideQuoteLogoAttachment = null;
     return sideQuoteLogoAttachment;
   }
 
   sideQuoteLogoAttachment = {
-    filename: 'logo.webp',
+    filename: 'logo-email.png',
     content: fs.readFileSync(logoPath),
-    contentType: 'image/webp',
+    contentType: 'image/png',
     cid: SIDEQUOTE_EMAIL_LOGO_CID,
   };
 

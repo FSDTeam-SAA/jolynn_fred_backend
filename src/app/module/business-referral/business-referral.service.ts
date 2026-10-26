@@ -25,7 +25,11 @@ import {
   BusinessReferralDocument,
 } from './entities/business-referral.entity';
 import { BusinessReferralNotificationService } from './business-referral-notification.service';
-import { type BusinessReferralSource } from './constants/business-referral.constants';
+import {
+  BUSINESS_REFERRAL_IMAGE_MAX_COUNT,
+  BUSINESS_REFERRAL_IMAGE_MAX_SIZE,
+  type BusinessReferralSource,
+} from './constants/business-referral.constants';
 
 type ReferralListOptions = {
   includePrivate?: boolean;
@@ -110,6 +114,45 @@ export class BusinessReferralService {
     }
 
     return category;
+  }
+
+  private async uploadReferralImages(imageFiles: Express.Multer.File[] = []) {
+    if (imageFiles.length > BUSINESS_REFERRAL_IMAGE_MAX_COUNT) {
+      throw new HttpException(
+        `You can upload a maximum of ${BUSINESS_REFERRAL_IMAGE_MAX_COUNT} business images`,
+        400,
+      );
+    }
+    if (
+      imageFiles.some(
+        (file) =>
+          !file.mimetype?.startsWith('image/') ||
+          !file.buffer?.length ||
+          file.size > BUSINESS_REFERRAL_IMAGE_MAX_SIZE,
+      )
+    ) {
+      throw new HttpException(
+        `Each file must be an image no larger than ${BUSINESS_REFERRAL_IMAGE_MAX_SIZE / (1024 * 1024)} MB`,
+        400,
+      );
+    }
+
+    const uploadedImages: Array<{ url: string; public_id: string }> = [];
+    try {
+      for (const imageFile of imageFiles) {
+        uploadedImages.push(
+          await fileUpload.uploadBusinessReferralImage(imageFile),
+        );
+      }
+      return uploadedImages;
+    } catch (error) {
+      await Promise.allSettled(
+        uploadedImages.map((image) =>
+          fileUpload.deleteResourceFromCloudinary(image.public_id),
+        ),
+      );
+      throw error;
+    }
   }
 
   private async ensureNoStrongDuplicate(
@@ -232,7 +275,10 @@ export class BusinessReferralService {
       businessName: raw.businessName,
       businessEmail: raw.businessEmail,
       businessPhone: raw.businessPhone,
-      image: raw.image?.url,
+      image: raw.images?.[0]?.url ?? raw.image?.url,
+      images: (raw.images?.length ? raw.images : raw.image ? [raw.image] : [])
+        .map((image: { url?: string }) => image.url)
+        .filter(Boolean),
       serviceCategoryId: String(raw.serviceCategoryId),
       category: raw.categoryName,
       state: raw.state,
@@ -358,7 +404,7 @@ export class BusinessReferralService {
   async createReferral(
     creatorId: string,
     dto: CreateBusinessReferralDto,
-    imageFile: Express.Multer.File,
+    imageFiles: Express.Multer.File[] = [],
     source: BusinessReferralSource = 'customer',
   ) {
     const businessPhone = this.normalizePhone(dto.businessPhone);
@@ -376,8 +422,11 @@ export class BusinessReferralService {
       city: location.city,
     });
 
-    const uploadedImage =
-      await fileUpload.uploadBusinessReferralImage(imageFile);
+    const uploadedImages = await this.uploadReferralImages(imageFiles);
+    const referralImages = uploadedImages.map((image) => ({
+      url: image.url,
+      publicId: image.public_id,
+    }));
 
     try {
       const personalProfile =
@@ -394,10 +443,8 @@ export class BusinessReferralService {
         city: location.city,
         businessEmail: dto.businessEmail,
         businessPhone,
-        image: {
-          url: uploadedImage.url,
-          publicId: uploadedImage.public_id,
-        },
+        ...(referralImages[0] ? { image: referralImages[0] } : {}),
+        images: referralImages,
         rating: dto.rating,
         review: dto.review,
         source,
@@ -425,9 +472,11 @@ export class BusinessReferralService {
 
       return this.mapReferral(notifiedReferral ?? referral, true);
     } catch (error) {
-      await fileUpload
-        .deleteResourceFromCloudinary(uploadedImage.public_id)
-        .catch(() => undefined);
+      await Promise.allSettled(
+        uploadedImages.map((image) =>
+          fileUpload.deleteResourceFromCloudinary(image.public_id),
+        ),
+      );
       throw error;
     }
   }

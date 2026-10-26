@@ -25,7 +25,22 @@ const emptyStringToUndefined = ({ value }: { value: unknown }) => {
 };
 
 export class CreateBusinessReferralDto {
-  @ApiProperty({ type: 'string', format: 'binary' })
+  @ApiPropertyOptional({
+    type: 'array',
+    maxItems: 3,
+    items: { type: 'string', format: 'binary' },
+    description: 'Optionally select and upload up to three business images',
+  })
+  @IsOptional()
+  images?: unknown[];
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    deprecated: true,
+    description:
+      'Legacy single-image field. New integrations should use "images".',
+  })
   @IsOptional()
   image?: unknown;
 

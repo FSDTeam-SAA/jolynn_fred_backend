@@ -1001,7 +1001,7 @@ export class UserService {
       this.gallaryModel.find({ userId: accountId }).select('images'),
       this.businessReferralModel
         .find({ claimedByUserId: accountId, claimStatus: 'claimed' })
-        .select('_id image'),
+        .select('_id image images'),
     ]);
     const serviceIds = services.map((service) => service._id);
     const referralIds = linkedReferrals.map((referral) => referral._id);
@@ -1014,9 +1014,14 @@ export class UserService {
       ...galleries.flatMap((gallery) =>
         gallery.images.map((image) => ({ publicId: image.publicId })),
       ),
-      ...linkedReferrals.map((referral) => ({
-        publicId: referral.image?.publicId,
-      })),
+      ...linkedReferrals.flatMap((referral) =>
+        (referral.images?.length
+          ? referral.images
+          : referral.image
+            ? [referral.image]
+            : []
+        ).map((image) => ({ publicId: image.publicId })),
+      ),
     ]);
     await Promise.all([
       this.deleteQuotes(accountId, 'businessOwner'),

@@ -2,13 +2,17 @@ type NotificationEmailParams = {
   heading: string;
   subheading?: string;
   greetingName?: string;
-  introText: string;
+  introText?: string;
+  showHeading?: boolean;
+  headerAppearance?: 'brand' | 'plain';
   details?: { label: string; value: string }[];
   noteTitle?: string;
   noteText?: string;
   footerText?: string;
+  footerLinksHtml?: string;
   actionUrl?: string;
   actionLabel?: string;
+  contentAfterHeader?: string;
   contentBeforeFooter?: string;
   theme?: NotificationEmailTheme;
 };
@@ -119,6 +123,13 @@ const sideQuoteLegalLinksHtml = `
     <a href="https://sidequote.cloud/privacy-policy" target="_blank" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">Privacy Policy</a>
     <span style="color:${sideQuoteBrand.muted};"> | </span>
     <a href="https://sidequote.cloud/terms-and-condition" target="_blank" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">Terms and Conditions</a>
+  </p>`;
+
+const sideQuoteReferralLinksHtml = `
+  <p style="margin:10px 0 0;color:${sideQuoteBrand.muted};font-size:12px;line-height:1.7;">
+    <a href="https://sidequote.cloud/about-us" target="_blank" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">About Us</a>
+    <span style="color:${sideQuoteBrand.muted};"> | </span>
+    <a href="https://sidequote.cloud/#faq" target="_blank" style="color:${sideQuoteBrand.secondary};text-decoration:underline;">FAQ</a>
   </p>`;
 
 const jolynnLegalLinksHtml = `
@@ -485,10 +496,14 @@ export const createNotificationEmailTemplate = ({
   noteTitle,
   noteText,
   footerText,
+  footerLinksHtml = sideQuoteLegalLinksHtml,
   actionUrl,
   actionLabel,
+  contentAfterHeader,
   contentBeforeFooter,
   theme = defaultNotificationTheme,
+  showHeading = true,
+  headerAppearance = 'brand',
 }: NotificationEmailParams) => {
   const detailsRows = details
     .map(
@@ -505,6 +520,13 @@ export const createNotificationEmailTemplate = ({
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${heading}</title>
+    <style>
+      @media only screen and (max-width:600px) {
+        .sq-referral-column { display:block !important; width:100% !important; }
+        .sq-referral-images { padding:0 0 18px !important; }
+        .sq-referral-details { padding:0 !important; }
+      }
+    </style>
   </head>
   <body style="margin:0;padding:0;background:${theme.pale};font-family:Arial,Helvetica,sans-serif;color:${theme.ink};">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:${theme.pale};margin:0;padding:36px 14px;">
@@ -512,19 +534,25 @@ export const createNotificationEmailTemplate = ({
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${theme.panel};border:1px solid ${theme.border};border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(30,48,93,0.14);">
             <tr>
-              <td style="background:${theme.primary};background-image:linear-gradient(135deg,${theme.primary} 0%,${theme.secondary} 100%);padding:34px 34px 30px;text-align:center;">
+              <td style="background:${headerAppearance === 'plain' ? theme.panel : theme.primary};background-image:${headerAppearance === 'plain' ? 'none' : `linear-gradient(135deg,${theme.primary} 0%,${theme.secondary} 100%)`};padding:34px 34px 30px;text-align:center;">
                 ${sideQuoteEmailLogoHtml}
-                <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;font-weight:800;">${heading}</h1>
-                ${subheading ? `<p style="margin:10px 0 0;color:${theme.headerText};font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
+                ${showHeading ? `<h1 style="margin:0;color:${headerAppearance === 'plain' ? theme.ink : '#ffffff'};font-size:28px;line-height:1.25;font-weight:800;">${heading}</h1>` : ''}
+                ${subheading ? `<p style="margin:${showHeading ? '10px' : '0'} 0 0;color:${headerAppearance === 'plain' ? theme.muted : theme.headerText};font-size:15px;line-height:1.6;">${subheading}</p>` : ''}
               </td>
             </tr>
 
-            <tr>
+            ${contentAfterHeader ?? ''}
+
+            ${
+              greetingName || introText
+                ? `<tr>
               <td style="padding:36px 34px 10px;">
                 ${greetingName ? `<p style="margin:0 0 16px;color:${theme.ink};font-size:16px;line-height:1.7;font-weight:700;">Hello ${greetingName},</p>` : ''}
-                <p style="margin:0;color:${theme.muted};font-size:15px;line-height:1.8;">${introText}</p>
+                ${introText ? `<p style="margin:0;color:${theme.muted};font-size:15px;line-height:1.8;">${introText}</p>` : ''}
               </td>
-            </tr>
+            </tr>`
+                : ''
+            }
 
             ${
               details.length
@@ -579,7 +607,7 @@ export const createNotificationEmailTemplate = ({
             <tr>
               <td style="background:${theme.pale};border-top:1px solid ${theme.border};padding:22px 34px;text-align:center;">
                 <p style="margin:0;color:${theme.muted};font-size:12px;line-height:1.7;">${footerText ?? 'This is an automated notification, please do not reply directly to this email.'}</p>
-                ${sideQuoteLegalLinksHtml}
+                ${footerLinksHtml}
                 <p style="margin:8px 0 0;color:${theme.primary};font-size:13px;line-height:1.7;font-weight:800;">The ${sideQuoteBrand.name} Team</p>
               </td>
             </tr>
@@ -597,7 +625,10 @@ export const createBusinessReferralClaimEmailTemplate = ({
   categoryName,
   city,
   state,
+  businessEmail,
+  businessPhone,
   imageUrl,
+  imageUrls,
   rating,
   review,
   source = 'customer',
@@ -610,7 +641,10 @@ export const createBusinessReferralClaimEmailTemplate = ({
   categoryName: string;
   city: string;
   state: string;
-  imageUrl: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  imageUrl?: string;
+  imageUrls?: string[];
   rating: number;
   review: string;
   source?: 'customer' | 'admin';
@@ -624,21 +658,154 @@ export const createBusinessReferralClaimEmailTemplate = ({
     index < normalizedRating ? '&#9733;' : '&#9734;',
   ).join('');
   const safeReview = escapeHtml(review).replace(/\r?\n/g, '<br />');
-  const referralContent = `
-            <tr data-referral-content="true">
-              <td style="padding:0 34px 34px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.panel};border:1px solid ${theme.border};border-radius:14px;overflow:hidden;">
+  const safeClaimUrl = escapeHtml(claimUrl);
+  const safePublicProfileUrl = escapeHtml(publicProfileUrl);
+  const referralImages = (
+    imageUrls?.length ? imageUrls : imageUrl ? [imageUrl] : []
+  ).slice(0, 3);
+
+  const customerImageGallery = referralImages
+    .map(
+      (url, index) => `${
+        index > 0
+          ? `<table data-referral-image-divider="true" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="padding:12px 18px;"><div style="height:1px;background:${theme.border};font-size:0;line-height:0;">&nbsp;</div></td></tr></table>`
+          : ''
+      }
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.panel};border:1px solid ${theme.border};border-radius:10px;">
+                            <tr>
+                              <td align="center" style="padding:8px;">
+                                <img src="${escapeHtml(url)}" width="160" alt="${escapeHtml(businessName)} referral image ${index + 1}" style="display:block;width:100%;max-width:160px;height:auto;margin:0 auto;border:0;border-radius:8px;outline:none;text-decoration:none;" />
+                              </td>
+                            </tr>
+                          </table>`,
+    )
+    .join('');
+  const customerReferralContent = `
+            <tr data-customer-referral-card="true">
+              <td style="padding:26px 24px 32px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.panel};border:1px solid ${theme.border};border-radius:16px;overflow:hidden;">
                   <tr>
-                    <td style="padding:0;">
-                      <img src="${escapeHtml(imageUrl)}" width="570" alt="${escapeHtml(businessName)} referral" style="display:block;width:100%;max-width:570px;height:auto;border:0;outline:none;text-decoration:none;" />
+                    ${
+                      customerImageGallery
+                        ? `<td class="sq-referral-column sq-referral-images" width="38%" valign="top" style="width:38%;padding:12px;background:${theme.pale};">${customerImageGallery}</td>`
+                        : ''
+                    }
+                    <td class="sq-referral-column sq-referral-details" width="${customerImageGallery ? '62%' : '100%'}" valign="top" style="width:${customerImageGallery ? '62%' : '100%'};padding:24px;">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td>
+                            <span style="display:inline-block;padding:5px 9px;background:${theme.primary};color:#ffffff;border-radius:999px;font-size:10px;line-height:1.2;font-weight:800;">Community referral</span>
+                            <span style="float:right;display:inline-block;padding:5px 9px;background:#fff7dc;color:#9a6400;border-radius:999px;font-size:10px;line-height:1.2;font-weight:800;">Unclaimed</span>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin:18px 0 4px;color:${theme.muted};font-size:10px;line-height:1.4;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;">${escapeHtml(categoryName)}</p>
+                      <h2 style="margin:0;color:${theme.ink};font-size:24px;line-height:1.25;font-weight:800;">${escapeHtml(businessName)}</h2>
+                      <p style="margin:7px 0 0;color:${theme.muted};font-size:12px;line-height:1.5;">&#9679; ${escapeHtml(`${city}, ${state}`)}</p>
+                      <div style="margin:18px 0;background:#fff9e8;border-radius:9px;padding:10px 12px;">
+                        <span aria-label="${normalizedRating} out of 5 stars" style="color:#f5b301;font-size:17px;line-height:1;letter-spacing:1px;">${ratingStars}</span>
+                        <span style="margin-left:7px;color:${theme.ink};font-size:12px;font-weight:800;">${normalizedRating}.0</span>
+                        <span style="margin-left:7px;color:${theme.muted};font-size:10px;">Referral review</span>
+                      </div>
+                      <div style="border-left:3px solid ${theme.secondary};padding:0 0 0 12px;">
+                        <p style="margin:0;color:${theme.muted};font-size:13px;line-height:1.7;">${safeReview}</p>
+                      </div>
+                      <p style="margin:16px 0 0;color:${theme.muted};font-size:11px;line-height:1.5;">Referred by <strong style="color:${theme.ink};">${escapeHtml(referrerName)}</strong></p>
+                      ${businessEmail ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.5;"><a href="mailto:${escapeHtml(businessEmail)}" style="color:${theme.muted};text-decoration:none;">&#9993; ${escapeHtml(businessEmail)}</a></p>` : ''}
+                      <div style="margin:20px 0 0;padding:14px 16px;background:${theme.pale};border:1px solid ${theme.border};border-radius:10px;">
+                        <a href="${safeClaimUrl}" target="_blank" style="display:inline-block;color:${theme.ink};font-size:13px;line-height:1.4;font-weight:800;text-decoration:underline;">Claim this Business &rarr;</a>
+                        <p style="margin:6px 0 0;color:${theme.muted};font-size:10px;line-height:1.5;">For your security, use the private claim link sent to this business email. This link expires in ${expiryHours} hours.</p>
+                      </div>
+                      <p style="margin:14px 0 0;font-size:11px;line-height:1.5;"><a href="${safePublicProfileUrl}" target="_blank" style="color:${theme.secondary};text-decoration:underline;">View public referral profile</a></p>
                     </td>
                   </tr>
+                </table>
+              </td>
+            </tr>`;
+
+  const adminGalleryColumnWidth =
+    referralImages.length === 3
+      ? '33.333'
+      : referralImages.length === 2
+        ? '50'
+        : '100';
+  const adminGallery = referralImages.length
+    ? `<tr data-admin-referral-gallery="true">
+                  <td style="padding:16px 18px 22px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        ${referralImages
+                          .map(
+                            (
+                              url,
+                              index,
+                            ) => `<td data-admin-gallery-item="true" width="${adminGalleryColumnWidth}%" valign="top" style="width:${adminGalleryColumnWidth}%;padding:${index === 0 ? '0 5px 0 0' : index === referralImages.length - 1 ? '0 0 0 5px' : '0 5px'};">
+                              <a href="${escapeHtml(url)}" target="_blank" title="View full image ${index + 1}" style="display:block;text-decoration:none;">
+                                <img src="${escapeHtml(url)}" width="${referralImages.length === 1 ? '540' : referralImages.length === 2 ? '250' : '165'}" alt="${escapeHtml(businessName)} gallery image ${index + 1}" style="display:block;width:100%;max-width:${referralImages.length === 1 ? '540px' : referralImages.length === 2 ? '250px' : '165px'};height:${referralImages.length === 1 ? 'auto' : '135px'};object-fit:cover;margin:0 auto;border:1px solid ${theme.border};border-radius:8px;outline:none;text-decoration:none;" />
+                              </a>
+                            </td>`,
+                          )
+                          .join('')}
+                      </tr>
+                    </table>
+                  </td>
+                </tr>`
+    : '';
+  const adminReferralContent = `
+            <tr data-admin-business-profile="true">
+              <td style="padding:0 24px 32px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.panel};border:1px solid ${theme.border};border-radius:14px;overflow:hidden;">
                   <tr>
-                    <td style="padding:22px 24px;">
-                      <p style="margin:0 0 8px;color:${theme.ink};font-size:14px;line-height:1.6;font-weight:800;">Customer rating</p>
-                      <p aria-label="${normalizedRating} out of 5 stars" style="margin:0 0 18px;color:${theme.secondary};font-size:24px;line-height:1.2;letter-spacing:2px;">${ratingStars} <span style="color:${theme.muted};font-size:13px;letter-spacing:0;">${normalizedRating}/5</span></p>
-                      <p style="margin:0 0 8px;color:${theme.ink};font-size:14px;line-height:1.6;font-weight:800;">Referral review</p>
-                      <p style="margin:0;color:${theme.muted};font-size:15px;line-height:1.8;">${safeReview}</p>
+                    <td style="padding:16px 20px;background:#fff6d9;border-bottom:1px solid #f2df9f;">
+                      <p style="margin:0;color:${theme.ink};font-size:17px;line-height:1.4;font-weight:800;">My Business</p>
+                      <p style="margin:3px 0 0;color:${theme.muted};font-size:10px;line-height:1.5;">View your business information and claim your free SideQuote listing.</p>
+                    </td>
+                  </tr>
+                  ${adminGallery}
+                  <tr data-admin-business-details="true">
+                    <td style="padding:${referralImages.length ? '4px' : '24px'} 28px 26px;">
+                      <p style="margin:0 0 6px;color:${theme.ink};font-size:12px;line-height:1.5;font-weight:800;">About This Business</p>
+                      <div style="border-left:3px solid ${theme.secondary};padding-left:12px;">
+                        <p style="margin:0;color:${theme.muted};font-size:13px;line-height:1.7;">${safeReview}</p>
+                      </div>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;">
+                        <tr>
+                          <td width="50%" valign="top" style="width:50%;padding:0 12px 16px 0;">
+                            <p style="margin:0 0 5px;color:${theme.ink};font-size:11px;font-weight:800;">Business Name</p>
+                            <p style="margin:0;color:${theme.muted};font-size:12px;line-height:1.5;">${escapeHtml(businessName)}</p>
+                          </td>
+                          <td width="50%" valign="top" style="width:50%;padding:0 0 16px 12px;">
+                            <p style="margin:0 0 5px;color:${theme.ink};font-size:11px;font-weight:800;">Phone Number</p>
+                            <p style="margin:0;color:${theme.muted};font-size:12px;line-height:1.5;">${businessPhone ? escapeHtml(businessPhone) : 'Not provided'}</p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td width="50%" valign="top" style="width:50%;padding:0 12px 16px 0;">
+                            <p style="margin:0 0 5px;color:${theme.ink};font-size:11px;font-weight:800;">Service Category</p>
+                            <p style="margin:0;color:${theme.muted};font-size:12px;line-height:1.5;">${escapeHtml(categoryName)}</p>
+                          </td>
+                          <td width="50%" valign="top" style="width:50%;padding:0 0 16px 12px;">
+                            <p style="margin:0 0 5px;color:${theme.ink};font-size:11px;font-weight:800;">Business Email</p>
+                            <p style="margin:0;font-size:12px;line-height:1.5;">${businessEmail ? `<a href="mailto:${escapeHtml(businessEmail)}" style="color:${theme.secondary};text-decoration:none;">${escapeHtml(businessEmail)}</a>` : 'Not provided'}</p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td colspan="2" valign="top" style="padding:0 0 16px;">
+                            <p style="margin:0 0 5px;color:${theme.ink};font-size:11px;font-weight:800;">Service Area</p>
+                            <p style="margin:0;color:${theme.muted};font-size:12px;line-height:1.5;">${escapeHtml(`${city}, ${state}`)}</p>
+                          </td>
+                        </tr>
+                      </table>
+                      <div style="margin:2px 0 0;padding:12px 14px;background:#fff9e8;border-radius:9px;">
+                        <span aria-label="${normalizedRating} out of 5 stars" style="color:#f5b301;font-size:17px;line-height:1;letter-spacing:1px;">${ratingStars}</span>
+                        <span style="margin-left:7px;color:${theme.ink};font-size:12px;font-weight:800;">${normalizedRating}.0</span>
+                        <span style="margin-left:7px;color:${theme.muted};font-size:10px;">Directory rating</span>
+                      </div>
+                      <div style="margin:20px 0 0;padding:15px 16px;background:${theme.pale};border:1px solid ${theme.border};border-radius:10px;">
+                        <a href="${safeClaimUrl}" target="_blank" style="display:inline-block;color:${theme.ink};font-size:14px;line-height:1.4;font-weight:800;text-decoration:underline;">Claim this Business &rarr;</a>
+                        <p style="margin:6px 0 0;color:${theme.muted};font-size:10px;line-height:1.5;">Use this private link to claim your free listing. It expires in ${expiryHours} hours.</p>
+                      </div>
+                      <p style="margin:14px 0 0;font-size:11px;line-height:1.5;"><a href="${safePublicProfileUrl}" target="_blank" style="color:${theme.secondary};text-decoration:underline;">View public business listing</a></p>
                     </td>
                   </tr>
                 </table>
@@ -646,34 +813,21 @@ export const createBusinessReferralClaimEmailTemplate = ({
             </tr>`;
 
   return createNotificationEmailTemplate({
-    heading: 'Your business was referred',
+    heading: source === 'admin' ? 'Good News!' : 'Your business was referred',
     subheading:
       source === 'admin'
-        ? 'You&rsquo;ve been added to the business directory! Claim your business now.<br />By being part of the SideQuote business directory platform you can reach new customers without the overhead.'
-        : 'A customer recommended your business on SideQuote.',
-    introText:
-      source === 'admin'
-        ? 'SideQuote is the largest business directory for small business owners. Your business was added to the directory by the admin, please claim this business to interact with customers.'
+        ? 'Your business has been added to SideQuote! Claim your free listing now to get more leads and access our integrated marketing platform at zero cost.'
         : 'Congrats! A customer has given you a referral. Review the listing and use the secure link to claim this business and update your business profile.',
-    details: [
-      { label: 'Business', value: escapeHtml(businessName) },
-      { label: 'Referred by', value: escapeHtml(referrerName) },
-      { label: 'Category', value: escapeHtml(categoryName) },
-      { label: 'Location', value: escapeHtml(`${city}, ${state}`) },
-      {
-        label: 'Public profile',
-        value: `<a href="${escapeHtml(publicProfileUrl)}" target="_blank" style="color:${theme.secondary};">View referral profile</a>`,
-      },
-    ],
-    actionUrl: escapeHtml(claimUrl),
-    actionLabel: 'Claim this business &rarr;',
-    noteTitle: 'Secure claim link',
-    noteText: `This link expires in ${expiryHours} hours and can be used only for this business. If you do not own this business, you can ignore this email.`,
+    introText: undefined,
+    showHeading: source === 'admin',
+    headerAppearance: source === 'admin' ? 'plain' : 'brand',
+    contentAfterHeader:
+      source === 'admin' ? adminReferralContent : customerReferralContent,
     footerText:
       source === 'admin'
         ? 'You received this message because your business was added to the SideQuote directory.'
         : 'You received this message because your business email was submitted with a public recommendation.',
-    contentBeforeFooter: referralContent,
+    footerLinksHtml: sideQuoteReferralLinksHtml,
     theme,
   });
 };
