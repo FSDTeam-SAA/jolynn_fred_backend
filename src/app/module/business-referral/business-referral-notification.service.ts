@@ -145,7 +145,15 @@ export class BusinessReferralNotificationService {
           categoryName: referral.categoryName,
           city: referral.city,
           state: referral.state,
-          imageUrl: referral.image.url,
+          businessEmail: referral.businessEmail,
+          businessPhone: referral.businessPhone,
+          imageUrl: referral.images?.[0]?.url ?? referral.image?.url,
+          imageUrls: (referral.images?.length
+            ? referral.images
+            : referral.image
+              ? [referral.image]
+              : []
+          ).map((image) => image.url),
           rating: referral.rating,
           review: referral.review,
           source: referral.source ?? 'customer',

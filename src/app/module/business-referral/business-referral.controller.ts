@@ -1,22 +1,19 @@
 import {
   Body,
   Controller,
-  FileTypeValidator,
   Get,
   HttpCode,
   HttpStatus,
-  MaxFileSizeValidator,
   Param,
   Patch,
-  ParseFilePipe,
   Post,
   Query,
   Req,
-  UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -29,7 +26,10 @@ import type { Request } from 'express';
 import { fileUpload } from 'src/app/helpers/fileUploder';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 import { BusinessReferralService } from './business-referral.service';
-import { BUSINESS_REFERRAL_IMAGE_MAX_SIZE } from './constants/business-referral.constants';
+import {
+  BUSINESS_REFERRAL_IMAGE_MAX_COUNT,
+  BUSINESS_REFERRAL_IMAGE_MAX_SIZE,
+} from './constants/business-referral.constants';
 import { CreateBusinessReferralDto } from './dto/create-business-referral.dto';
 import { MyBusinessReferralsQueryDto } from './dto/my-business-referrals-query.dto';
 import { SearchBusinessReferralsDto } from './dto/search-business-referrals.dto';
@@ -55,31 +55,38 @@ export class BusinessReferralController {
   @ApiBody({ type: CreateBusinessReferralDto })
   @UseGuards(AuthGuard('user', 'admin'))
   @UseInterceptors(
-    FileInterceptor('image', {
-      ...fileUpload.uploadConfig,
-      limits: { fileSize: BUSINESS_REFERRAL_IMAGE_MAX_SIZE },
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'images', maxCount: BUSINESS_REFERRAL_IMAGE_MAX_COUNT },
+        { name: 'image', maxCount: BUSINESS_REFERRAL_IMAGE_MAX_COUNT },
+      ],
+      {
+        ...fileUpload.uploadConfig,
+        limits: {
+          fileSize: BUSINESS_REFERRAL_IMAGE_MAX_SIZE,
+          files: BUSINESS_REFERRAL_IMAGE_MAX_COUNT,
+        },
+      },
+    ),
   )
   @HttpCode(HttpStatus.CREATED)
   async createReferral(
     @Req() req: Request,
     @Body() dto: CreateBusinessReferralDto,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({
-            maxSize: BUSINESS_REFERRAL_IMAGE_MAX_SIZE,
-          }),
-          new FileTypeValidator({ fileType: /^image\// }),
-        ],
-      }),
-    )
-    image: Express.Multer.File,
+    @UploadedFiles()
+    uploadedImages?: {
+      images?: Express.Multer.File[];
+      image?: Express.Multer.File[];
+    },
   ) {
+    const images = [
+      ...(uploadedImages?.images ?? []),
+      ...(uploadedImages?.image ?? []),
+    ];
     const result = await this.businessReferralService.createReferral(
       req.user!.id,
       dto,
-      image,
+      images,
       req.user!.role === 'admin' ? 'admin' : 'customer',
     );
 
