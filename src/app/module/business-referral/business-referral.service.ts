@@ -1,4 +1,4 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { HttpException, Injectable, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { randomBytes } from 'crypto';
 import { Model, Types } from 'mongoose';
@@ -21,6 +21,11 @@ import { MyBusinessReferralsQueryDto } from './dto/my-business-referrals-query.d
 import { SearchBusinessReferralsDto } from './dto/search-business-referrals.dto';
 import { UpdateReferralEmailDto } from './dto/update-referral-email.dto';
 import {
+  BusinessClaim,
+  BusinessClaimDocument,
+} from './entities/business-claim.entity';
+import { Review, ReviewDocument } from '../reviews/entities/review.entity';
+import {
   BusinessReferral,
   BusinessReferralDocument,
 } from './entities/business-referral.entity';
@@ -34,6 +39,7 @@ import {
 type ReferralListOptions = {
   includePrivate?: boolean;
   referredByUserId?: Types.ObjectId;
+  forAdmin?: boolean;
 };
 
 @Injectable()
@@ -47,6 +53,12 @@ export class BusinessReferralService {
     private readonly serviceCategoryModel: Model<ServiceCategoryDocument>,
     private readonly locationService: LocationService,
     private readonly notificationService: BusinessReferralNotificationService,
+    @Optional()
+    @InjectModel(BusinessClaim.name)
+    private readonly businessClaimModel?: Model<BusinessClaimDocument>,
+    @Optional()
+    @InjectModel(Review.name)
+    private readonly reviewModel?: Model<ReviewDocument>,
   ) {}
 
   private toObjectId(id: string, label: string) {
@@ -182,12 +194,36 @@ export class BusinessReferralService {
         ...(excludeReferralId ? { _id: { $ne: excludeReferralId } } : {}),
         $or: duplicateConditions,
       })
-      .select('businessName slug claimStatus')
+      .select(
+        'businessName slug claimStatus businessEmail businessPhone normalizedBusinessName normalizedState normalizedCity',
+      )
       .lean();
 
     if (referralDuplicate) {
+      const emailMatches =
+        Boolean(input.businessEmail) &&
+        Boolean(referralDuplicate.businessEmail) &&
+        referralDuplicate.businessEmail?.toLowerCase() ===
+          input.businessEmail.toLowerCase();
+      const phoneMatches =
+        Boolean(input.businessPhone) &&
+        Boolean(referralDuplicate.businessPhone) &&
+        referralDuplicate.businessPhone === input.businessPhone;
+
+      if (emailMatches) {
+        throw new HttpException(
+          `This email (${input.businessEmail}) already has a referral profile (${referralDuplicate.businessName})`,
+          409,
+        );
+      }
+      if (phoneMatches) {
+        throw new HttpException(
+          `This phone number (${input.businessPhone}) already has a referral profile (${referralDuplicate.businessName})`,
+          409,
+        );
+      }
       throw new HttpException(
-        `This business already has a referral profile (${referralDuplicate.businessName})`,
+        `This business name already has a referral profile in this city (${referralDuplicate.businessName})`,
         409,
       );
     }
@@ -226,12 +262,45 @@ export class BusinessReferralService {
           { $or: registeredBusinessConditions },
         ],
       })
-      .select('businessProfile.businessName businessName username')
+      .select(
+        'businessProfile.businessName businessProfile.businessEmail businessProfile.phoneNumber businessName businessEmail email phoneNumber username',
+      )
       .lean();
 
     if (registeredDuplicate) {
+      const regBusinessName =
+        registeredDuplicate.businessProfile?.businessName ||
+        registeredDuplicate.businessName ||
+        'Existing business';
+      const regEmail =
+        registeredDuplicate.businessProfile?.businessEmail ||
+        registeredDuplicate.businessEmail ||
+        registeredDuplicate.email;
+      const regPhone =
+        registeredDuplicate.businessProfile?.phoneNumber ||
+        registeredDuplicate.phoneNumber;
+
+      if (
+        regEmail &&
+        regEmail.toLowerCase() === input.businessEmail.toLowerCase()
+      ) {
+        throw new HttpException(
+          `This email (${input.businessEmail}) already has a registered business profile (${regBusinessName})`,
+          409,
+        );
+      }
+      if (
+        input.businessPhone &&
+        regPhone &&
+        this.normalizePhone(regPhone) === input.businessPhone
+      ) {
+        throw new HttpException(
+          `This phone number (${input.businessPhone}) already has a registered business profile (${regBusinessName})`,
+          409,
+        );
+      }
       throw new HttpException(
-        'This business already has a registered business profile',
+        `This business already has a registered business profile (${regBusinessName})`,
         409,
       );
     }
@@ -279,7 +348,9 @@ export class BusinessReferralService {
       images: (raw.images?.length ? raw.images : raw.image ? [raw.image] : [])
         .map((image: { url?: string }) => image.url)
         .filter(Boolean),
-      serviceCategoryId: String(raw.serviceCategoryId),
+      serviceCategoryId: String(
+        raw.serviceCategoryId?._id ?? raw.serviceCategoryId,
+      ),
       category: raw.categoryName,
       state: raw.state,
       city: raw.city,
@@ -293,10 +364,12 @@ export class BusinessReferralService {
       isClaimable:
         raw.listingStatus === 'published' && raw.claimStatus === 'unclaimed',
       businessOwnerId: raw.claimedByUserId
-        ? String(raw.claimedByUserId)
+        ? String(raw.claimedByUserId?._id ?? raw.claimedByUserId)
         : undefined,
       referredBy: {
-        id: raw.referredByUserId ? String(raw.referredByUserId) : undefined,
+        id: raw.referredByUserId
+          ? String(raw.referredByUserId?._id ?? raw.referredByUserId)
+          : undefined,
         name: raw.referrerName,
         avatar: raw.referrerAvatar,
       },
@@ -319,7 +392,9 @@ export class BusinessReferralService {
   ) {
     const filter: Record<string, any> = options.referredByUserId
       ? { referredByUserId: options.referredByUserId }
-      : { listingStatus: 'published' };
+      : options.forAdmin
+        ? {}
+        : { listingStatus: 'published' };
 
     if (query.claimStatus) filter.claimStatus = query.claimStatus;
     if (query.serviceCategoryId) {
@@ -483,6 +558,157 @@ export class BusinessReferralService {
 
   async getPublicReferrals(query: SearchBusinessReferralsDto) {
     return this.listReferrals(query);
+  }
+
+  async getAdminReferrals(query: SearchBusinessReferralsDto) {
+    return this.listReferrals(query, { forAdmin: true, includePrivate: true });
+  }
+
+  async getAdminReferralById(referralId: string) {
+    const id = this.toObjectId(referralId, 'referral id');
+    let query: any = this.businessReferralModel.findById(id);
+    if (typeof query?.populate === 'function') {
+      query = query
+        .populate('serviceCategoryId', 'categoryName')
+        .populate(
+          'referredByUserId',
+          'firstName lastName username email profilePicture role',
+        )
+        .populate(
+          'claimedByUserId',
+          'firstName lastName username email profilePicture businessProfile',
+        );
+    }
+    const referral = await query;
+    if (!referral) {
+      throw new HttpException('Business referral not found', 404);
+    }
+
+    const base = this.mapReferral(referral, true);
+
+    let claimedByUser: Record<string, any> | undefined;
+    if (referral.claimedByUserId) {
+      if (
+        typeof referral.claimedByUserId === 'object' &&
+        referral.claimedByUserId.email
+      ) {
+        const u = referral.claimedByUserId;
+        claimedByUser = {
+          id: String(u._id || u.id),
+          name:
+            [u.firstName, u.lastName].filter(Boolean).join(' ') ||
+            u.username ||
+            u.businessProfile?.businessName ||
+            u.email,
+          email: u.email,
+          username: u.username,
+          avatar: u.profilePicture,
+          businessName: u.businessProfile?.businessName,
+        };
+      } else {
+        const u = await this.userModel
+          .findById(referral.claimedByUserId)
+          .select(
+            'firstName lastName username email profilePicture businessProfile',
+          )
+          .lean();
+        if (u) {
+          claimedByUser = {
+            id: String(u._id || (u as any).id),
+            name:
+              [u.firstName, u.lastName].filter(Boolean).join(' ') ||
+              u.username ||
+              (u as any).businessProfile?.businessName ||
+              u.email,
+            email: u.email,
+            username: u.username,
+            avatar: u.profilePicture,
+            businessName: (u as any).businessProfile?.businessName,
+          };
+        }
+      }
+    }
+
+    let referredByUser: Record<string, any> | undefined;
+    if (referral.referredByUserId) {
+      if (
+        typeof referral.referredByUserId === 'object' &&
+        referral.referredByUserId.email
+      ) {
+        const u = referral.referredByUserId;
+        referredByUser = {
+          id: String(u._id || u.id),
+          name:
+            [u.firstName, u.lastName].filter(Boolean).join(' ') ||
+            u.username ||
+            u.email,
+          email: u.email,
+          username: u.username,
+          avatar: u.profilePicture,
+          role: u.role,
+        };
+      } else {
+        const u = await this.userModel
+          .findById(referral.referredByUserId)
+          .select('firstName lastName username email profilePicture role')
+          .lean();
+        if (u) {
+          referredByUser = {
+            id: String(u._id || (u as any).id),
+            name:
+              [u.firstName, u.lastName].filter(Boolean).join(' ') ||
+              u.username ||
+              u.email,
+            email: u.email,
+            username: u.username,
+            avatar: u.profilePicture,
+            role: (u as any).role,
+          };
+        }
+      }
+    }
+
+    return {
+      ...base,
+      claimedByUser,
+      referredByUser: referredByUser ?? base.referredBy,
+    };
+  }
+
+  async deleteReferralByAdmin(referralId: string) {
+    const id = this.toObjectId(referralId, 'referral id');
+    const referral = await this.businessReferralModel.findById(id);
+    if (!referral) {
+      throw new HttpException('Business referral not found', 404);
+    }
+
+    const imagesToDelete = [
+      ...(referral.images ?? []),
+      ...(referral.image ? [referral.image] : []),
+    ];
+
+    await Promise.allSettled(
+      imagesToDelete
+        .filter((img) => Boolean(img?.publicId))
+        .map((img) => fileUpload.deleteResourceFromCloudinary(img.publicId)),
+    );
+
+    await Promise.all([
+      this.businessClaimModel
+        ? this.businessClaimModel.deleteMany({ referralId: id })
+        : Promise.resolve(),
+      this.reviewModel
+        ? this.reviewModel.deleteMany({ sourceReferralId: id })
+        : Promise.resolve(),
+    ]);
+
+    await this.businessReferralModel.findByIdAndDelete(id);
+
+    return {
+      id: referralId,
+      businessName: referral.businessName,
+      deleted: true,
+    };
   }
 
   async findPublicReferralDiscoveryCards(

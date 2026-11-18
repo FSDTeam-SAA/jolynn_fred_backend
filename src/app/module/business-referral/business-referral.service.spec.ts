@@ -28,6 +28,8 @@ describe('BusinessReferralService', () => {
       findOneAndUpdate: jest.fn(),
       countDocuments: jest.fn(),
       find: jest.fn(),
+      findById: jest.fn(),
+      findByIdAndDelete: jest.fn(),
     };
     userModel = {
       findById: jest.fn().mockResolvedValue({
@@ -181,7 +183,6 @@ describe('BusinessReferralService', () => {
     );
   });
 
-<<<<<<< HEAD
   it('uploads and exposes up to three referral images while preserving the primary image', async () => {
     const uploadedImages = [1, 2, 3].map((index) => ({
       url: `https://example.com/referral-${index}.jpg`,
@@ -300,8 +301,6 @@ describe('BusinessReferralService', () => {
     expect(referralModel.create).not.toHaveBeenCalled();
   });
 
-=======
->>>>>>> 667d3907234a3e90fbfbbd45cbb55973fbedbf6f
   it('keeps a published referral when notification delivery throws', async () => {
     jest.spyOn(fileUpload, 'uploadBusinessReferralImage').mockResolvedValue({
       url: 'https://example.com/referral.jpg',
@@ -550,5 +549,96 @@ describe('BusinessReferralService', () => {
     ).rejects.toMatchObject<HttpException>({ status: 409 });
     expect(referralModel.findOneAndUpdate).not.toHaveBeenCalled();
     expect(notificationService.sendClaimNotification).not.toHaveBeenCalled();
+  });
+
+  it('lists all business referrals for admin without filtering by published status', async () => {
+    referralModel.countDocuments.mockResolvedValue(2);
+    referralModel.find.mockReturnValue({
+      sort: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue([
+        {
+          _id: new Types.ObjectId(),
+          businessName: 'User Referred Business',
+          businessEmail: 'userref@example.com',
+          claimStatus: 'unclaimed',
+          listingStatus: 'published',
+          source: 'customer',
+        },
+        {
+          _id: new Types.ObjectId(),
+          businessName: 'Admin Referred Business',
+          businessEmail: 'adminref@example.com',
+          claimStatus: 'claimed',
+          listingStatus: 'published',
+          source: 'admin',
+        },
+      ]),
+    });
+
+    const result = await service.getAdminReferrals({ page: 1, limit: 10 });
+
+    expect(referralModel.countDocuments).toHaveBeenCalledWith({});
+    expect(result.data).toHaveLength(2);
+    expect(result.data[0].businessName).toBe('User Referred Business');
+    expect(result.data[1].businessName).toBe('Admin Referred Business');
+  });
+
+  it('fetches a single referral by id for admin', async () => {
+    const targetId = new Types.ObjectId();
+    const mockReferral = {
+      _id: targetId,
+      slug: 'acme-detail-1234',
+      businessName: 'Acme Detail',
+      businessEmail: 'detail@acme.com',
+      serviceCategoryId: new Types.ObjectId(),
+      categoryName: 'Plumbing',
+      state: 'Texas',
+      city: 'Austin',
+      rating: 5,
+      review: 'Great detail review',
+      source: 'customer',
+      listingStatus: 'published',
+      claimStatus: 'unclaimed',
+      referrerName: 'John Referrer',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    referralModel.findById.mockReturnValue({
+      populate: jest.fn().mockReturnThis(),
+      then: (resolve: any) => resolve(mockReferral),
+    });
+
+    const result = await service.getAdminReferralById(targetId.toString());
+
+    expect(referralModel.findById).toHaveBeenCalledWith(targetId);
+    expect(result).toMatchObject({
+      id: targetId.toString(),
+      businessName: 'Acme Detail',
+      businessEmail: 'detail@acme.com',
+      category: 'Plumbing',
+    });
+  });
+
+  it('deletes a referral by admin along with images and claims', async () => {
+    const targetId = new Types.ObjectId();
+    jest
+      .spyOn(fileUpload, 'deleteResourceFromCloudinary')
+      .mockResolvedValue(undefined);
+    referralModel.findById.mockResolvedValue({
+      _id: targetId,
+      businessName: 'Acme To Delete',
+      images: [{ publicId: 'referrals/img1' }],
+    });
+    referralModel.findByIdAndDelete.mockResolvedValue({ _id: targetId });
+
+    const result = await service.deleteReferralByAdmin(targetId.toString());
+
+    expect(referralModel.findByIdAndDelete).toHaveBeenCalledWith(targetId);
+    expect(result).toMatchObject({
+      id: targetId.toString(),
+      deleted: true,
+    });
   });
 });

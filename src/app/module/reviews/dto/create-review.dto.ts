@@ -1,9 +1,10 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsMongoId,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Max,
   MaxLength,
@@ -35,4 +36,19 @@ export class CreateReviewDto {
   @IsNotEmpty()
   @MaxLength(1500)
   message: string;
+
+  @ApiPropertyOptional({
+    description: 'Review photo URL or field for uploaded photo',
+    example: 'https://res.cloudinary.com/...',
+  })
+  @IsOptional()
+  @IsString()
+  photo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Multiple review photos URLs',
+    type: [String],
+  })
+  @IsOptional()
+  photos?: string[];
 }
