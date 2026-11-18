@@ -7,13 +7,13 @@ const trimReason = ({ value }: { value: unknown }) =>
 
 export class DeleteUserDto {
   @ApiPropertyOptional({
-    enum: ['user', 'businessOwner'],
+    enum: ['user', 'businessOwner', 'all'],
     description:
-      'Profile to delete. Required when the target account has both profiles.',
+      'Profile to delete. Required when the target account has both profiles. Pass all to completely delete the account and all profiles.',
   })
   @IsOptional()
-  @IsIn(['user', 'businessOwner'])
-  profileRole?: 'user' | 'businessOwner';
+  @IsIn(['user', 'businessOwner', 'all'])
+  profileRole?: 'user' | 'businessOwner' | 'all';
 
   @ApiPropertyOptional({
     example: 'Business information did not meet our platform requirements.',

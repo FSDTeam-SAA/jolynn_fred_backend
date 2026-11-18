@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -106,6 +107,51 @@ export class BusinessReferralController {
       message: 'Business referrals fetched successfully',
       meta: result.meta,
       data: result.data,
+    };
+  }
+
+  @Get('admin/all')
+  @ApiOperation({ summary: 'List all referred businesses for administrator' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('admin'))
+  @HttpCode(HttpStatus.OK)
+  async getAdminReferrals(@Query() query: SearchBusinessReferralsDto) {
+    const result = await this.businessReferralService.getAdminReferrals(query);
+
+    return {
+      message: 'Business referrals fetched successfully',
+      meta: result.meta,
+      data: result.data,
+    };
+  }
+
+  @Get('admin/:id')
+  @ApiOperation({ summary: 'Get referred business details for administrator' })
+  @ApiBearerAuth('access-token')
+  @ApiParam({ name: 'id', description: 'Business referral id' })
+  @UseGuards(AuthGuard('admin'))
+  @HttpCode(HttpStatus.OK)
+  async getAdminReferralById(@Param('id') id: string) {
+    const result = await this.businessReferralService.getAdminReferralById(id);
+
+    return {
+      message: 'Business referral details fetched successfully',
+      data: result,
+    };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a referred business by administrator' })
+  @ApiBearerAuth('access-token')
+  @ApiParam({ name: 'id', description: 'Business referral id' })
+  @UseGuards(AuthGuard('admin'))
+  @HttpCode(HttpStatus.OK)
+  async deleteReferral(@Param('id') id: string) {
+    const result = await this.businessReferralService.deleteReferralByAdmin(id);
+
+    return {
+      message: 'Business referral deleted successfully',
+      data: result,
     };
   }
 

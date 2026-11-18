@@ -90,6 +90,17 @@ export class Review {
   message: string;
 
   @Prop({
+    trim: true,
+  })
+  photo?: string;
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  photos?: string[];
+
+  @Prop({
     type: ReviewReplySchema,
     default: undefined,
   })

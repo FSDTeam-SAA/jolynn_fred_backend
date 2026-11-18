@@ -434,7 +434,7 @@ export class ServiceCategoryService {
   async getPublicServiceCategories(params: IFilterParams, options: IOptions) {
     const { limit, page, skip, sortBy, sortOrder } = paginationHelper({
       limit: 50,
-      sortBy: 'viewCount',
+      sortBy: 'businessOwnerCount',
       sortOrder: 'desc',
       ...options,
     });
@@ -449,6 +449,52 @@ export class ServiceCategoryService {
 
     const total =
       await this.serviceCategoryModel.countDocuments(whereConditions);
+
+    if (sortBy === 'businessOwnerCount') {
+      const categories = await this.serviceCategoryModel
+        .find(whereConditions)
+        .skip(0)
+        .limit(0)
+        .sort({ sortOrder: 1, name: 1 } as any)
+        .lean();
+
+      const ownerCountByCategoryId =
+        await this.getBusinessOwnerCountsByCategoryIds(
+          categories.map((category) => category._id),
+        );
+
+      const mapped = categories.map((category) => ({
+        ...category,
+        viewCount: category.viewCount ?? 0,
+        businessOwnerCount:
+          ownerCountByCategoryId.get(category._id.toString()) ?? 0,
+      }));
+
+      mapped.sort((a, b) => {
+        const countDiff =
+          (b.businessOwnerCount ?? 0) - (a.businessOwnerCount ?? 0);
+        if (countDiff !== 0) {
+          return sortOrder === 'asc' ? -countDiff : countDiff;
+        }
+        const viewDiff = (b.viewCount ?? 0) - (a.viewCount ?? 0);
+        if (viewDiff !== 0) {
+          return sortOrder === 'asc' ? -viewDiff : viewDiff;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      const sliced = limit > 0 ? mapped.slice(skip, skip + limit) : mapped;
+
+      return {
+        meta: {
+          page,
+          limit,
+          total,
+        },
+        data: sliced,
+      };
+    }
+
     const categories = await this.serviceCategoryModel
       .find(whereConditions)
       .skip(skip)

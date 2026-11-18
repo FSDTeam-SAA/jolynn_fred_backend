@@ -489,7 +489,10 @@ export class UserController {
     const result = await this.userService.updateUser(id, updateUserDto, file);
 
     return {
-      message: 'User updated successfully',
+      message:
+        updateUserDto.status === 'rejected'
+          ? 'Account rejected and all related information deleted successfully.'
+          : 'User updated successfully',
       data: result,
     };
   }
