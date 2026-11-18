@@ -9,17 +9,22 @@ import {
   Post,
   Put,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 import pick from 'src/app/helpers/pick';
 import AuthGuard from 'src/app/middlewares/auth.guard';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -35,16 +40,49 @@ export class ReviewsController {
   @Post()
   @ApiOperation({ summary: 'Create a review for a business' })
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data', 'application/json')
   @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'photo', maxCount: 5 },
+        { name: 'photos', maxCount: 5 },
+        { name: 'image', maxCount: 5 },
+        { name: 'images', maxCount: 5 },
+      ],
+      {
+        ...fileUpload.uploadConfig,
+        limits: {
+          fileSize: 5 * 1024 * 1024,
+          files: 5,
+        },
+      },
+    ),
+  )
   @ApiBody({ type: CreateReviewDto })
   @HttpCode(HttpStatus.CREATED)
   async createReview(
     @Req() req: Request,
     @Body() createReviewDto: CreateReviewDto,
+    @UploadedFiles()
+    uploadedFiles?: {
+      photo?: Express.Multer.File[];
+      photos?: Express.Multer.File[];
+      image?: Express.Multer.File[];
+      images?: Express.Multer.File[];
+    },
   ) {
+    const files =
+      (uploadedFiles?.photo?.length ? uploadedFiles.photo : undefined) ||
+      (uploadedFiles?.photos?.length ? uploadedFiles.photos : undefined) ||
+      (uploadedFiles?.image?.length ? uploadedFiles.image : undefined) ||
+      (uploadedFiles?.images?.length ? uploadedFiles.images : undefined) ||
+      [];
+
     const result = await this.reviewsService.createReview(
       req.user!.id,
       createReviewDto,
+      files,
     );
 
     return {
@@ -271,7 +309,25 @@ export class ReviewsController {
   @Put(':id')
   @ApiOperation({ summary: 'Update your own review' })
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data', 'application/json')
   @UseGuards(AuthGuard('user', 'businessOwner', 'admin'))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'photo', maxCount: 5 },
+        { name: 'photos', maxCount: 5 },
+        { name: 'image', maxCount: 5 },
+        { name: 'images', maxCount: 5 },
+      ],
+      {
+        ...fileUpload.uploadConfig,
+        limits: {
+          fileSize: 5 * 1024 * 1024,
+          files: 5,
+        },
+      },
+    ),
+  )
   @ApiParam({
     name: 'id',
     required: true,
@@ -284,11 +340,26 @@ export class ReviewsController {
     @Param('id') id: string,
     @Req() req: Request,
     @Body() updateReviewDto: UpdateReviewDto,
+    @UploadedFiles()
+    uploadedFiles?: {
+      photo?: Express.Multer.File[];
+      photos?: Express.Multer.File[];
+      image?: Express.Multer.File[];
+      images?: Express.Multer.File[];
+    },
   ) {
+    const files =
+      (uploadedFiles?.photo?.length ? uploadedFiles.photo : undefined) ||
+      (uploadedFiles?.photos?.length ? uploadedFiles.photos : undefined) ||
+      (uploadedFiles?.image?.length ? uploadedFiles.image : undefined) ||
+      (uploadedFiles?.images?.length ? uploadedFiles.images : undefined) ||
+      [];
+
     const result = await this.reviewsService.updateOwnReview(
       id,
       req.user!.id,
       updateReviewDto,
+      files,
     );
 
     return {

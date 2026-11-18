@@ -77,13 +77,8 @@ describe('email templates', () => {
     expect(template).toContain('Claim this Business');
     expect(template).toContain('token=secret');
     expect(template).toContain('expires in 72 hours');
-<<<<<<< HEAD
     expect(template).toContain('Referral review');
     expect(template).toContain('5.0');
-=======
-    expect(template).toContain('Customer rating');
-    expect(template).toContain('5/5');
->>>>>>> 667d3907234a3e90fbfbbd45cbb55973fbedbf6f
     expect(template).toContain('&lt;Excellent &amp; dependable&gt;');
     expect(template).toContain('https://example.com/referral.jpg');
     expect(template).not.toContain('data-referral-image-divider="true"');
@@ -194,7 +189,11 @@ describe('email templates', () => {
     expect(template).toContain('width="50%"');
     expect(template).toContain('href="https://example.com/referral-1.jpg"');
     expect(template).toContain('title="View full image 1"');
-    expect(template).toContain('My Business');
+    expect(template).not.toContain('My Business');
+    expect(template).toContain('Review Details');
+    expect(template.indexOf('Review Details')).toBeLessThan(
+      template.indexOf('About This Business'),
+    );
     expect(template).toContain('Acme Plumbing');
     expect(template).toContain('+1 512 555 0100');
     expect(template).toContain('mailto:owner@acme.example');
@@ -224,7 +223,6 @@ describe('email templates', () => {
     expect(template.indexOf('data-admin-business-profile')).toBeLessThan(
       template.indexOf('data-admin-business-details'),
     );
-<<<<<<< HEAD
   });
 
   it('renders three admin gallery images as linked columns in one row', () => {
@@ -272,8 +270,5 @@ describe('email templates', () => {
     expect(template).not.toContain('Acme Plumbing referral image');
     expect(template).toContain('Referral review');
     expect(template).toContain('Excellent service and communication.');
-=======
-    expect(template).toContain('background:#171b4b');
->>>>>>> 667d3907234a3e90fbfbbd45cbb55973fbedbf6f
   });
 });

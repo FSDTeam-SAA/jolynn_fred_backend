@@ -608,6 +608,26 @@ export class UserService {
     if (!user) {
       throw new HttpException('User not found', 404);
     }
+
+    if (updateUserDto.status === 'rejected') {
+      const accountId = this.toObjectId(id);
+      const rejectionReason = updateUserDto.reason;
+      if (user.email) {
+        this.sendAdminActionEmail(user, 'account rejection', rejectionReason);
+      }
+
+      await this.deletePersonalProfileData(user, accountId);
+      await this.deleteBusinessProfileData(user, accountId);
+      await this.removeFinalAccountReferences(accountId);
+      await this.userModel.findByIdAndDelete(accountId);
+
+      return {
+        _id: id,
+        email: user.email,
+        status: 'rejected',
+        deleted: true,
+      };
+    }
     if (file) {
       const uploadedFile = await fileUpload.uploadToCloudinary(file);
       updateUserDto.profilePicture = uploadedFile.url;
@@ -856,7 +876,7 @@ export class UserService {
       ).values(),
     ];
 
-    await Promise.all(
+    await Promise.allSettled(
       uniqueAssets.map((asset) =>
         fileUpload.deleteResourceFromCloudinary(
           asset.publicId!,
@@ -1219,9 +1239,45 @@ export class UserService {
   async deleteUser(
     id: string,
     reason?: string,
-    profileRole?: DeletableProfileRole,
+    profileRole?: DeletableProfileRole | 'all',
   ) {
-    return this.deleteProfile(id, profileRole, reason, true);
+    if (profileRole && profileRole !== 'all') {
+      return this.deleteProfile(id, profileRole, reason, true);
+    }
+
+    const accountId = this.toObjectId(id);
+    const user = await this.userModel.findById(id);
+    if (!user) {
+      throw new HttpException('User not found', 404);
+    }
+
+    if (!profileRole) {
+      const availableProfiles = getAvailableRoles(user).filter(
+        (role): role is DeletableProfileRole =>
+          role === 'user' || role === 'businessOwner',
+      );
+      if (availableProfiles.length > 1) {
+        throw new HttpException(
+          'profileRole is required when the account has multiple profiles',
+          400,
+        );
+      }
+    }
+
+    await this.deletePersonalProfileData(user, accountId);
+    await this.deleteBusinessProfileData(user, accountId);
+    await this.removeFinalAccountReferences(accountId);
+    await this.userModel.findByIdAndDelete(accountId);
+
+    if (user.email) {
+      this.sendAdminActionEmail(user, 'account deletion', reason);
+    }
+
+    return {
+      user: null,
+      deletedProfile: 'all',
+      accountDeleted: true,
+    };
   }
 
   async getProfile(id: string, activeRole: UserRole) {
