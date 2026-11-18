@@ -22,8 +22,6 @@ pids
 
 
 //env files
-.env
-.env.*
 .env.backup
 .env.*.local
 
