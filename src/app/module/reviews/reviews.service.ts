@@ -2,6 +2,7 @@ import { HttpException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import buildWhereConditions from 'src/app/helpers/buildWhereConditions';
+import { fileUpload } from 'src/app/helpers/fileUploder';
 import paginationHelper, { IOptions } from 'src/app/helpers/pagenation';
 import type { IFilterParams } from 'src/app/helpers/pick';
 import { User, UserDocument } from '../user/entities/user.entity';
@@ -148,7 +149,11 @@ export class ReviewsService {
     };
   }
 
-  async createReview(reviewerId: string, createReviewDto: CreateReviewDto) {
+  async createReview(
+    reviewerId: string,
+    createReviewDto: CreateReviewDto,
+    files?: Express.Multer.File[],
+  ) {
     const payload = this.normalizePayload(createReviewDto);
     const reviewer = await this.getUserOrThrow(reviewerId);
     const business = await this.getBusinessOrThrow(payload.businessId);
@@ -169,6 +174,34 @@ export class ReviewsService {
       );
     }
 
+    const uploadedUrls: string[] = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        if (file?.buffer?.length) {
+          const uploaded = await fileUpload.uploadToCloudinary(file);
+          if (uploaded?.url) {
+            uploadedUrls.push(uploaded.url);
+          }
+        }
+      }
+    }
+
+    const uniqueUploadedUrls = Array.from(new Set(uploadedUrls));
+    const photo = uniqueUploadedUrls[0] || payload.photo || undefined;
+    const photos = uniqueUploadedUrls.length
+      ? uniqueUploadedUrls
+      : payload.photos
+        ? Array.from(
+            new Set(
+              Array.isArray(payload.photos)
+                ? payload.photos
+                : [payload.photos],
+            ),
+          )
+        : photo
+          ? [photo]
+          : [];
+
     return this.reviewModel.create({
       businessId: business._id,
       reviewerId: reviewer._id,
@@ -177,6 +210,8 @@ export class ReviewsService {
       businessName: this.buildDisplayName(business, 'businessOwner'),
       rating: payload.rating,
       message: payload.message,
+      photo,
+      photos,
     });
   }
 
@@ -311,6 +346,7 @@ export class ReviewsService {
     reviewId: string,
     reviewerId: string,
     updateReviewDto: UpdateReviewDto,
+    files?: Express.Multer.File[],
   ) {
     const review = await this.getReviewOrThrow(reviewId);
 
@@ -320,9 +356,46 @@ export class ReviewsService {
 
     const payload = this.normalizePayload(updateReviewDto);
 
+    const uploadedUrls: string[] = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        if (file?.buffer?.length) {
+          const uploaded = await fileUpload.uploadToCloudinary(file);
+          if (uploaded?.url) {
+            uploadedUrls.push(uploaded.url);
+          }
+        }
+      }
+    }
+
+    const uniqueUploadedUrls = Array.from(new Set(uploadedUrls));
+    const existingPhotos = Array.isArray(payload.photos)
+      ? payload.photos
+      : typeof payload.photos === 'string'
+        ? [payload.photos]
+        : payload.photo
+          ? [payload.photo]
+          : [];
+
+    const finalPhotos = Array.from(
+      new Set([...existingPhotos, ...uniqueUploadedUrls]),
+    );
+
+    const updateData: Record<string, unknown> = { ...payload };
+    if (finalPhotos.length > 0) {
+      updateData.photo = finalPhotos[0];
+      updateData.photos = finalPhotos;
+    } else if (
+      payload.photo === '' ||
+      (Array.isArray(payload.photos) && payload.photos.length === 0)
+    ) {
+      updateData.photo = undefined;
+      updateData.photos = [];
+    }
+
     const updatedReview = await this.reviewModel.findByIdAndUpdate(
       review._id,
-      payload,
+      updateData,
       {
         new: true,
         runValidators: true,
@@ -337,6 +410,15 @@ export class ReviewsService {
 
     if (!review.reviewerId || review.reviewerId.toString() !== reviewerId) {
       throw new HttpException('You are not allowed to delete this review', 403);
+    }
+
+    if (review.photo) {
+      try {
+        const publicId = fileUpload.getCloudinaryPublicIdFromUrl(review.photo);
+        if (publicId) await fileUpload.deleteFromCloudinary(publicId);
+      } catch (err) {
+        // Proceed if delete from Cloudinary fails
+      }
     }
 
     await this.reviewModel.findByIdAndDelete(review._id);

@@ -755,20 +755,23 @@ export const createBusinessReferralClaimEmailTemplate = ({
             <tr data-admin-business-profile="true">
               <td style="padding:0 24px 32px;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${theme.panel};border:1px solid ${theme.border};border-radius:14px;overflow:hidden;">
-                  <tr>
-                    <td style="padding:16px 20px;background:#fff6d9;border-bottom:1px solid #f2df9f;">
-                      <p style="margin:0;color:${theme.ink};font-size:17px;line-height:1.4;font-weight:800;">My Business</p>
-                      <p style="margin:3px 0 0;color:${theme.muted};font-size:10px;line-height:1.5;">View your business information and claim your free SideQuote listing.</p>
-                    </td>
-                  </tr>
                   ${adminGallery}
                   <tr data-admin-business-details="true">
-                    <td style="padding:${referralImages.length ? '4px' : '24px'} 28px 26px;">
-                      <p style="margin:0 0 6px;color:${theme.ink};font-size:12px;line-height:1.5;font-weight:800;">About This Business</p>
-                      <div style="border-left:3px solid ${theme.secondary};padding-left:12px;">
+                    <td style="padding:${referralImages.length ? '8px' : '28px'} 28px 26px;">
+                      <div style="margin:0 0 14px;padding:12px 14px;background:#fff9e8;border-radius:9px;">
+                        <span aria-label="${normalizedRating} out of 5 stars" style="color:#f5b301;font-size:17px;line-height:1;letter-spacing:1px;">${ratingStars}</span>
+                        <span style="margin-left:7px;color:${theme.ink};font-size:12px;font-weight:800;">${normalizedRating}.0</span>
+                        <span style="margin-left:7px;color:${theme.muted};font-size:10px;">Directory rating</span>
+                      </div>
+                      <div style="margin:0 0 20px;border-left:3px solid ${theme.secondary};padding-left:12px;">
+                        <p style="margin:0 0 4px;color:${theme.ink};font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Review Details</p>
                         <p style="margin:0;color:${theme.muted};font-size:13px;line-height:1.7;">${safeReview}</p>
                       </div>
-                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;">
+                      <p style="margin:0 0 6px;color:${theme.ink};font-size:12px;line-height:1.5;font-weight:800;">About This Business</p>
+                      <div style="border-left:3px solid #d0d7de;padding-left:12px;margin-bottom:20px;">
+                        <p style="margin:0;color:${theme.muted};font-size:13px;line-height:1.7;">Verified ${escapeHtml(categoryName)} provider serving ${escapeHtml(`${city}, ${state}`)} and surrounding areas.</p>
+                      </div>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:10px;">
                         <tr>
                           <td width="50%" valign="top" style="width:50%;padding:0 12px 16px 0;">
                             <p style="margin:0 0 5px;color:${theme.ink};font-size:11px;font-weight:800;">Business Name</p>
@@ -796,12 +799,7 @@ export const createBusinessReferralClaimEmailTemplate = ({
                           </td>
                         </tr>
                       </table>
-                      <div style="margin:2px 0 0;padding:12px 14px;background:#fff9e8;border-radius:9px;">
-                        <span aria-label="${normalizedRating} out of 5 stars" style="color:#f5b301;font-size:17px;line-height:1;letter-spacing:1px;">${ratingStars}</span>
-                        <span style="margin-left:7px;color:${theme.ink};font-size:12px;font-weight:800;">${normalizedRating}.0</span>
-                        <span style="margin-left:7px;color:${theme.muted};font-size:10px;">Directory rating</span>
-                      </div>
-                      <div style="margin:20px 0 0;padding:15px 16px;background:${theme.pale};border:1px solid ${theme.border};border-radius:10px;">
+                      <div style="margin:16px 0 0;padding:15px 16px;background:${theme.pale};border:1px solid ${theme.border};border-radius:10px;">
                         <a href="${safeClaimUrl}" target="_blank" style="display:inline-block;color:${theme.ink};font-size:14px;line-height:1.4;font-weight:800;text-decoration:underline;">Claim this Business &rarr;</a>
                         <p style="margin:6px 0 0;color:${theme.muted};font-size:10px;line-height:1.5;">Use this private link to claim your free listing. It expires in ${expiryHours} hours.</p>
                       </div>

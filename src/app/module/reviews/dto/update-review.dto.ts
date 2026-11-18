@@ -35,4 +35,19 @@ export class UpdateReviewDto {
   @IsString()
   @MaxLength(1500)
   message?: string;
+
+  @ApiPropertyOptional({
+    description: 'Review photo URL',
+    example: 'https://res.cloudinary.com/...',
+  })
+  @IsOptional()
+  @IsString()
+  photo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Multiple review photos URLs',
+    type: [String],
+  })
+  @IsOptional()
+  photos?: string[];
 }
