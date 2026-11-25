@@ -21,7 +21,7 @@
     "migrate:dual-profiles": "ts-node -r tsconfig-paths/register src/scripts/migrate-dual-profiles.ts"
   },
   "dependencies": {
-    "@nestjs/common": "^11.0.1",
+    "@nestjs/common": "^11.2.12",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
